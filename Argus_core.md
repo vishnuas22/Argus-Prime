@@ -1,8 +1,8 @@
-# 🛡️ ARGUS CORE
+# 🛡️ ARGUS Prime
 ## Multi-Modal Deepfake Detection & Forensic Analysis Platform
 ### Implementation Blueprint v1.0
 
-**Project:** Argus Core  
+**Project:** Argus Prime 
 **Priority:** CRITICAL (Production-Grade Architecture)  
 **Date:** August 2025  
 **Compliance:** AGENTS.md Clean Architecture Principles  
@@ -26,7 +26,7 @@
 
 ## Mission Statement
 
-Argus Core is a production-grade, multi-modal deepfake detection backend that processes video, audio, image, and text inputs to generate forensic trust scores with explainable AI artifacts. The system adheres to AGENTS.md clean architecture principles with Interface-Driven Development (IDD) methodology.
+Argus Prime is a production-grade, multi-modal deepfake detection backend that processes video, audio, image, and text inputs to generate forensic trust scores with explainable AI artifacts. The system adheres to AGENTS.md clean architecture principles with Interface-Driven Development (IDD) methodology.
 
 ## Core Metrics
 
