@@ -1680,12 +1680,3 @@ class ModelRegistry:
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** August 2025  
-**Next Review:** Upon implementation start  
-**Approval Required:** Project Lead sign-off before Phase 2
-
----
-
-*End of Argus Core Implementation Blueprint*
-
