@@ -12,6 +12,7 @@ from .models import (
     AudioResult,
     TextResult,
     TrustScore,
+    ShareLink,
     AnalysisStatus,
     FileType,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "AudioResult",
     "TextResult",
     "TrustScore",
+    "ShareLink",
     "AnalysisStatus",
     "FileType",
     "AnalysisRepository",
