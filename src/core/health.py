@@ -15,7 +15,7 @@ from src.core.logging import logger
 from src.core.metrics import get_metrics
 
 
-router = APIRouter(tags=["health"])
+router = APIRouter(prefix="/api/v1", tags=["health"])
 
 
 async def check_database() -> Dict[str, Any]:
