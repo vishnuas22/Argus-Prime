@@ -13,7 +13,7 @@ Methods:
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.logging import logger
@@ -340,6 +340,49 @@ class AnalysisRepository:
 
         result = await self.session.execute(stmt)
         return result.scalar() or 0
+
+    async def delete_analysis(self, request_id: str) -> bool:
+        """
+        Delete an analysis and its results.
+
+        Args:
+            request_id: Analysis ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        stmt = delete(Analysis).where(Analysis.id == request_id)
+        result = await self.session.execute(stmt)
+
+        if result.rowcount > 0:
+            logger.info(f"Deleted analysis {request_id}")
+            return True
+
+        return False
+
+    async def save_share_link(
+        self,
+        analysis_id: str,
+        share_token: str,
+        expires_at: datetime,
+    ) -> None:
+        """
+        Save a share link for an analysis.
+
+        Args:
+            analysis_id: Analysis ID
+            share_token: Unique share token
+            expires_at: Expiration datetime
+        """
+        from src.db import ShareLink
+        share_link = ShareLink(
+            analysis_id=analysis_id,
+            share_token=share_token,
+            expires_at=expires_at,
+        )
+        self.session.add(share_link)
+        await self.session.flush()
+        logger.info(f"Saved share link for analysis {analysis_id}")
 
 
 async def get_analysis_repository() -> AnalysisRepository:
