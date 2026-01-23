@@ -289,6 +289,37 @@ class AnalysisStatusSchema(BaseModel):
     )
     error_message: Optional[str] = Field(None, description="Error details if failed")
 
+    class Config:
+        populate_by_name = True
+        alias_generator = lambda s: ''.join(
+            word.capitalize() if i else word
+            for i, word in enumerate(s.split('_'))
+        )
+        json_schema_extra = {
+            "requestId": "uuid",
+            "status": "pending",
+            "progress": 0,
+            "currentStage": "string",
+            "estimatedTimeRemaining": 60,
+            "errorMessage": "string or null",
+        }
+
+
+class AnalysisSubmitResponse(BaseModel):
+    """Response schema for analysis submission."""
+    request_id: str = Field(..., alias="requestId")
+    status: str = Field(..., alias="status")
+    message: str = Field(..., alias="message")
+    websocket_url: str = Field(..., alias="websocketUrl")
+
+    class Config:
+        populate_by_name = True
+        from_attributes = True
+        alias_generator = lambda s: ''.join(
+            word.capitalize() if i else word
+            for i, word in enumerate(s.split('_'))
+        )
+
 
 class ProgressUpdateSchema(BaseModel):
     """Schema for WebSocket progress updates."""
