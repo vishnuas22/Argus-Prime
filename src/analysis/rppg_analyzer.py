@@ -183,8 +183,8 @@ class RPPGAnalyzer:
         if b is not None:
             try:
                 signal_array = signal.filtfilt(b, a, signal_array)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"rPPG signal filtering failed: {e}")
 
         return signal_array, frame_qualities
 
@@ -249,8 +249,8 @@ class RPPGAnalyzer:
         if b is not None:
             try:
                 signal_array = signal.filtfilt(b, a, signal_array)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"C-PPPG signal filtering failed: {e}")
 
         return signal_array, frame_qualities
 
