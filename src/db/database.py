@@ -86,6 +86,7 @@ class Database:
         """Get or create database engine."""
         if self._engine is None:
             self._create_engine()
+        assert self._engine is not None
         return self._engine
 
     @property
@@ -93,6 +94,7 @@ class Database:
         """Get session factory."""
         if self._session_factory is None:
             self._create_engine()
+        assert self._session_factory is not None
         return self._session_factory
 
     @asynccontextmanager
@@ -128,8 +130,9 @@ class Database:
     async def health_check(self) -> bool:
         """Check database connectivity."""
         try:
+            from sqlalchemy import text
             async with self.get_session() as session:
-                await session.execute("SELECT 1")
+                await session.execute(text("SELECT 1"))
             return True
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
