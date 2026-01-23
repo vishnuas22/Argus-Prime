@@ -16,6 +16,11 @@ node_modules/
 !.yarn/releases
 !.yarn/versions
 
+# Next.js build output & cache
+.next/
+out/
+.next/cache/
+
 # ML models & datasets
 models/
 checkpoints/
