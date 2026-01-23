@@ -49,6 +49,7 @@ dev = [
 
 [project.scripts]
 argus-prime = "src.main:main"
+argus-init-db = "src.db.init_db:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
