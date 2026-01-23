@@ -14,9 +14,19 @@ Features:
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, Tuple
+import asyncio
+import concurrent.futures
 
 from src.config import get_config
 from src.core.logging import logger
+
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+
+def _run_async_in_executor(coro):
+    """Run async coroutine in thread pool to avoid event loop conflicts."""
+    loop = asyncio.get_event_loop()
+    return loop.run_in_executor(_executor, lambda: loop.run_until_complete(coro))
 
 
 @dataclass
@@ -482,11 +492,14 @@ class UnifiedPreprocessor:
         Returns:
             PreprocessingResult with processed data
         """
-        import asyncio
-
-        return asyncio.run(
-            self.preprocess(file_path, content_type, options, progress_callback)
-        )
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                return _run_async_in_executor(self.preprocess(file_path, content_type, options, progress_callback))
+            else:
+                return loop.run_until_complete(self.preprocess(file_path, content_type, options, progress_callback))
+        except RuntimeError:
+            return asyncio.get_event_loop().run_until_complete(self.preprocess(file_path, content_type, options, progress_callback))
 
 
 _preprocessor: Optional[UnifiedPreprocessor] = None

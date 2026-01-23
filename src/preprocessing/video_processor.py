@@ -9,6 +9,7 @@ import asyncio
 import os
 import shutil
 import subprocess
+import concurrent.futures
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -16,6 +17,14 @@ from datetime import datetime
 
 from src.config import get_config
 from src.core.logging import logger
+
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+
+def _run_async_in_executor(coro):
+    """Run async coroutine in thread pool to avoid event loop conflicts."""
+    loop = asyncio.get_event_loop()
+    return loop.run_in_executor(_executor, lambda: loop.run_until_complete(coro))
 
 
 @dataclass
@@ -429,7 +438,7 @@ class VideoProcessor:
         This method is provided for compatibility with synchronous code.
         For async code, use extract_frames() instead.
         """
-        return asyncio.run(
+        return asyncio.get_event_loop().run_until_complete(
             self.extract_frames(
                 video_path=video_path,
                 fps=fps,

@@ -15,12 +15,21 @@ Features:
 import asyncio
 import os
 import struct
+import concurrent.futures
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from src.config import get_config
 from src.core.logging import logger
+
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+
+def _run_async_in_executor(coro):
+    """Run async coroutine in thread pool to avoid event loop conflicts."""
+    loop = asyncio.get_event_loop()
+    return loop.run_in_executor(_executor, lambda: loop.run_until_complete(coro))
 
 
 @dataclass
@@ -415,7 +424,14 @@ class FileValidator:
         Returns:
             ValidationResult with validation status and details
         """
-        return asyncio.run(self.validate_file(file_name, file_path, content_type))
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                return _run_async_in_executor(self.validate_file(file_name, file_path, content_type))
+            else:
+                return loop.run_until_complete(self.validate_file(file_name, file_path, content_type))
+        except RuntimeError:
+            return asyncio.get_event_loop().run_until_complete(self.validate_file(file_name, file_path, content_type))
 
     def _get_file_type_from_ext(self, extension: str) -> str:
         """Map file extension to file type category."""
@@ -476,9 +492,20 @@ class FileValidator:
                 tmp.write(content)
                 tmp_path = tmp.name
 
-            result = asyncio.run(
-                self.validate_file(file_name, tmp_path, content_type)
-            )
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    result = _run_async_in_executor(
+                        self.validate_file(file_name, tmp_path, content_type)
+                    )
+                else:
+                    result = loop.run_until_complete(
+                        self.validate_file(file_name, tmp_path, content_type)
+                    )
+            except RuntimeError:
+                result = asyncio.get_event_loop().run_until_complete(
+                    self.validate_file(file_name, tmp_path, content_type)
+                )
 
             os.unlink(tmp_path)
 

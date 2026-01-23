@@ -8,9 +8,10 @@ segmentation, and spectrogram generation using Librosa and WebRTC VAD.
 import asyncio
 import subprocess
 import tempfile
+import concurrent.futures
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, TypeVar
 
 import numpy as np
 import torch
@@ -18,6 +19,16 @@ import torchaudio
 
 from src.config import get_config
 from src.core.logging import logger
+
+_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+T = TypeVar('T')
+
+
+def _run_async_in_executor(coro) -> T:
+    """Run async coroutine in thread pool to avoid event loop conflicts."""
+    loop = asyncio.get_event_loop()
+    return loop.run_in_executor(_executor, lambda: loop.run_until_complete(coro))
 
 
 @dataclass
@@ -337,7 +348,14 @@ class AudioProcessor:
         Returns:
             Tuple of (output_path, AudioMetadata)
         """
-        return asyncio.run(self.normalize_audio(audio_path, output_path))
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                return _run_async_in_executor(self.normalize_audio(audio_path, output_path))
+            else:
+                return loop.run_until_complete(self.normalize_audio(audio_path, output_path))
+        except RuntimeError:
+            return asyncio.get_event_loop().run_until_complete(self.normalize_audio(audio_path, output_path))
 
     def _apply_vad(self, waveform: torch.Tensor, sample_rate: int) -> List[bool]:
         """
@@ -474,7 +492,14 @@ class AudioProcessor:
         Returns:
             List of AudioSegment objects
         """
-        return asyncio.run(self.segment_audio(audio_path, normalize))
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                return _run_async_in_executor(self.segment_audio(audio_path, normalize))
+            else:
+                return loop.run_until_complete(self.segment_audio(audio_path, normalize))
+        except RuntimeError:
+            return asyncio.get_event_loop().run_until_complete(self.segment_audio(audio_path, normalize))
 
     def generate_spectrogram(
         self,
@@ -575,7 +600,14 @@ class AudioProcessor:
         Returns:
             Tuple of (list of segments, metadata)
         """
-        return asyncio.run(self.process(audio_path, generate_spectrograms))
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                return _run_async_in_executor(self.process(audio_path, generate_spectrograms))
+            else:
+                return loop.run_until_complete(self.process(audio_path, generate_spectrograms))
+        except RuntimeError:
+            return asyncio.get_event_loop().run_until_complete(self.process(audio_path, generate_spectrograms))
 
 
 class AudioAnalysisBundle:
