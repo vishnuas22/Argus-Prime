@@ -254,7 +254,7 @@ class CrossModalChecker:
                 segment_variance = float(np.var(segment_manipulation))
 
                 if frame_variance < 1e-6 and segment_variance < 1e-6:
-                    pass
+                    score += 0.1
                 else:
                     variance_ratio = min(frame_variance, segment_variance) / max(
                         frame_variance + 1e-6, segment_variance + 1e-6
