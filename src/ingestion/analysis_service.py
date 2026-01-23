@@ -12,7 +12,7 @@ Orchestrates the complete analysis pipeline:
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import hashlib
 import json
@@ -74,17 +74,17 @@ class AnalysisRequest:
     def to_status_dict(self) -> Dict[str, Any]:
         """Convert to status response dict."""
         return {
-            "request_id": self.request_id,
+            "requestId": self.request_id,
             "status": self.status.value,
             "progress": self.progress,
-            "current_stage": self.status.value.replace("_", " ").title(),
-            "estimated_time_remaining": self._estimate_time_remaining(),
-            "file_info": {
-                "file_name": self.file_metadata.file_name,
-                "file_type": self.file_metadata.file_type,
-                "file_size": self.file_metadata.file_size,
+            "currentStage": self.status.value.replace("_", " ").title() if self.status else None,
+            "estimatedTimeRemaining": self._estimate_time_remaining(),
+            "fileInfo": {
+                "fileName": self.file_metadata.file_name,
+                "fileType": self.file_metadata.file_type,
+                "fileSize": self.file_metadata.file_size,
             },
-            "error_message": self.error_message,
+            "errorMessage": self.error_message,
         }
 
     def _estimate_time_remaining(self) -> Optional[int]:
@@ -466,25 +466,86 @@ class AnalysisService:
 
     async def get_status(self, request_id: str) -> Optional[AnalysisRequest]:
         """Get status of an analysis request."""
-        return self.requests.get(request_id)
+        request = self.requests.get(request_id)
+        if request is not None:
+            return request
+        
+        logger.info(f"Checking database for request {request_id}")
+        
+        try:
+            async with self.db.get_session() as session:
+                repo = AnalysisRepository(session)
+                analysis = await repo.get_analysis(request_id)
+                logger.info(f"Database lookup result: {analysis}")
+                
+                if analysis is None:
+                    logger.warning(f"Analysis {request_id} not found in database")
+                    return None
+                
+                status_obj = AnalysisStatus(analysis.status)
+                logger.info(f"Creating AnalysisRequest with status: {status_obj}")
+                
+                result = AnalysisRequest(
+                    request_id=str(analysis.id),
+                    file_metadata=FileMetadata(
+                        file_name=analysis.file_name,
+                        file_type=analysis.file_type,
+                        file_size=analysis.file_size,
+                        file_path="",
+                        content_type=analysis.content_type or "",
+                    ),
+                    status=status_obj,
+                    progress=100 if analysis.status == "completed" else 0,
+                    created_at=analysis.created_at,
+                    updated_at=analysis.updated_at,
+                )
+                logger.info(f"Created AnalysisRequest: {result.request_id}")
+                return result
+        except Exception as e:
+            logger.error(f"Failed to get status from database: {e}", exc_info=True)
+            return None
 
     async def get_result(self, request_id: str) -> Optional[Dict[str, Any]]:
         """Get complete analysis result."""
         request = self.requests.get(request_id)
-        if request is None:
+        if request is not None:
+            if request.status == AnalysisStatus.COMPLETED:
+                return request.report
+            if request.status == AnalysisStatus.FAILED:
+                return {
+                    "request_id": request_id,
+                    "status": "failed",
+                    "error": request.error_message,
+                }
             return None
-
-        if request.status == AnalysisStatus.COMPLETED:
-            return request.report
-
-        if request.status == AnalysisStatus.FAILED:
-            return {
-                "request_id": request_id,
-                "status": "failed",
-                "error": request.error_message,
-            }
-
-        return None
+        
+        try:
+            async with self.db.get_session() as session:
+                repo = AnalysisRepository(session)
+                analysis = await repo.get_analysis_with_results(request_id)
+                if analysis is None:
+                    return None
+                
+                if analysis.status == DBAnalysisStatus.COMPLETED.value:
+                    return {
+                        "request_id": request_id,
+                        "status": "completed",
+                        "file_name": analysis.file_name,
+                        "file_type": analysis.file_type,
+                        "verdict": "manipulated" if analysis.trust_score and analysis.trust_score.overall_score < 0.5 else "authentic",
+                        "confidence": analysis.trust_score.confidence if analysis.trust_score else 0.5,
+                        "overall_score": analysis.trust_score.overall_score if analysis.trust_score else 0.5,
+                    }
+                if analysis.status == DBAnalysisStatus.FAILED.value:
+                    return {
+                        "request_id": request_id,
+                        "status": "failed",
+                        "error": analysis.error_message,
+                    }
+                return None
+        except Exception as e:
+            logger.warning(f"Failed to get result from database: {e}")
+            return None
 
     async def get_analyses(
         self,
@@ -588,6 +649,134 @@ class AnalysisService:
             "fusion_engine": "Adaptive Gated Fusion",
             "requests_tracked": len(self.requests),
             "database": "connected",
+        }
+
+    async def cancel_analysis(self, request_id: str) -> bool:
+        """
+        Cancel a running analysis.
+
+        Args:
+            request_id: Analysis request ID
+
+        Returns:
+            True if cancelled, False if not found or already completed
+        """
+        request = self.requests.get(request_id)
+        if request is None:
+            return False
+
+        if request.status in [AnalysisStatus.COMPLETED, AnalysisStatus.FAILED]:
+            return False
+
+        request.status = AnalysisStatus.FAILED
+        request.error_message = "Analysis cancelled by user"
+        request.updated_at = datetime.utcnow()
+
+        async with self.db.get_session() as session:
+            repo = AnalysisRepository(session)
+            await repo.update_status(
+                request_id,
+                DBAnalysisStatus.FAILED.value,
+                error_message="Analysis cancelled by user",
+            )
+
+        logger.info(f"Analysis {request_id} cancelled")
+        return True
+
+    async def delete_analysis(self, request_id: str) -> bool:
+        """
+        Delete an analysis and its associated files.
+
+        Args:
+            request_id: Analysis request ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        request = self.requests.get(request_id)
+        if request is None:
+            return False
+
+        del self.requests[request_id]
+
+        async with self.db.get_session() as session:
+            repo = AnalysisRepository(session)
+            await repo.delete_analysis(request_id)
+
+        await self.storage.cleanup(request_id)
+        logger.info(f"Analysis {request_id} deleted")
+        return True
+
+    async def export_analysis(
+        self,
+        request_id: str,
+        format: str = "json",
+        include_evidence: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Export analysis result in specified format.
+
+        Args:
+            request_id: Analysis request ID
+            format: Export format (json, pdf, csv)
+            include_evidence: Include evidence files
+
+        Returns:
+            Export data dict or None if not found
+        """
+        request = self.requests.get(request_id)
+        if request is None:
+            return None
+
+        if request.status != AnalysisStatus.COMPLETED:
+            return None
+
+        export_data = {
+            "request_id": request_id,
+            "exported_at": datetime.utcnow().isoformat(),
+            "format": format,
+            "report": request.report,
+        }
+
+        if include_evidence:
+            export_data["evidence"] = {
+                "heatmaps": request.video_result.get("heatmap_path") if request.video_result else None,
+                "localization": request.report.get("evidence", {}).get("localization") if request.report else None,
+            }
+
+        return export_data
+
+    async def share_analysis(self, request_id: str, expires_in_hours: int = 72) -> Optional[Dict[str, str]]:
+        """
+        Create a shareable link for an analysis result.
+
+        Args:
+            request_id: Analysis request ID
+            expires_in_hours: Link expiration time (default 72 hours)
+
+        Returns:
+            Dict with share_url and expires_at, or None if not found
+        """
+        request = self.requests.get(request_id)
+        if request is None:
+            return None
+
+        if request.status != AnalysisStatus.COMPLETED:
+            return None
+
+        import secrets
+        share_token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=expires_in_hours)
+
+        share_url = f"/shared/{share_token}"
+
+        async with self.db.get_session() as session:
+            repo = AnalysisRepository(session)
+            await repo.save_share_link(request_id, share_token, expires_at)
+
+        return {
+            "shareUrl": share_url,
+            "expiresAt": expires_at.isoformat(),
         }
 
 
