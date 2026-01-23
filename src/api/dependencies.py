@@ -6,12 +6,10 @@ from fastapi import UploadFile, File
 
 from src.config import get_config
 from src.core.logging import logger
-from src.ingestion import (
-    AnalysisService as RealAnalysisService,
-    StorageService as RealStorageService,
-    get_analysis_service,
-    get_storage_service,
-)
+from src.ingestion.analysis_service import get_analysis_service as _get_analysis_service
+from src.ingestion.analysis_service import AnalysisService as RealAnalysisService
+from src.ingestion.storage_service import get_storage_service as _get_storage_service
+from src.ingestion.storage_service import StorageService as RealStorageService
 
 
 class AnalysisService:
@@ -70,12 +68,12 @@ class StorageService:
 
     async def cleanup(self, request_id: str) -> None:
         """Clean up files for a request."""
-        pass
+        return None
 
 
 async def get_analysis_service() -> RealAnalysisService:
     """Get real analysis service instance."""
-    service = get_analysis_service()
+    service = _get_analysis_service()
     if service is None:
         service = RealAnalysisService()
     return service
@@ -83,7 +81,7 @@ async def get_analysis_service() -> RealAnalysisService:
 
 async def get_storage_service() -> RealStorageService:
     """Get real storage service instance."""
-    service = get_storage_service()
+    service = _get_storage_service()
     if service is None:
         service = RealStorageService()
     return service
