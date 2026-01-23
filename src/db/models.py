@@ -299,3 +299,50 @@ class TrustScore(Base):
             "fused_score": self.fused_score,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class ShareLink(Base):
+    """Share link for analysis results."""
+    __tablename__ = "share_links"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        primary_key=True,
+        default=lambda: str(uuid4()),
+    )
+    analysis_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("analyses.id"),
+        nullable=False,
+    )
+    share_token: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "analysis_id": self.analysis_id,
+            "share_token": self.share_token,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "is_active": self.is_active,
+        }
