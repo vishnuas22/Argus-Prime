@@ -399,8 +399,8 @@ class ContentSanitizer:
         try:
             stat = path.stat()
             result["modified"] = datetime.fromtimestamp(stat.st_mtime).isoformat()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to get file stat: {e}")
 
         magic_bytes = b""
         try:
