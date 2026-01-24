@@ -33,7 +33,7 @@ export function Tab({ value, children, className = "", ...props }: React.ButtonH
   );
 }
 
-export function TabPanel({ children, className = "", ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function TabPanel({ value, children, className = "", ...props }: React.HTMLAttributes<HTMLDivElement> & { value?: string }) {
   return (
     <div className={`mt-4 ${className}`} {...props}>
       {children}
