@@ -218,7 +218,7 @@ export function ChartsPanel({
               { value: "90d", label: "Last 90 days" },
             ]}
             value={timeRange}
-            onChange={setTimeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
             className="w-36"
           />
           {onRefresh && (
