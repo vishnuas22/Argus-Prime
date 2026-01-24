@@ -201,7 +201,7 @@ export default function SettingsPage() {
                       { value: "admin", label: "Administrator" },
                     ]}
                     value={profile.role}
-                    onChange={(value) => handleProfileChange("role", value)}
+                    onChange={(e) => handleProfileChange("role", e.target.value)}
                   />
                 </div>
               </div>

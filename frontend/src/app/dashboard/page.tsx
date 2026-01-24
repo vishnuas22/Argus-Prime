@@ -16,7 +16,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { analysisApi } from "@/lib/api";
+import { analysisApi, healthApi } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,15 +33,15 @@ export default function DashboardPage() {
 
   const { data: healthData } = useQuery({
     queryKey: ["health"],
-    queryFn: () => analysisApi.basic(),
+    queryFn: () => healthApi.basic(),
     refetchInterval: 30000,
   });
 
   const stats = {
     total: analysesData?.total || 0,
-    pending: analysesData?.analyses?.filter((a: any) => a.status === "pending").length || 0,
-    completed: analysesData?.analyses?.filter((a: any) => a.status === "completed").length || 0,
-    failed: analysesData?.analyses?.filter((a: any) => a.status === "failed").length || 0,
+    pending: analysesData?.items?.filter((a: any) => a.status === "pending").length || 0,
+    completed: analysesData?.items?.filter((a: any) => a.status === "completed").length || 0,
+    failed: analysesData?.items?.filter((a: any) => a.status === "failed").length || 0,
   };
 
   return (
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                     <Skeleton key={i} className="h-16 w-full" />
                   ))}
                 </div>
-              ) : analysesData?.analyses?.length === 0 ? (
+              ) : analysesData?.items?.length === 0 ? (
                 <div className="text-center py-8">
                   <Shield className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-500">No analyses yet</p>
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {analysesData?.analyses?.slice(0, 5).map((analysis: any) => (
+                  {analysesData?.items?.slice(0, 5).map((analysis: any) => (
                     <div
                       key={analysis.id}
                       className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"

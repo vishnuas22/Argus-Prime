@@ -238,7 +238,7 @@ export default function NotificationsPage() {
                   { value: "info", label: "Info" },
                 ]}
                 value={typeFilter}
-                onChange={setTypeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
                 className="w-36"
               />
               <Button

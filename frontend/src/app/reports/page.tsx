@@ -453,7 +453,7 @@ export default function ReportsPage() {
                     { value: "MANIPULATED", label: "Manipulated" },
                   ]}
                   value={filter}
-                  onChange={setFilter}
+                  onChange={(e) => setFilter(e.target.value)}
                   className="w-40"
                 />
                 <Select
@@ -465,7 +465,7 @@ export default function ReportsPage() {
                     { value: "text", label: "Text" },
                   ]}
                   value={typeFilter}
-                  onChange={setTypeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
                   className="w-40"
                 />
               </div>
