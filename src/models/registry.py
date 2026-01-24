@@ -493,6 +493,18 @@ class ModelRegistry:
         if name not in self._model_factories:
             return ModelHealthStatus(
                 model_name=name,
+
+
+
+def get_model_registry() -> ModelRegistry:
+    """
+    Get the global model registry instance.
+    
+    Returns:
+        ModelRegistry: Singleton registry instance
+    """
+    return ModelRegistry.get_instance()
+
                 is_healthy=False,
                 last_check=time.time(),
                 error_message="Model not registered",
