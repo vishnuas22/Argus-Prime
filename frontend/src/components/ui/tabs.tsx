@@ -22,12 +22,13 @@ export function TabList({ children, className = "", ...props }: React.HTMLAttrib
   );
 }
 
-export function Tab({ value, children, className = "", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) {
+export function Tab({ value, children, className = "", leftIcon, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string; leftIcon?: React.ReactNode }) {
   return (
     <button
       className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${className}`}
       {...props}
     >
+      {leftIcon && <span className="mr-2">{leftIcon}</span>}
       {children}
     </button>
   );

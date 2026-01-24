@@ -480,6 +480,25 @@ class ModelRegistry:
         """Get metadata for all registered models."""
         return dict(self._model_metadata)
 
+    def list_models(self) -> Dict[str, Dict[str, Any]]:
+        """
+        List all registered models with their metadata.
+        
+        Returns:
+            Dict mapping model names to their metadata info
+        """
+        result = {}
+        for name, metadata in self._model_metadata.items():
+            result[name] = {
+                "type": metadata.model_type,
+                "version": metadata.version,
+                "loaded": metadata.is_loaded,
+                "device": metadata.device,
+                "memory_mb": metadata.memory_usage_mb,
+            }
+        return result
+
+
     def health_check(self, name: str) -> ModelHealthStatus:
         """
         Perform health check on a model.
@@ -493,18 +512,6 @@ class ModelRegistry:
         if name not in self._model_factories:
             return ModelHealthStatus(
                 model_name=name,
-
-
-
-def get_model_registry() -> ModelRegistry:
-    """
-    Get the global model registry instance.
-    
-    Returns:
-        ModelRegistry: Singleton registry instance
-    """
-    return ModelRegistry.get_instance()
-
                 is_healthy=False,
                 last_check=time.time(),
                 error_message="Model not registered",
@@ -640,3 +647,14 @@ def register_model(
     """
     registry = ModelRegistry.get_instance()
     registry.register(name, model_factory, model_type, version)
+
+
+def get_model_registry() -> ModelRegistry:
+    """
+    Get the global model registry instance.
+    
+    Returns:
+        ModelRegistry: Singleton registry instance
+    """
+    return ModelRegistry.get_instance()
+
