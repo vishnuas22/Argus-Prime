@@ -5,36 +5,145 @@ Provides health and readiness probes for container orchestration
 and load balancer integration, plus Prometheus metrics endpoint.
 """
 
+import time
+import os
+import shutil
 from datetime import datetime
 from typing import Any, Dict
 from fastapi import APIRouter, Response
 from fastapi.responses import PlainTextResponse
+from sqlalchemy import text
 
 from src.config import get_config
 from src.core.logging import logger
 from src.core.metrics import get_metrics
+from src.db.database import get_database
+from src.models.registry import get_model_registry
 
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
 
 
 async def check_database() -> Dict[str, Any]:
-    """Check database connectivity."""
-    config = get_config()
-    # Placeholder - implement actual database check
-    return {"status": "unknown", "latency_ms": 0}
+    """
+    Check database connectivity and latency.
+    
+    Returns:
+        Dict with status, latency_ms, and connection details
+    """
+    try:
+        db = get_database()
+        start_time = time.time()
+        
+        async with db.get_session() as session:
+            result = await session.execute(text("SELECT 1"))
+            result.scalar()
+        
+        latency_ms = int((time.time() - start_time) * 1000)
+        
+        return {
+            "status": "healthy",
+            "latency_ms": latency_ms,
+            "pool_size": db.db_config.pool_size,
+            "max_overflow": db.db_config.max_overflow,
+        }
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}", exc_info=True)
+        return {
+            "status": "unhealthy",
+            "latency_ms": 0,
+            "error": str(e),
+        }
 
 
 async def check_models() -> Dict[str, Any]:
-    """Check if models are loaded and healthy."""
-    # Placeholder - implement model registry health check
-    return {"status": "unknown", "loaded_models": []}
+    """
+    Check if detection models are loaded and healthy.
+    
+    Returns:
+        Dict with status and list of loaded models
+    """
+    try:
+        registry = get_model_registry()
+        loaded_models = registry.list_models()
+        
+        if not loaded_models:
+            return {
+                "status": "degraded",
+                "loaded_models": [],
+                "message": "No models loaded yet",
+            }
+        
+        return {
+            "status": "healthy",
+            "loaded_models": [
+                {
+                    "id": model_id,
+                    "type": info.get("type", "unknown"),
+                    "version": info.get("version", "unknown"),
+                }
+                for model_id, info in loaded_models.items()
+            ],
+            "total_count": len(loaded_models),
+        }
+    except Exception as e:
+        logger.error(f"Model health check failed: {e}", exc_info=True)
+        return {
+            "status": "unhealthy",
+            "loaded_models": [],
+            "error": str(e),
+        }
 
 
 async def check_storage() -> Dict[str, Any]:
-    """Check storage accessibility."""
-    # Placeholder - implement storage check
-    return {"status": "unknown", "free_bytes": 0}
+    """
+    Check storage accessibility and available space.
+    
+    Returns:
+        Dict with status, free space, and path info
+    """
+    try:
+        config = get_config()
+        temp_dir = config.storage.temp_dir
+        
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        disk_stats = shutil.disk_usage(temp_dir)
+        free_bytes = disk_stats.free
+        total_bytes = disk_stats.total
+        used_percent = (disk_stats.used / total_bytes) * 100 if total_bytes > 0 else 0
+        
+        test_file = os.path.join(temp_dir, ".health_check")
+        try:
+            with open(test_file, 'w') as f:
+                f.write("health_check")
+            os.remove(test_file)
+            writable = True
+        except Exception:
+            writable = False
+        
+        if not writable or used_percent > 95:
+            status = "unhealthy"
+        elif used_percent > 80:
+            status = "degraded"
+        else:
+            status = "healthy"
+        
+        return {
+            "status": status,
+            "free_bytes": free_bytes,
+            "total_bytes": total_bytes,
+            "used_percent": round(used_percent, 2),
+            "path": temp_dir,
+            "writable": writable,
+        }
+    except Exception as e:
+        logger.error(f"Storage health check failed: {e}", exc_info=True)
+        return {
+            "status": "unhealthy",
+            "free_bytes": 0,
+            "error": str(e),
+        }
 
 
 @router.get("/health")
