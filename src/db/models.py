@@ -30,9 +30,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-import sys
-sys.path.insert(0, '/Users/Dataghost/Argus_Prime')
-
 
 class AnalysisStatus(str, Enum):
     """Analysis status values."""
