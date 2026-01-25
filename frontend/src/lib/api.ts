@@ -40,8 +40,12 @@ export const apiClient = createApiClient();
 // ============================================
 
 export const analysisApi = {
-  async submit(request: AnalysisSubmitRequest): Promise<AnalysisSubmitResponse> {
-    const response = await apiClient.post<AnalysisSubmitResponse>('/api/v1/analyze', request);
+  async submit(formData: FormData): Promise<AnalysisSubmitResponse> {
+    const response = await apiClient.post<AnalysisSubmitResponse>('/api/v1/analyze', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
 
