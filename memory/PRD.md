@@ -1,74 +1,41 @@
-# Argus Prime - Multi-Modal Deepfake Detection Platform
+# Argus Prime - PRD
 
-## Original Problem Statement
-Complete repo replacement and boot for: `https://github.com/vishnuas22/Argus-Prime.git` (Branch: main)
-- NUKE existing workspace
-- CLONE target repo
-- INSTALL dependencies (backend: requirements.txt, frontend: package.json)
-- BOOT all services
-- Ensure frontend running on both Emergent and local ports
+## Project Overview
+Multi-Modal Deepfake Detection & Forensic Platform
 
-## Architecture
-- **Backend**: FastAPI (Python) on port 8001
-- **Frontend**: Next.js 14 (React) on port 3000
-- **Database**: PostgreSQL (configured but not required for basic operation)
-- **Services**: Supervisor-managed (backend, frontend, mongodb)
+## Repository
+- Source: https://github.com/vishnuas22/Argus-Prime.git
+- Branch: main
 
 ## Tech Stack
-- Python 3.11 with FastAPI, uvicorn
-- Next.js 14 with TypeScript, Tailwind CSS
-- PyTorch for ML models
-- SQLAlchemy async for database
-- Prometheus for metrics
+- **Backend**: FastAPI (Python 3.11), PostgreSQL (async), Redis
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, React Query
+- **AI/ML**: PyTorch, Transformers, OpenCV, Librosa
 
-## What's Been Implemented (Jan 25, 2026)
-- [x] Workspace cleared and repo cloned
-- [x] Backend dependencies installed (requirements.txt)
-- [x] Frontend dependencies installed (yarn)
-- [x] Backend configured for port 8001
-- [x] Frontend built and deployed
-- [x] Both services running via supervisor
-- [x] Health endpoints verified on local and external URLs
+## Implementation Status (Jan 25, 2026)
+✅ Repository cloned and configured
+✅ Backend dependencies installed (requirements.txt)
+✅ Frontend dependencies installed (package.json via yarn)
+✅ Backend running on port 8001 (supervisor-managed)
+✅ Frontend running on port 3000 (supervisor-managed)
+✅ Health endpoint verified: /api/v1/health
+✅ API documentation: /docs
 
 ## Core Features
-1. **Video Detection**: ForensicFlow, DistilDIRE, KAN Detector
-2. **Audio Analysis**: RawNet2, Transcrypt
-3. **Text Forensics**: SpecDetect, Perplexity Detector
-4. **Multi-Modal Fusion**: Combined analysis across modalities
-5. **Real-time Processing**: WebSocket progress streaming
-6. **Enterprise Security**: Adversarial defense, rate limiting
+- Video deepfake detection (ForensicFlow, DistilDIRE, KAN)
+- Audio analysis (RawNet2, Transcrypt)
+- Text forensics (SpecDetect, Perplexity)
+- Multi-modal fusion engine
+- Real-time processing with WebSocket
+- Enterprise security middleware
 
-## API Endpoints
-- `POST /api/v1/analyze` - Submit file for analysis
-- `GET /api/v1/analyze/{id}/status` - Get analysis status
-- `GET /api/v1/analyze/{id}/result` - Get analysis result
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/metrics` - Prometheus metrics
+## Backlog
+- P0: Database setup (PostgreSQL connection)
+- P1: Redis cache configuration
+- P2: Model weights loading
+- P2: Full e2e testing
 
-## Service URLs
-- **Local Backend**: http://localhost:8001
-- **Local Frontend**: http://localhost:3000
-- **External**: https://643e189c-5421-4430-8e7b-933db13fd20f.preview.emergentagent.com
-
-## Next Tasks / Backlog
-- [ ] PostgreSQL database setup for persistence
-- [ ] Redis cache configuration
-- [ ] ML model weight downloads and initialization
-- [ ] Full analysis pipeline testing
-- [ ] User authentication system
-
-## P0/P1/P2 Features
-### P0 (Critical)
-- Basic health endpoints ✅
-- Frontend rendering ✅
-- Service orchestration ✅
-
-### P1 (Important)
-- Database connectivity
-- File upload functionality
-- Basic analysis flow
-
-### P2 (Nice to have)
-- Full model inference
-- Advanced reporting
-- User management
+## Next Steps
+1. Configure PostgreSQL database connection
+2. Set up Redis for caching
+3. Load ML model weights for actual detection
