@@ -134,7 +134,7 @@ export default function AnalyzePage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await analysisApi.submit({ file: formData } as any);
+      const response = await analysisApi.submit(formData);
       const id = response.requestId || (response as any).request_id;
       setRequestId(id);
       
