@@ -156,19 +156,6 @@ pytest --cov=src
 pytest tests/unit/test_schemas.py -v
 ```
 
-### Code Quality
-
-```bash
-# Format code
-black src/
-
-# Lint code
-ruff check src/
-
-# Type checking
-mypy src/
-```
-
 ## Architecture
 
 ### Request Pipeline
