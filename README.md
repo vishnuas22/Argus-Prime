@@ -173,6 +173,4 @@ Ingestion (0-50ms) → Preprocessing (50-200ms) → Adversarial Defense (200-300
 3. **Type Safety**: Full Pydantic validation
 4. **Modularity**: Swappable model implementations
 
-## License
-
 MIT License
