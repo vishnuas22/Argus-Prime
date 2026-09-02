@@ -1,0 +1,273 @@
+{
+  "clean": {
+    "metadata": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 300
+    },
+    "compression_history": {
+      "auc": 0.4933,
+      "eer": 1.0,
+      "n": 300
+    },
+    "spectral_probe": {
+      "auc": 0.4413,
+      "eer": 0.5323,
+      "n": 300
+    },
+    "real_distribution_probe": {
+      "auc": 0.4687,
+      "eer": 0.54,
+      "n": 300
+    },
+    "perturbation_probe": {
+      "auc": 0.59,
+      "eer": 0.4167,
+      "n": 300
+    },
+    "learned_aigc_probe": {
+      "auc": 0.9992,
+      "eer": 0.0133,
+      "n": 300
+    },
+    "fusion": {
+      "auc": 0.9702,
+      "eer": 0.08,
+      "n": 300,
+      "brier_p_real": 0.1499,
+      "abstention_rate": 1.0,
+      "mean_trust": 0.6738,
+      "mean_risk": 0.0012
+    },
+    "runtime_ms": {
+      "triage": 46.3,
+      "metadata": 129.8,
+      "compression_history": 124.8,
+      "spectral_probe": 106.0,
+      "real_distribution_probe": 167.4,
+      "perturbation_probe": 243.9,
+      "learned_aigc_probe": 79.4
+    },
+    "evidence_capacity_mix": {
+      "HIGH": 170,
+      "MODERATE": 130
+    }
+  },
+  "jpeg75": {
+    "metadata": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 300
+    },
+    "compression_history": {
+      "auc": 0.4406,
+      "eer": 0.82,
+      "n": 300
+    },
+    "spectral_probe": {
+      "auc": 0.454,
+      "eer": 0.5253,
+      "n": 300
+    },
+    "real_distribution_probe": {
+      "auc": 0.4687,
+      "eer": 0.54,
+      "n": 300
+    },
+    "perturbation_probe": {
+      "auc": 0.59,
+      "eer": 0.4167,
+      "n": 300
+    },
+    "learned_aigc_probe": {
+      "auc": 0.9992,
+      "eer": 0.0133,
+      "n": 300
+    },
+    "fusion": {
+      "auc": 0.9436,
+      "eer": 0.1533,
+      "n": 300,
+      "brier_p_real": 0.1675,
+      "abstention_rate": 1.0,
+      "mean_trust": 0.6731,
+      "mean_risk": 0.001
+    },
+    "runtime_ms": {
+      "triage": 46.0,
+      "metadata": 122.9,
+      "compression_history": 126.7,
+      "spectral_probe": 104.7,
+      "real_distribution_probe": 157.5,
+      "perturbation_probe": 245.2,
+      "learned_aigc_probe": 62.7
+    },
+    "evidence_capacity_mix": {
+      "HIGH": 174,
+      "MODERATE": 126
+    }
+  },
+  "jpeg50": {
+    "metadata": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 300
+    },
+    "compression_history": {
+      "auc": 0.4406,
+      "eer": 0.82,
+      "n": 300
+    },
+    "spectral_probe": {
+      "auc": 0.454,
+      "eer": 0.5253,
+      "n": 300
+    },
+    "real_distribution_probe": {
+      "auc": 0.4687,
+      "eer": 0.54,
+      "n": 300
+    },
+    "perturbation_probe": {
+      "auc": 0.59,
+      "eer": 0.4167,
+      "n": 300
+    },
+    "learned_aigc_probe": {
+      "auc": 0.9992,
+      "eer": 0.0133,
+      "n": 300
+    },
+    "fusion": {
+      "auc": 0.9436,
+      "eer": 0.1533,
+      "n": 300,
+      "brier_p_real": 0.1675,
+      "abstention_rate": 1.0,
+      "mean_trust": 0.6731,
+      "mean_risk": 0.001
+    },
+    "runtime_ms": {
+      "triage": 46.3,
+      "metadata": 123.2,
+      "compression_history": 125.7,
+      "spectral_probe": 105.2,
+      "real_distribution_probe": 156.7,
+      "perturbation_probe": 245.2,
+      "learned_aigc_probe": 62.5
+    },
+    "evidence_capacity_mix": {
+      "HIGH": 174,
+      "MODERATE": 126
+    }
+  },
+  "resize50": {
+    "metadata": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 300
+    },
+    "compression_history": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 300
+    },
+    "spectral_probe": {
+      "auc": 0.5102,
+      "eer": 0.4946,
+      "n": 300
+    },
+    "real_distribution_probe": {
+      "auc": 0.4705,
+      "eer": 0.5367,
+      "n": 300
+    },
+    "perturbation_probe": {
+      "auc": 0.6042,
+      "eer": 0.4,
+      "n": 300
+    },
+    "learned_aigc_probe": {
+      "auc": 0.9992,
+      "eer": 0.0067,
+      "n": 300
+    },
+    "fusion": {
+      "auc": 0.971,
+      "eer": 0.0733,
+      "n": 300,
+      "brier_p_real": 0.1531,
+      "abstention_rate": 1.0,
+      "mean_trust": 0.6287,
+      "mean_risk": 0.0
+    },
+    "runtime_ms": {
+      "triage": 13.2,
+      "metadata": 130.3,
+      "compression_history": 67.9,
+      "spectral_probe": 106.3,
+      "real_distribution_probe": 154.1,
+      "perturbation_probe": 244.3,
+      "learned_aigc_probe": 60.5
+    },
+    "evidence_capacity_mix": {
+      "MODERATE": 250,
+      "HIGH": 49,
+      "LOW": 1
+    }
+  },
+  "q50_r05": {
+    "metadata": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 300
+    },
+    "compression_history": {
+      "auc": 0.5233,
+      "eer": 0.3704,
+      "n": 300
+    },
+    "spectral_probe": {
+      "auc": 0.5102,
+      "eer": 0.4946,
+      "n": 300
+    },
+    "real_distribution_probe": {
+      "auc": 0.4705,
+      "eer": 0.5367,
+      "n": 300
+    },
+    "perturbation_probe": {
+      "auc": 0.6042,
+      "eer": 0.4,
+      "n": 300
+    },
+    "learned_aigc_probe": {
+      "auc": 0.9992,
+      "eer": 0.0067,
+      "n": 300
+    },
+    "fusion": {
+      "auc": 0.9735,
+      "eer": 0.0733,
+      "n": 300,
+      "brier_p_real": 0.1607,
+      "abstention_rate": 1.0,
+      "mean_trust": 0.6366,
+      "mean_risk": 0.0
+    },
+    "runtime_ms": {
+      "triage": 13.2,
+      "metadata": 122.9,
+      "compression_history": 68.0,
+      "spectral_probe": 107.0,
+      "real_distribution_probe": 153.7,
+      "perturbation_probe": 243.1,
+      "learned_aigc_probe": 60.6
+    },
+    "evidence_capacity_mix": {
+      "MODERATE": 251,
+      "HIGH": 49
+    }
+  }
+}

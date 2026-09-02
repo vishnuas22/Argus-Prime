@@ -1,0 +1,19 @@
+{
+  "training_domains": [
+    "Celeb-DF(train split)",
+    "WildDeepfake(train sample)"
+  ],
+  "results": {
+    "cdf_official_test": {
+      "auc": 0.9819,
+      "eer": 0.0607,
+      "n": 6687
+    },
+    "wild_test": {
+      "auc": 0.9056,
+      "eer": 0.1822,
+      "n": 4000
+    }
+  },
+  "C": 3.0
+}

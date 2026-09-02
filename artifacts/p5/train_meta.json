@@ -1,0 +1,17 @@
+{
+  "model": "LogisticRegression(L2-normalized CLIP ViT-L/14 penultimate)",
+  "C": 3.0,
+  "cv_auc_train": 0.9997,
+  "val_auc": 0.9999,
+  "val_eer": 0.0088,
+  "n_train_views": 3000,
+  "n_real_files": 2250,
+  "n_fake_files": 750,
+  "feature_dim": 1024,
+  "views_per_image": [
+    "clean",
+    "jpeg75",
+    "resize75"
+  ],
+  "caveat": "in-domain training (SD1.5 family); cross-generator transfer untested"
+}

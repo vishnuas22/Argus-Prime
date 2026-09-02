@@ -1,0 +1,40 @@
+{
+  "model": "HistGradientBoosting+sigmoid calibration",
+  "feature_names": [
+    "metadata_e",
+    "metadata_r",
+    "compression_history_e",
+    "compression_history_r",
+    "spectral_probe_e",
+    "spectral_probe_r",
+    "real_distribution_probe_e",
+    "real_distribution_probe_r",
+    "perturbation_probe_e",
+    "perturbation_probe_r",
+    "learned_aigc_probe_e",
+    "learned_aigc_probe_r",
+    "learned_face_probe_e",
+    "learned_face_probe_r",
+    "cap_HIGH",
+    "cap_MODERATE",
+    "cap_LOW"
+  ],
+  "module_ids": [
+    "metadata",
+    "compression_history",
+    "spectral_probe",
+    "real_distribution_probe",
+    "perturbation_probe",
+    "learned_aigc_probe",
+    "learned_face_probe"
+  ],
+  "n_rows": 469,
+  "val_auc": 0.9995,
+  "trained_on": [
+    "artifacts/stkv2_train_fake/scores.csv",
+    "artifacts/stkv2_xgen_sana_tr/scores.csv",
+    "artifacts/stkv2_xgen_sdxl_tr/scores.csv",
+    "artifacts/stkv2_cdf/scores.csv"
+  ],
+  "caveat": "trained on train-side corpora only; eval rows never seen"
+}

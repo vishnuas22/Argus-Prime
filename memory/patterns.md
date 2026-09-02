@@ -1,0 +1,25 @@
+# Patterns — conventions of this codebase and its tools
+
+Format: `- YYYY-MM-DD [area] pattern`
+
+- 2026-08-24 [opencode] Agents are markdown files in .opencode/agents/ with YAML frontmatter (description, mode, temperature, permission); filename becomes the agent name.
+- 2026-08-24 [opencode] Skills live at .opencode/skills/<name>/SKILL.md; name must match directory and satisfy ^[a-z0-9]+(-[a-z0-9]+)*$.
+- 2026-08-24 [safety] Destructive bash (git push, git reset --hard, rm -rf) is ask-gated in opencode.json.
+- 2026-08-24 [argus-master] Vendored at integrations/Argus_Master; backend modules need sys.path insert of backend/ dir; flat imports (base, schemas...).
+- 2026-08-24 [argus-master] EvidenceModule contract: assess(ctx, d, base_reliability); ctx.src_path MUST be a real temp file path (metadata/exiftool reads it) or module crash-isolates to internal_error.
+- 2026-08-24 [argus-master] Polarity: evidence_score ∈ [-1,1], negative=synthetic/manipulated, positive=authentic. module_ids: metadata, compression_history, spectral_probe, real_distribution_probe, perturbation_probe.
+- 2026-08-24 [bench] Benchmark invocation: PATH="$PWD/tools/bin:$PATH" ./.venv/bin/python deepfake/bench/run_benchmark.py (tools/bin holds exiftool perl-shim; pyexiftool needs binary on PATH).
+- 2026-08-24 [mps] SD1.5 on M1 Max MPS fp16 @512px/20steps ≈ 4 img/min; DINOv2 ViT-B/14 embed ≈ 100ms/img CPU; feature extraction on MPS ≈ 15/s vs CPU 2.5/s.
+- 2026-08-24 [corpora] Cross-generator sets live in data/corpora/xgen_{sana,sdxl}/ (40 imgs each, manifest.json per dir); eval_fake=SD1.5; seed ranges disjoint: eval 10k+, train 50k+, xgen 90k+.
+- 2026-08-24 [bench] Per-generator eval: run_benchmark.py --fake data/corpora/xgen_<tag> --no-ladder --with-learned artifacts/p5/probe.joblib; aggregate via artifacts/*/metrics.json.
+- 2026-08-24 [hf] hf_transfer enabled downloads run ~14MB/s but its progress bar stays at 0% — measure progress via `du -sk ~/.cache/huggingface` deltas.
+- 2026-08-24 [wilddeepfake] HF shards named .tar.gz are actually plain tars — open with r: fallback; faces are pre-cropped (no detection needed).
+- 2026-08-24 [p3] Face probe artifacts: artifacts/p3/face_probe.joblib (Celeb-DF-trained); caches cdf_faces.npz (50k views), wild_sample.npz (4k clean views).
+- 2026-08-24 [p3] Multi-domain trainer: deepfake/scripts/train_face_multidomain.py; artifacts/p3_full/face_probe.joblib is the court-default face head (--with-face).
+- 2026-09-02 [git] Repo has git initialized but ZERO commits on master (git log fails with "does not have any commits yet") — all history lives in memory/ + artifacts/ until an initial commit is made.
+- 2026-09-02 [smoke] argus_detect.py CLI verified working end-to-end on 2026-09-02 env (py3.13.9, torch 2.13+MPS, transformers 5.15.1): real COCO img → p_fake_fused 0.0417; Celeb-DF fake face → 0.9804 with learned_face_probe engaged. Note: --json module_evidence values are polarity-flipped (displayed positive = fake).
+- 2026-09-02 [ffpp] HF mirror layout: data/raw/ffpp_mirror/FaceForensics++_C23/{real/<id>.mp4 (1000 ids), fake/<Method>/<a>_<b>.mp4 (6 methods × 1000 = 500 pairs × both directions)}. Split jsons = 360/70/70 pairs (720/140/140 ids, disjoint). Fake split follows its PAIR (either direction).
+- 2026-09-02 [ffpp] fake/DeepFakeDetection uses ACTOR-dataset names (01_02__meeting_serious__YVGY8LOK.mp4) — not mappable to youtube split jsons; excluded from prep (available via ffpp_prepare.py --all-methods, unassigned to splits).
+- 2026-09-02 [ffpp] Crops: data/corpora/ffpp_faces/{train,val,test}/{real,Deepfakes,Face2Face,FaceSwap,NeuralTextures}/<video>/frame_*.jpg; 39976 crops, 99.94% yield, all 256px. Fake dirs use full <a>_<b> stem (NOT target id — original script's stem.split("_")[0] collided the two pair directions).
+- 2026-09-02 [ffpp] Transfer matrix (CLIP linear probes): joint training dominated everywhere — specialist ffpp-only probe (artifacts/p3_ffpp/ffpp_only_probe.joblib) wins FF++ 0.8885 in-domain vs joint 0.8681, while p3_full wins its domains 0.982/0.906. Zero-shot both ways ~0.73-0.79. FF++ domain addition must go through stacker features (D-021/D-024), not probe co-training.
+- 2026-09-02 [ops] Background jobs on this host: plain `nohup cmd &` did NOT survive the tool shell; wrap in subshell `(nohup cmd > log 2>&1 < /dev/null &)` then verify with ps. macOS has no setsid. (Restored after accidental overwrite by the transfer-matrix entry — same-file edits must be insertions, not old_text blocks that end at the target line.)

@@ -1,0 +1,56 @@
+{
+  "clean": {
+    "metadata": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 120
+    },
+    "compression_history": {
+      "auc": 0.5,
+      "eer": 0.5,
+      "n": 120
+    },
+    "spectral_probe": {
+      "auc": 0.484,
+      "eer": 0.5083,
+      "n": 120
+    },
+    "real_distribution_probe": {
+      "auc": 0.4204,
+      "eer": 0.5667,
+      "n": 120
+    },
+    "perturbation_probe": {
+      "auc": 0.5806,
+      "eer": 0.4167,
+      "n": 120
+    },
+    "learned_aigc_probe": {
+      "auc": 1.0,
+      "eer": 0.0,
+      "n": 120
+    },
+    "fusion": {
+      "auc": 0.985,
+      "eer": 0.05,
+      "n": 120,
+      "brier_p_real": 0.1448,
+      "abstention_rate": 1.0,
+      "mean_trust": 0.6765,
+      "mean_risk": 0.0
+    },
+    "runtime_ms": {
+      "triage": 45.7,
+      "metadata": 129.7,
+      "compression_history": 126.8,
+      "spectral_probe": 104.8,
+      "real_distribution_probe": 181.9,
+      "perturbation_probe": 242.9,
+      "learned_aigc_probe": 103.8
+    },
+    "evidence_capacity_mix": {
+      "MODERATE": 50,
+      "HIGH": 70
+    }
+  }
+}

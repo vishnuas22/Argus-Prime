@@ -1,0 +1,8 @@
+{
+  "model": "logistic on frozen wav2vec2-XLS-R-300m mean-pooled",
+  "val_auc": 1.0,
+  "val_eer": 0.0,
+  "n_train": 12000,
+  "n_val": 3000,
+  "caveat": "in-domain ASVspoof LA; unknown-attack generalization is the eval-set story"
+}

@@ -1,0 +1,2 @@
+#!/bin/sh
+exec perl /Users/Dataghost/Argus_Prime/tools/Image-ExifTool-13.10/exiftool "$@"

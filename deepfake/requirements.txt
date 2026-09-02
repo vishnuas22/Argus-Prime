@@ -1,0 +1,13 @@
+torch>=2.13
+torchvision
+timm>=1.0
+numpy
+pillow
+scikit-learn
+scipy
+tqdm
+python-dotenv
+diffusers>=0.32
+transformers
+accelerate
+safetensors

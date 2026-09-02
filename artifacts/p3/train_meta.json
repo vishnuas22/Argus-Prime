@@ -1,0 +1,9 @@
+{
+  "train_auc": 0.9975,
+  "official_test_auc": 0.987,
+  "official_test_eer": 0.0606,
+  "n_train_views": 43428,
+  "n_test_views": 6687,
+  "C": 3.0,
+  "note": "video-level identity leakage possible within splits (frames of same video share both sides); official protocol evaluates per-video which we approximate at frame level"
+}

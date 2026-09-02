@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Data (large / regenerable corpora, caches)
+data/
+nohup.out
+*.log
+
+# Trained models + benchmark reports are KEPT in git (2.1MB total,
+# expensive to regenerate: see memory/decisions.md D-006..D-024)
+
+# Vendored service runtime state
+integrations/Argus_Master/backend/data/
+.env
+
+# Local tool binaries (re-downloadable; tools/bin shims ARE tracked)
+tools/*
+!tools/bin/
+.DS_Store
