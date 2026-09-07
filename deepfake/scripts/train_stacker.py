@@ -20,15 +20,15 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.model_selection import train_test_split
 
-MODULE_IDS = ["metadata", "compression_history", "spectral_probe",
-              "real_distribution_probe", "perturbation_probe",
-              "learned_aigc_probe", "learned_face_probe"]
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bench"))
+from channels import active_ids  # noqa: E402
+
 CAPS = ["HIGH", "MODERATE", "LOW"]
 
 
-def featurize(df: pd.DataFrame):
+def featurize(df: pd.DataFrame, module_ids: list):
     cols, names = [], []
-    for m in MODULE_IDS:
+    for m in module_ids:
         v = df[m].astype(float).fillna(0.0).to_numpy()
         r = df[f"{m}_rel"].astype(float).fillna(0.0).to_numpy()
         cols += [v, r]
@@ -41,7 +41,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", nargs="+", required=True)
     ap.add_argument("--out", default="artifacts/p6")
+    ap.add_argument("--modules", default=None,
+                    help="comma-separated module ids; default = channels.active_ids() "
+                         "(core + every registered channel with a joblib on disk)")
     args = ap.parse_args()
+    MODULE_IDS = ([m.strip() for m in args.modules.split(",")] if args.modules
+                  else active_ids())
 
     dfs = []
     for p in args.csv:
@@ -50,7 +55,7 @@ def main() -> int:
         dfs.append(keep[keep["label"].isin([0, 1])])
         print(f"{p}: {len(keep)} rows")
     df = pd.concat(dfs, ignore_index=True).drop_duplicates(subset=["sha"])
-    X, names = featurize(df)
+    X, names = featurize(df, MODULE_IDS)
     y = df["label"].astype(int).to_numpy()
     print(f"stacker dataset: {X.shape}, fakes={y.sum()}")
 

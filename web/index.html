@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARGUS — Deepfake Court</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.152.2/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<style>
+:root{--bg:#04040a;--panel:rgba(255,255,255,.035);--line:rgba(255,255,255,.09);
+--gold:#e8c46a;--gold2:#f7e2a6;--red:#ff4d6d;--teal:#3ef0c5;--txt:#eceae6;--dim:#8f8d99}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;overflow-x:hidden;cursor:none}
+::selection{background:rgba(232,196,106,.25)}
+#bg3d{position:fixed;inset:0;z-index:0}
+.aurora{position:fixed;width:60vw;height:60vw;border-radius:50%;z-index:0;filter:blur(90px);opacity:.16;pointer-events:none}
+.aurora.a{background:radial-gradient(circle,#3a2d08,transparent 60%);top:-20%;left:-15%;animation:d1 26s ease-in-out infinite alternate}
+.aurora.b{background:radial-gradient(circle,#0a2430,transparent 60%);bottom:-25%;right:-15%;animation:d2 32s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(12vw,8vh) scale(1.15)}}
+@keyframes d2{to{transform:translate(-10vw,-9vh) scale(1.1)}}
+.grain{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
+#cur{position:fixed;z-index:99;width:8px;height:8px;border-radius:50%;background:var(--gold);pointer-events:none;mix-blend-mode:screen}
+#curR{position:fixed;z-index:99;width:34px;height:34px;border-radius:50%;border:1px solid rgba(232,196,106,.5);pointer-events:none;transition:width .3s,height .3s}
+.wrap{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:0 32px}
+header{display:flex;align-items:center;justify-content:space-between;padding:26px 0}
+.logo{font-family:'Space Grotesk';font-weight:700;font-size:22px;letter-spacing:.35em;display:flex;align-items:center;gap:12px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold);animation:pl 3s infinite}
+@keyframes pl{50%{box-shadow:0 0 4px var(--gold);opacity:.6}}
+nav{display:flex;gap:28px;font-size:13px;letter-spacing:.18em}
+nav a{color:var(--dim);text-decoration:none;transition:color .3s}
+nav a:hover{color:var(--gold)}
+.chip{font-family:'JetBrains Mono';font-size:10px;border:1px solid var(--line);padding:6px 12px;border-radius:20px;color:var(--dim)}
+.hero{min-height:86vh;display:flex;flex-direction:column;justify-content:center;padding-top:4vh}
+.kicker{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.5em;color:var(--gold);margin-bottom:22px}
+h1{font-family:'Space Grotesk';font-size:clamp(50px,8.5vw,112px);line-height:.95;font-weight:700}
+h1 .thin{color:transparent;-webkit-text-stroke:1px rgba(236,234,230,.35)}
+h1 .gold{background:linear-gradient(120deg,var(--gold2),var(--gold) 55%,#9a7a2e);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{max-width:580px;color:var(--dim);font-weight:300;font-size:17px;line-height:1.75;margin-top:26px}
+.stats{display:flex;gap:44px;margin-top:46px;flex-wrap:wrap}
+.stat .v{font-family:'Space Grotesk';font-size:30px;font-weight:700;color:var(--gold2)}
+.stat .k{font-size:11px;letter-spacing:.25em;color:var(--dim);margin-top:4px}
+section{padding:64px 0}
+.sec-k{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.45em;color:var(--gold);margin-bottom:14px}
+h2{font-family:'Space Grotesk';font-size:clamp(26px,3.6vw,40px);font-weight:700;margin-bottom:32px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:22px;backdrop-filter:blur(18px);position:relative;overflow:hidden}
+.panel::before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.06),transparent 30%);pointer-events:none}
+.dz{border:1.5px dashed rgba(232,196,106,.35);border-radius:22px;padding:56px 30px;text-align:center;transition:all .35s cubic-bezier(.2,.9,.3,1.4);background:rgba(255,255,255,.015)}
+.dz.over{border-color:var(--gold);background:rgba(232,196,106,.06);transform:scale(1.012)}
+.dz .ic{font-size:42px;display:inline-block;filter:drop-shadow(0 0 18px rgba(232,196,106,.4))}
+.dz h3{font-family:'Space Grotesk';font-size:20px;margin:10px 0 8px}
+.dz p{color:var(--dim);font-size:13px}
+.types{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.types span{font-family:'JetBrains Mono';font-size:10px;padding:5px 11px;border:1px solid var(--line);border-radius:14px;color:var(--dim)}
+.btn{display:inline-flex;align-items:center;gap:10px;margin-top:24px;font-family:'Space Grotesk';font-weight:700;font-size:15px;letter-spacing:.12em;color:#100c02;background:linear-gradient(120deg,var(--gold2),var(--gold));border:none;padding:16px 40px;border-radius:14px;cursor:none;box-shadow:0 8px 34px rgba(232,196,106,.28);position:relative;overflow:hidden;transition:transform .2s cubic-bezier(.2,.9,.3,1.6),box-shadow .3s}
+.btn:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 14px 46px rgba(232,196,106,.42)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.row{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:22px}
+.alpha{flex:1;min-width:220px}
+.alpha label{font-family:'JetBrains Mono';font-size:10px;color:var(--dim);letter-spacing:.2em;display:flex;justify-content:space-between}
+input[type=range]{width:100%;accent-color:var(--gold);cursor:none}
+#preview{max-width:220px;border-radius:14px;display:none;margin:14px auto 4px;border:1px solid var(--line)}
+.vgrid{display:grid;grid-template-columns:340px 1fr;gap:22px}
+@media(max-width:900px){.vgrid{grid-template-columns:1fr}}
+.dialbox{display:flex;flex-direction:column;align-items:center;padding:36px 24px}
+.dialwrap{position:relative;width:230px;height:230px}
+.dialwrap svg{transform:rotate(-90deg)}
+.dialval{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dialval .n{font-family:'Space Grotesk';font-size:50px;font-weight:700}
+.dialval .l{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.3em;color:var(--dim)}
+.vtag{margin-top:16px;font-family:'Space Grotesk';font-weight:700;font-size:16px;letter-spacing:.22em;padding:9px 22px;border-radius:12px}
+.vtag.fake{background:rgba(255,77,109,.12);color:var(--red);border:1px solid rgba(255,77,109,.4)}
+.vtag.real{background:rgba(62,240,197,.1);color:var(--teal);border:1px solid rgba(62,240,197,.4)}
+.vtag.abs{background:rgba(232,196,106,.1);color:var(--gold);border:1px solid rgba(232,196,106,.4)}
+.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px;width:100%}
+.mk{border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}
+.mk .v{font-family:'JetBrains Mono';font-size:18px;font-weight:600}
+.mk .k{font-size:10px;letter-spacing:.22em;color:var(--dim);margin-top:5px}
+.egrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
+.ecard{padding:22px;transition:box-shadow .3s}
+.ecard:hover{box-shadow:0 18px 50px rgba(0,0,0,.55)}
+.ecard .top{display:flex;justify-content:space-between;align-items:baseline}
+.ecard .id{font-family:'JetBrains Mono';font-size:12px;color:var(--gold2)}
+.ecard .dir{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.15em}
+.dir.syn{color:var(--red)}.dir.aut{color:var(--teal)}.dir.neu{color:var(--dim)}
+.bar{height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin:16px 0 8px;overflow:hidden;position:relative}
+.bar i{position:absolute;inset:0;border-radius:3px;transform-origin:left;background:linear-gradient(90deg,var(--teal),#777 48%,var(--red))}
+.gauge{display:flex;justify-content:space-between;font-family:'JetBrains Mono';font-size:10px;color:var(--dim)}
+.ecard .claim{margin-top:14px;font-size:12.5px;line-height:1.65;color:var(--dim)}
+.ecard .rel{margin-top:12px;font-family:'JetBrains Mono';font-size:10px;color:var(--gold)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.2em;color:var(--dim);text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
+td.mono{font-family:'JetBrains Mono';font-size:12px}
+tr:hover{background:rgba(255,255,255,.03)}
+footer{padding:46px 0 60px;color:var(--dim);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+footer .mono{font-family:'JetBrains Mono';font-size:11px}
+.scanline{position:fixed;left:0;right:0;height:2px;z-index:5;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;box-shadow:0 0 22px var(--gold)}
+</style>
+
+</head>
+<body>
+<div class="aurora a"></div><div class="aurora b"></div>
+<div class="grain"></div>
+<div id="cur"></div><div id="curR"></div>
+<canvas id="bg3d"></canvas>
+<div class="wrap">
+<header>
+  <div class="logo"><span class="dot"></span>ARGUS</div>
+  <nav><a href="#scan">COURT</a><a href="#evidence">EVIDENCE</a><a href="#history">LEDGER</a></nav>
+  <div class="chip" id="healthChip">court: loading…</div>
+</header>
+</div>
+<div class="wrap hero" id="top">
+  <div class="kicker" data-reveal>NINE-CHANNEL FORENSIC COURT · STACKER v6.5</div>
+  <h1 data-reveal><span class="thin">EVERY PIXEL</span><br><span class="gold">PUT ON TRIAL</span></h1>
+  <p class="sub" data-reveal>Argus fuses nine forensic channels — metadata, compression
+  history, spectral fingerprints, distribution realness, learned AIGC, three
+  specialist heads and a calibrated stacking judge — into a single verdict
+  across image, audio and video. All forensics run on this machine.</p>
+  <div class="stats" data-reveal>
+    <div class="stat"><div class="v">0.985</div><div class="k">MIDJOURNEY EXAM</div></div>
+    <div class="stat"><div class="v">0.949</div><div class="k">FLUX EXAM</div></div>
+    <div class="stat"><div class="v">0.999</div><div class="k">AIGC IN-DOMAIN</div></div>
+    <div class="stat"><div class="v">9</div><div class="k">EVIDENCE CHANNELS</div></div>
+  </div>
+</div>
+<div class="wrap"><section id="scan">
+  <div class="sec-k" data-reveal>// THE COURT IS IN SESSION</div>
+  <h2 data-reveal>Submit an artefact for judgment</h2>
+  <div class="panel" data-reveal style="padding:26px">
+    <div class="dz" id="dz">
+      <div class="ic">👁</div>
+      <h3>Drop image · audio · video</h3>
+      <p>or click to browse — nothing leaves this machine</p>
+      <div class="types"><span>JPG</span><span>PNG</span><span>WEBP</span><span>WAV</span><span>MP3</span><span>MP4</span><span>MOV</span></div>
+      <img id="preview" alt="">
+      <div><button class="btn" id="go" disabled><span>CONVENE THE COURT</span><span>→</span></button></div>
+      <div class="row" style="justify-content:center">
+        <div class="alpha">
+          <label><span>ABSTENTION POLICY α</span><span id="av">0.10 · conservative</span></label>
+          <input type="range" id="alpha" min="0.10" max="0.50" step="0.05" value="0.10">
+        </div>
+      </div>
+    </div>
+  </div>
+</section></div>
+<div class="wrap"><section id="verdictSec" style="display:none">
+  <div class="sec-k">// VERDICT</div>
+  <div class="vgrid">
+    <div class="panel dialbox">
+      <div class="dialwrap">
+        <svg width="230" height="230" viewBox="0 0 230 230">
+          <circle cx="115" cy="115" r="100" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10"/>
+          <circle id="arc" cx="115" cy="115" r="100" fill="none" stroke="url(#g)"
+            stroke-width="10" stroke-linecap="round" stroke-dasharray="628" stroke-dashoffset="628"/>
+          <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#3ef0c5"/><stop offset="1" stop-color="#ff4d6d"/>
+          </linearGradient></defs>
+        </svg>
+        <div class="dialval"><div class="n" id="vnum">0.00</div><div class="l">P( SYNTHETIC )</div></div>
+      </div>
+      <div class="vtag abs" id="vtag">DELIBERATING…</div>
+      <div class="meta">
+        <div class="mk"><div class="v" id="mTrust">–</div><div class="k">TRUST</div></div>
+        <div class="mk"><div class="v" id="mRisk">–</div><div class="k">RISK</div></div>
+        <div class="mk"><div class="v" id="mTime">–</div><div class="k">SECONDS</div></div>
+      </div>
+    </div>
+    <div class="panel" style="padding:26px">
+      <div class="sec-k" style="margin-bottom:10px">// PANEL NOTES</div>
+      <div id="notes" style="color:var(--dim);font-size:13px;line-height:1.8"></div>
+    </div>
+  </div>
+</section></div>
+<div class="wrap"><section id="evidence">
+  <div class="sec-k" data-reveal>// EVIDENCE LEDGER</div>
+  <h2 data-reveal>Nine channels, one judgment</h2>
+  <div class="egrid" id="egrid"></div>
+</section></div>
+<div class="wrap"><section id="history">
+  <div class="sec-k" data-reveal>// COURT LEDGER</div>
+  <h2 data-reveal>Prior verdicts</h2>
+  <div class="panel" style="padding:10px" data-reveal>
+    <table><thead><tr><th>TIME</th><th>ARTEFACT</th><th>KIND</th><th>P(FAKE)</th><th>VERDICT</th><th>TRUST</th></tr></thead>
+    <tbody id="tbody"></tbody></table>
+  </div>
+</section></div>
+<div class="wrap"><footer>
+  <div>ARGUS PRIME — forensic court · all forensics run on this machine</div>
+  <div class="mono">stacker p6v5 · 9 channels · conformal α operator-controlled</div>
+</footer></div>
+<div class="scanline" id="scanline"></div>
+<script>
+/* ============ THREE.JS — the all-seeing iris ============ */
+const IRIS = {state:"idle"};
+(function(){
+  const cv = document.getElementById("bg3d");
+  const renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x04040a, 0.055);
+  const cam = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
+  cam.position.set(0, 0, 9);
+  function resize(){
+    renderer.setSize(innerWidth, innerHeight);
+    cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix();
+  }
+  addEventListener("resize", resize); resize();
+
+  // central lens sphere (fresnel shader)
+  const lensMat = new THREE.ShaderMaterial({
+    uniforms:{ uTime:{value:0}, uCol:{value:new THREE.Color(0xe8c46a)},
+               uMix:{value:0.0} },
+    vertexShader:`varying vec3 vN; varying vec3 vP;
+      void main(){ vN = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position,1.0); vP = mv.xyz;
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader:`uniform float uTime; uniform vec3 uCol; uniform float uMix;
+      varying vec3 vN; varying vec3 vP;
+      void main(){ float fr = pow(1.0 - abs(dot(normalize(vN), normalize(-vP))), 2.2);
+        float sw = 0.5 + 0.5*sin(uTime*1.4 + vP.y*2.0);
+        vec3 base = mix(vec3(0.02,0.02,0.045), uCol*uMix, fr*0.85);
+        gl_FragColor = vec4(base + uCol*fr*sw*0.35*uMix, 0.55 + 0.45*fr); }`,
+    transparent:true
+  });
+  const lens = new THREE.Mesh(new THREE.SphereGeometry(1.9, 64, 64), lensMat);
+  scene.add(lens);
+
+  // particle iris ring
+  const N = 3200, pos = new Float32Array(N*3), rnd = new Float32Array(N);
+  for(let i=0;i<N;i++){
+    const a = Math.random()*Math.PI*2;
+    const r = 2.6 + Math.pow(Math.random(),1.6)*2.6;
+    pos[i*3] = Math.cos(a)*r; pos[i*3+1] = Math.sin(a)*r*0.92;
+    pos[i*3+2] = (Math.random()-0.5)*0.55;
+    rnd[i] = Math.random();
+  }
+  const pg = new THREE.BufferGeometry();
+  pg.setAttribute("position", new THREE.BufferAttribute(pos,3));
+  pg.setAttribute("aRnd", new THREE.BufferAttribute(rnd,1));
+  const pmat = new THREE.ShaderMaterial({
+    uniforms:{ uTime:{value:0}, uCol:{value:new THREE.Color(0xe8c46a)},
+               uSpin:{value:0.12}, uMix:{value:0.25} },
+    vertexShader:`uniform float uTime; uniform float uSpin; attribute float aRnd;
+      varying float vA;
+      void main(){ vec3 p = position; float t = uTime*uSpin*(0.6+aRnd*0.8);
+        float c = cos(t), s = sin(t); p.xy = mat2(c,-s,s,c)*p.xy;
+        p.z += 0.28*sin(uTime*1.2 + aRnd*40.0);
+        vec4 mv = modelViewMatrix * vec4(p,1.0);
+        gl_PointSize = (1.1 + aRnd*2.3) * (9.0/-mv.z);
+        vA = aRnd;
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader:`uniform vec3 uCol; uniform float uMix; varying float vA;
+      void main(){ float d = length(gl_PointCoord - 0.5);
+        if(d > 0.5) discard;
+        float a = smoothstep(0.5, 0.0, d) * (0.35 + 0.65*vA) * (0.4 + 0.6*uMix);
+        gl_FragColor = vec4(uCol, a); }`,
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
+  });
+  const iris = new THREE.Points(pg, pmat);
+  scene.add(iris);
+
+  // scan torus
+  const torus = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.016, 8, 160),
+    new THREE.MeshBasicMaterial({color:0xe8c46a, transparent:true, opacity:0.0}));
+  torus.rotation.x = Math.PI/2.4; scene.add(torus);
+
+  const mouse = {x:0, y:0};
+  addEventListener("pointermove", e=>{
+    mouse.x = (e.clientX/innerWidth)*2-1; mouse.y = (e.clientY/innerHeight)*2-1;
+  });
+  let t0 = performance.now();
+  (function tick(now){
+    const t = (now - t0)/1000;
+    lensMat.uniforms.uTime.value = t; pmat.uniforms.uTime.value = t;
+    lens.rotation.y = t*0.1; lens.rotation.x = Math.sin(t*0.2)*0.1;
+    lens.position.x += (mouse.x*0.9 - lens.position.x)*0.03;
+    lens.position.y += (-mouse.y*0.6 - lens.position.y)*0.03;
+    iris.position.copy(lens.position);
+    torus.position.copy(lens.position);
+    torus.rotation.z = t*(IRIS.state==="scanning"?2.4:0.4);
+    cam.position.x += (mouse.x*0.7 - cam.position.x)*0.02;
+    cam.position.y += (-mouse.y*0.5 - cam.position.y)*0.02;
+    cam.lookAt(0,0,0);
+    renderer.render(scene, cam);
+    requestAnimationFrame(tick);
+  })(t0);
+  addEventListener("resize", resize);
+  IRIS.lensMat = lensMat; IRIS.pmat = pmat; IRIS.torus = torus;
+  IRIS.setVerdict = function(kind){
+    const c = kind==="fake" ? new THREE.Color(0xff4d6d)
+            : kind==="real" ? new THREE.Color(0x3ef0c5)
+            : new THREE.Color(0xe8c46a);
+    lensMat.uniforms.uCol.value = c; pmat.uniforms.uCol.value = c;
+    lensMat.uniforms.uMix.value = kind==="abstain" ? 0.35 : 0.95;
+    pmat.uniforms.uMix.value = kind==="abstain" ? 0.4 : 1.0;
+  };
+  IRIS.scanning = function(on){
+    pmat.uniforms.uSpin.value = on ? 1.1 : 0.12;
+    IRIS.torus.material.opacity = on ? 0.85 : 0.0;
+    if(on){ lensMat.uniforms.uMix.value = 0.7; pmat.uniforms.uMix.value = 0.8; }
+    else { lensMat.uniforms.uMix.value = 0.0; pmat.uniforms.uMix.value = 0.25;
+           lensMat.uniforms.uCol.value = new THREE.Color(0xe8c46a);
+           pmat.uniforms.uCol.value = new THREE.Color(0xe8c46a); }
+  };
+})();
+</script>
+<script>
+/* ============ micro-interactions ============ */
+(function(){
+  const cur = document.getElementById("cur"), ring = document.getElementById("curR");
+  let mx=innerWidth/2, my=innerHeight/2, rx=mx, ry=my;
+  addEventListener("pointermove", e=>{ mx=e.clientX; my=e.clientY;
+    cur.style.left=(mx-4)+"px"; cur.style.top=(my-4)+"px"; });
+  (function loop(){ rx+=(mx-rx)*0.14; ry+=(my-ry)*0.14;
+    ring.style.left=(rx-17)+"px"; ring.style.top=(ry-17)+"px";
+    requestAnimationFrame(loop); })();
+  document.querySelectorAll("a,button,.dz,input[type=range]").forEach(el=>{
+    el.addEventListener("pointerenter",()=>{ ring.style.width="52px"; ring.style.height="52px";
+      ring.style.borderColor="rgba(232,196,106,.9)"; });
+    el.addEventListener("pointerleave",()=>{ ring.style.width="34px"; ring.style.height="34px";
+      ring.style.borderColor="rgba(232,196,106,.5)"; });
+  });
+  const io = new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting){ gsap.to(e.target,{opacity:1,y:0,duration:1,ease:"power3.out"});
+      io.unobserve(e.target); } }),{threshold:.12});
+  document.querySelectorAll("[data-reveal]").forEach(el=>{
+    gsap.set(el,{opacity:0,y:34}); io.observe(el); });
+  gsap.from("header",{opacity:0,y:-24,duration:1.1,ease:"power3.out"});
+})();
+</script>
+<script>
+/* ============ court app ============ */
+(function(){
+  const $ = id => document.getElementById(id);
+  let file = null;
+  const dz = $("dz"), go = $("go"), pv = $("preview");
+  dz.addEventListener("click", ()=>{ const i=document.createElement("input");
+    i.type="file"; i.accept=".jpg,.jpeg,.png,.webp,.bmp,.wav,.flac,.mp3,.ogg,.m4a,.mp4,.mov,.avi,.mkv,.webm";
+    i.onchange = ()=> setFile(i.files[0]); i.click(); });
+  ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev,e=>{
+    e.preventDefault(); dz.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{
+    e.preventDefault(); dz.classList.remove("over"); }));
+  dz.addEventListener("drop", e=> setFile(e.dataTransfer.files[0]));
+  function setFile(f){ if(!f) return; file=f; go.disabled=false;
+    if(f.type.startsWith("image/")){ pv.src=URL.createObjectURL(f);
+      pv.style.display="block"; } else pv.style.display="none"; }
+  $("alpha").addEventListener("input", e=>{
+    const v=+e.target.value;
+    $("av").textContent = v.toFixed(2) + (v<=0.1?" · conservative":v<=0.3?" · balanced":" · committed");
+  });
+  go.addEventListener("click", async ()=>{
+    if(!file) return;
+    go.disabled = true; go.querySelector("span").textContent = "THE COURT DELIBERATES…";
+    IRIS.scanning(true);
+    gsap.to("#scanline",{opacity:.9,duration:.3});
+    const fd = new FormData(); fd.append("file", file);
+    fd.append("alpha", $("alpha").value);
+    try{
+      const r = await fetch("/api/detect",{method:"POST",body:fd});
+      if(!r.ok) throw new Error((await r.text()).slice(0,300));
+      render(await r.json());
+    }catch(err){
+      $("verdictSec").style.display="block";
+      $("notes").textContent = "The court could not convene: " + err.message;
+    }
+    IRIS.scanning(false);
+    gsap.to("#scanline",{opacity:0,duration:.6});
+    go.disabled = false; go.querySelector("span").textContent = "CONVENE THE COURT";
+  });
+  window.__renderVerdict = render;
+  function render(v){
+    $("verdictSec").style.display = "block";
+    const pf = +v.p_fake_fused;
+    gsap.to("#arc",{strokeDashoffset:628*(1-pf),duration:1.6,ease:"power3.inOut"});
+    const cnt = {v:0};
+    gsap.to(cnt,{v:pf,duration:1.6,ease:"power3.inOut",
+      onUpdate:()=>{ $("vnum").textContent = cnt.v.toFixed(2); }});
+    const state = v.abstained ? "abs" : (pf>=0.5 ? "fake" : "real");
+    const tag = $("vtag");
+    tag.className = "vtag "+state;
+    tag.textContent = v.abstained ? "COURT ABSTAINS — UNCERTAIN"
+      : state==="fake" ? "VERDICT: SYNTHETIC / MANIPULATED" : "VERDICT: AUTHENTIC";
+    IRIS.setVerdict(v.abstained ? "abstain" : state);
+    $("mTrust").textContent = (+v.trust).toFixed(2);
+    $("mRisk").textContent = (+v.risk).toFixed(2);
+    $("mTime").textContent = (+v.elapsed_s).toFixed(1);
+    const notes = [];
+    notes.push("Artefact: " + (v.filename||"") + " · kind: " + v.kind);
+    notes.push("Stacker: p6v5 · conformal α: " + (v.alpha ?? "0.10 (default)"));
+    if(v.hypotheses && v.hypotheses.length>1)
+      notes.push("Hypothesis set: " + v.hypotheses.join(" | ")
+        + " → the court withholds a single verdict.");
+    if(v.audio) notes.push("Voice-clone probe: P(fake) " + v.audio.p_fake_audio_mean
+      + " across " + v.audio.segments_analyzed + " segments.");
+    if(!v.modules || !v.modules.length)
+      notes.push("No per-module notes for this artefact kind.");
+    $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");
+    renderModules(v);
+    document.getElementById("verdictSec").scrollIntoView({behavior:"smooth"});
+    loadHistory();
+  }
+  function renderModules(v){
+    const grid = $("egrid"); grid.innerHTML = "";
+    (v.modules||[]).forEach((m,i)=>{
+      const pct = ((m.evidence+1)/2*100).toFixed(1);
+      const dirCls = m.direction==="synthetic"?"syn":m.direction==="authentic"?"aut":"neu";
+      const card = document.createElement("div");
+      card.className = "panel ecard";
+      card.innerHTML = '<div class="top"><span class="id">'+m.id+'</span>'
+        +'<span class="dir '+dirCls+'">'+m.direction.toUpperCase()+'</span></div>'
+        +'<div class="bar"><i style="transform:scaleX(0)"></i></div>'
+        +'<div class="gauge"><span>authentic −1</span><span>evidence '
+        +(m.evidence>=0?'+':'')+m.evidence+'</span><span>+1 synthetic</span></div>'
+        +'<div class="claim">'+(m.claim||"")+'</div>'
+        +'<div class="rel">reliability '+m.reliability+' · confidence '+m.confidence+'</div>';
+      grid.appendChild(card);
+      gsap.to(card.querySelector(".bar i"),
+        {scaleX:pct/100, duration:1.2, delay:.15+i*.09, ease:"power3.inOut"});
+      gsap.from(card,{opacity:0,y:26,duration:.8,delay:.1+i*.09,ease:"power3.out"});
+      card.addEventListener("pointermove", e=>{
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5;
+        card.style.transform = "perspective(900px) rotateY("+(x*7)+"deg) rotateX("+(-y*7)+"deg)";
+      });
+      card.addEventListener("pointerleave", ()=>{ card.style.transform="perspective(900px)"; });
+    });
+  }
+  async function loadHistory(){
+    try{
+      const h = await (await fetch("/api/history?limit=12")).json();
+      const tb = $("tbody");
+      tb.innerHTML = h.map(r=>{
+        const pf=+r.p_fake, st = r.abstained?"ABSTAIN":(pf>=0.5?"FAKE":"REAL");
+        const cls = r.abstained?"abs":(pf>=0.5?"fake":"real");
+        const t = new Date(r.ts*1000).toLocaleTimeString();
+        return "<tr><td class='mono'>"+t+"</td><td>"+(r.filename||"—")+"</td><td>"
+          +r.kind+"</td><td class='mono'>"+pf.toFixed(3)+"</td><td><span class='vtag "
+          +cls+"' style='padding:3px 10px;font-size:11px'>"+st+"</span></td><td class='mono'>"
+          +(+r.trust).toFixed(2)+"</td></tr>";
+      }).join("") || "<tr><td colspan='6' style='color:var(--dim)'>— no verdicts yet</td></tr>";
+    }catch(e){}
+  }
+  loadHistory();
+  fetch("/api/health").then(r=>r.json()).then(h=>{
+    $("healthChip").textContent = "court: " + h.status + " · " + h.n_modules + " channels";
+  }).catch(()=>{ $("healthChip").textContent = "court: offline"; });
+})();
+</script>
+</body>
+</html>

@@ -46,9 +46,14 @@ class LearnedFaceProbe(EvidenceModule):
     module_id = "learned_face_probe"
     version = "0.1.0"
 
-    def __init__(self, probe_path):
+    def __init__(self, probe_path, module_id=None, provenance="blended-face pseudo-fakes"):
+        """module_id/provenance: override when the same architecture serves a
+        different trained head (e.g. learned_ffpp_probe trained on FF++ c23)."""
         import joblib
         self.probe = joblib.load(probe_path)
+        if module_id:
+            self.module_id = module_id
+        self.provenance = provenance
 
     def assess(self, ctx, d: DegradationState, base_reliability: float) -> ModuleOutput:
         face = crop_largest_face(ctx.pil)
@@ -78,7 +83,7 @@ class LearnedFaceProbe(EvidenceModule):
                 description=f"Face-crop CLIP probe: P(manipulated)={p_fake:.3f}",
                 strength=min(1.0, abs(e) + 0.15),
                 checkable_claim=(f"Largest detected face cropped and scored by frozen "
-                                 f"CLIP ViT-L/14 linear head trained on blended-face "
-                                 f"pseudo-fakes: P(fake)={p_fake:.3f}"),
+                                 f"CLIP ViT-L/14 linear head trained on {self.provenance}: "
+                                 f"P(fake)={p_fake:.3f}"),
             )],
         )

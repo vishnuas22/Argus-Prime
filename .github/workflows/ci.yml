@@ -1,0 +1,39 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install deps
+        run: pip install numpy pillow scikit-learn scipy pandas pyarrow joblib
+      - name: Syntax check (all python)
+        run: |
+          find . -name '*.py' -not -path './.venv/*' -not -path './integrations/Argus_Master/.git/*' \
+            | xargs -I{} python -c "import ast; ast.parse(open('{}').read())"
+      - name: Channel registry contract
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "deepfake/bench")
+          from channels import CORE_IDS, OPTIONAL_CHANNELS, active_ids
+          assert len(CORE_IDS) == 5, CORE_IDS
+          for cid, entry in OPTIONAL_CHANNELS.items():
+              assert "factory" in entry and "joblib" in entry, cid
+          print("registry OK:", active_ids())
+          PY
+      - name: Stacker meta contract
+        run: |
+          python - <<'PY'
+          import json, glob
+          metas = glob.glob("artifacts/p6*/stacker_meta.json")
+          assert metas, "no stacker meta found"
+          for m in metas:
+              d = json.load(open(m))
+              assert d["module_ids"] and d["feature_names"], m
+              assert len(d["feature_names"]) == 2 * len(d["module_ids"]) + 3, m
+              print(m, "->", len(d["module_ids"]), "modules OK")
+          PY

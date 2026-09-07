@@ -52,9 +52,13 @@ class LearnedAIGCProbe(EvidenceModule):
     module_id = "learned_aigc_probe"
     version = "0.1.0"
 
-    def __init__(self, probe_path: Path):
+    def __init__(self, probe_path: Path, module_id: str | None = None,
+                 provenance: str = "COCO-reals vs SD1.5-fakes with jpeg75/resize75 views"):
         import joblib
         self.probe = joblib.load(probe_path)
+        if module_id:
+            self.module_id = module_id
+        self.provenance = provenance
 
     def assess(self, ctx: "ImageContext", d: DegradationState, base_reliability: float) -> ModuleOutput:
         feat = embed(ctx.pil).reshape(1, -1)
@@ -74,7 +78,7 @@ class LearnedAIGCProbe(EvidenceModule):
                 description=f"CLIP ViT-L/14 linear probe: P(AI-generated)={p_fake:.3f}",
                 strength=min(1.0, abs(e) + 0.15),
                 checkable_claim=(f"Frozen CLIP ViT-L/14 features fed to an L2 logistic probe "
-                                 f"(UnivFD-style, trained on COCO-reals vs SD1.5-fakes with "
-                                 f"jpeg75/resize75 views): P(AI-generated)={p_fake:.3f}"),
+                                 f"(UnivFD-style, trained on {self.provenance}): "
+                                 f"P(AI-generated)={p_fake:.3f}"),
             )],
         )

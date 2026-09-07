@@ -27,45 +27,52 @@ VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
 PROBE_AIGC = WS / "artifacts" / "p5_full" / "probe.joblib"
 PROBE_FACE = WS / "artifacts" / "p3_full" / "face_probe.joblib"
-STACKER = WS / "artifacts" / "p6v2" / "stacker.joblib"
+STACKER = WS / "artifacts" / "p6v5" / "stacker.joblib"
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
 
 def build_modules():
+    """Module set derived from the deployed stacker's meta (feature-space
+    contract); falls back to every registered channel when no stacker exists."""
     from registry import get_modules
-    from learned_aigc_probe import LearnedAIGCProbe
-    from learned_face_probe import LearnedFaceProbe
-    modules = list(get_modules(force_reload=True))
-    ids = ["metadata", "compression_history", "spectral_probe",
-           "real_distribution_probe", "perturbation_probe"]
-    if PROBE_AIGC.exists():
-        modules.append(LearnedAIGCProbe(str(PROBE_AIGC)))
-        ids.append("learned_aigc_probe")
-    if PROBE_FACE.exists():
-        modules.append(LearnedFaceProbe(str(PROBE_FACE)))
-        ids.append("learned_face_probe")
+    from channels import CORE_IDS, OPTIONAL_CHANNELS, build as build_channels
+    import json
+    ids = None
+    if STACKER.exists():
+        meta_p = STACKER.with_name("stacker_meta.json")
+        if meta_p.exists():
+            ids = json.loads(meta_p.read_text()).get("module_ids")
+    if ids is None:
+        modules, ids = [], CORE_IDS + list(build_channels("all")[1])
+        core = {m.module_id: m for m in get_modules(force_reload=True)}
+        modules = [core[i] for i in CORE_IDS if i in core]
+        opt, opt_ids = build_channels(",".join(i for i in ids if i in OPTIONAL_CHANNELS))
+        modules += opt
+        ids = CORE_IDS + opt_ids
+        return modules, ids
+    core = {m.module_id: m for m in get_modules(force_reload=True)}
+    modules = [core[i] for i in ids if i in core]
+    opt_ids = [i for i in ids if i in OPTIONAL_CHANNELS]
+    opt, _ = build_channels(",".join(opt_ids))
+    modules += opt
     return modules, ids
 
 
-def detect_image(pil, stacker_clf=None):
+def detect_image(pil, stacker_clfs=None):
     from base import ImageContext
     from triage import DegradationEstimator
     from fusion import fuse
     from run_benchmark import run_image
-    modules, _ = build_modules()
+    modules, mids = build_modules()
     estimator = DegradationEstimator()
     tmp = Path(tempfile.mkdtemp(prefix="argus_detect_"))
     art = Path(tempfile.mkdtemp(prefix="argus_art_"))
     vid = hashlib.sha256(str(pil.size).encode()).hexdigest()[:12]
-    row = run_image(modules, estimator, pil, None, art, vid, tmp, stacker_clf)
+    row = run_image(modules, estimator, pil, None, art, vid, tmp, stacker_clfs)
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
     shutil.rmtree(art, ignore_errors=True)
-    module_scores = {m: row.get(m) for m in
-                     ("metadata", "compression_history", "spectral_probe",
-                      "real_distribution_probe", "perturbation_probe",
-                      "learned_aigc_probe", "learned_face_probe")
-                     if row.get(m) is not None}
+    module_scores = {m: row.get(m) for m in mids if row.get(m) is not None}
     return {
         "p_fake_fused": round(1.0 - row["p_real"], 4),
         "abstained": row["abstained"],
@@ -89,10 +96,23 @@ def detect_video(path: Path, n_frames: int):
     }
 
 
+_AUDIO_MODEL = None
+
+
+def _get_audio_model(device):
+    """Process-level cache so batch video scoring loads XLS-R once."""
+    global _AUDIO_MODEL
+    if _AUDIO_MODEL is None:
+        from transformers import AutoModel, Wav2Vec2FeatureExtractor
+        fe = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-xls-r-300m")
+        model = AutoModel.from_pretrained("facebook/wav2vec2-xls-r-300m").to(device).eval()
+        _AUDIO_MODEL = (fe, model)
+    return _AUDIO_MODEL
+
+
 def detect_audio(path: Path):
     import torch
     import soundfile as sf
-    from transformers import AutoModel, Wav2Vec2FeatureExtractor
     import joblib
 
     SR = 16000
@@ -106,8 +126,7 @@ def detect_audio(path: Path):
            [np.pad(wav[:SEG], (0, max(0, SEG - len(wav))))]
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
-    fe = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-xls-r-300m")
-    model = AutoModel.from_pretrained("facebook/wav2vec2-xls-r-300m").to(device).eval()
+    fe, model = _get_audio_model(device)
     bundle = joblib.load(AUDIO_PROBE)
 
     probs = []
@@ -129,6 +148,10 @@ def detect_audio(path: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--alpha", default=None, type=float, metavar="A",
+                    help="abstention policy: conformal alpha (vendored default 0.10 "
+                         "commits at top-prob>=0.90; e.g. 0.3 commits at >=0.70 with "
+                         "AUC unchanged on modern exams — see memory D-028)")
     ap.add_argument("file")
     ap.add_argument("--frames", type=int, default=5)
     ap.add_argument("--json", action="store_true")
@@ -137,15 +160,23 @@ def main() -> int:
     path = Path(args.file)
     assert path.exists(), f"no such file: {path}"
     ext = path.suffix.lower()
-    stacker_clf = None
+    if args.alpha is not None:
+        import functools
+        import fusion
+        fusion.conformal_set = functools.partial(fusion.conformal_set, alpha=args.alpha)
+    stacker_clfs = {}
     if STACKER.exists():
         import joblib
-        stacker_clf = joblib.load(STACKER)
+        mids = None
+        meta_p = STACKER.with_name("stacker_meta.json")
+        if meta_p.exists():
+            mids = json.loads(meta_p.read_text()).get("module_ids")
+        stacker_clfs[STACKER.parent.name] = (joblib.load(STACKER), mids)
 
     result = {"file": path.name}
     if ext in IMAGE_EXTS:
         from PIL import Image
-        result.update(kind="image", **detect_image(Image.open(path), stacker_clf))
+        result.update(kind="image", **detect_image(Image.open(path), stacker_clfs))
     elif ext in VIDEO_EXTS:
         result.update(kind="video", **detect_video(path, args.frames))
     elif ext in AUDIO_EXTS:

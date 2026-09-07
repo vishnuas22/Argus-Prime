@@ -83,7 +83,7 @@ def collect(paths: list, limit: int):
     return out[:limit]
 
 
-def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, vid: str, tmp_root: Path, stacker_clf=None):
+def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, vid: str, tmp_root: Path, stacker_clfs=None):
     img = apply_variant(pil, spec)
     raw = encode(img, spec)
     sha = hashlib.sha256(raw).hexdigest()[:16]
@@ -107,17 +107,30 @@ def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, v
         row[mo.module_id] = mo.evidence_score if mo.unavailable_reason is None else None
         row[f"{mo.module_id}_ms"] = mo.compute_ms
         row[f"{mo.module_id}_rel"] = mo.reliability_score
-    if stacker_clf is not None:
-        from stacker_judge import StackerJudge
-        core, ranking, contradictions, unavailable, k = fuse(outputs, d, judge=StackerJudge(stacker_clf, d.evidence_capacity))
-    else:
+    from stacker_judge import StackerJudge
+    tags = list((stacker_clfs or {}).keys())
+    if not tags:
         core, ranking, contradictions, unavailable, k = fuse(outputs, d)
-    row["p_real"] = core.probabilities.get("camera_original")
-    row["abstained"] = bool(core.abstained)
-    row["set_size"] = len(core.hypothesis_set)
-    row["trust"] = core.trust_score
-    row["risk"] = core.risk_score
-    row["conflict"] = k
+        row["p_real"] = core.probabilities.get("camera_original")
+        row["abstained"] = bool(core.abstained)
+        row["trust"] = core.trust_score
+        row["risk"] = core.risk_score
+        row["conflict"] = k
+    for tag in tags:
+        clf, mids = stacker_clfs[tag]
+        core, ranking, contradictions, unavailable, k = fuse(
+            outputs, d, judge=StackerJudge(clf, d.evidence_capacity, mids))
+        row[f"p_real_{tag}"] = core.probabilities.get("camera_original")
+        row[f"abstained_{tag}"] = bool(core.abstained)
+        row[f"trust_{tag}"] = core.trust_score
+        row[f"risk_{tag}"] = core.risk_score
+        row[f"conflict_{tag}"] = k
+        if len(tags) == 1:  # legacy single-stacker column names
+            row["p_real"] = row[f"p_real_{tag}"]
+            row["abstained"] = row[f"abstained_{tag}"]
+            row["trust"] = row[f"trust_{tag}"]
+            row["risk"] = row[f"risk_{tag}"]
+            row["conflict"] = k
     shutil.rmtree(adir, ignore_errors=True)
     return row
 
@@ -129,28 +142,56 @@ def main():
     ap.add_argument("--out", default=str(WS / "artifacts/p0_baseline"))
     ap.add_argument("--limit", type=int, default=150, help="per class per variant")
     ap.add_argument("--no-ladder", action="store_true")
+    ap.add_argument("--alpha", default=None, type=float, metavar="A",
+                    help="abstention policy: conformal alpha (default = vendored 0.10; "
+                         "higher A commits more, e.g. 0.3 commits at top-prob>=0.70)")
+    ap.add_argument("--channels", default=None, metavar="SPEC",
+                    help="optional learned channels: 'core' | 'all' | comma ids; "
+                         "overrides legacy --with-learned/--with-face")
     ap.add_argument("--with-learned", default=None, metavar="PROBE_JOBLIB",
                     help="append learned_aigc_probe module using trained probe")
-    ap.add_argument("--with-stacker", default=None, metavar="STACKER_JOBLIB",
-                    help="replace voting fusion with trained P6 stacker")
+    ap.add_argument("--with-stacker", default=None, action="append", metavar="STACKER_JOBLIB",
+                    help="replace voting fusion with trained stacker; repeatable "
+                         "for A/B gating (tag = parent dir name)")
     ap.add_argument("--with-face", default=None, metavar="FACE_PROBE_JOBLIB",
                     help="append learned_face_probe module using trained face probe")
     args = ap.parse_args()
 
-    module_ids = list(MODULE_IDS)
+    if args.alpha is not None:
+        # harness-level abstention policy: rebind the conformal stub's alpha
+        # without touching vendored code (D-009). fuse() resolves conformal_set
+        # in the fusion module namespace at call time.
+        import functools
+        import fusion
+        fusion.conformal_set = functools.partial(fusion.conformal_set, alpha=args.alpha)
+
     modules = get_modules(force_reload=True)
-    stacker_clf = None
-    if args.with_stacker:
-        import joblib
-        stacker_clf = joblib.load(args.with_stacker)
-    if args.with_learned:
-        from learned_aigc_probe import LearnedAIGCProbe
-        modules.append(LearnedAIGCProbe(args.with_learned))
-        module_ids.append("learned_aigc_probe")
-    if getattr(args, "with_face", None):
-        from learned_face_probe import LearnedFaceProbe
-        modules.append(LearnedFaceProbe(args.with_face))
-        module_ids.append("learned_face_probe")
+    from channels import CORE_IDS, build as build_channels
+    learned_modules, learned_ids = [], []
+    if args.channels:
+        learned_modules, learned_ids = build_channels(args.channels)
+    else:
+        if args.with_learned:
+            from learned_aigc_probe import LearnedAIGCProbe
+            learned_modules.append(LearnedAIGCProbe(args.with_learned))
+            learned_ids.append("learned_aigc_probe")
+        if getattr(args, "with_face", None):
+            from learned_face_probe import LearnedFaceProbe
+            learned_modules.append(LearnedFaceProbe(args.with_face))
+            learned_ids.append("learned_face_probe")
+    modules += learned_modules
+    module_ids = CORE_IDS + learned_ids
+
+    import joblib
+    stacker_clfs = {}
+    for sp in (args.with_stacker or []):
+        spath = Path(sp)
+        tag = spath.parent.name or spath.stem
+        mids = None
+        meta_p = spath.with_name("stacker_meta.json")
+        if meta_p.exists():
+            mids = json.loads(meta_p.read_text()).get("module_ids")
+        stacker_clfs[tag] = (joblib.load(sp), mids)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -180,7 +221,7 @@ def main():
             for vname, spec in variants.items():
                 vid = f"{p.stem}_{vname}"
                 try:
-                    row = run_image(modules, estimator, pil, spec, artifact_root, vid, tmp_root, stacker_clf)
+                    row = run_image(modules, estimator, pil, spec, artifact_root, vid, tmp_root, stacker_clfs)
                 except Exception as e:
                     print(f"FAIL {vid}: {e}", flush=True)
                     continue
@@ -201,17 +242,20 @@ def main():
         w.writeheader()
         w.writerows(rows)
 
-    results = compute_results(rows, list(variants.keys()), module_ids)
+    results = compute_results(rows, list(variants.keys()), module_ids,
+                              list(stacker_clfs.keys()))
     (out / "metrics.json").write_text(json.dumps(results, indent=2))
     (out / "REPORT.md").write_text(render_report(results, len(real_paths), len(fake_paths), module_ids))
-    print(json.dumps({v: {k: r[k] for k in ("fused_auc", "fused_eer")}
-                      for k, r in results[v].items()} if False else
-                     {v: results[v]["fusion"] for v in results}, indent=2))
+    fusion_out = {}
+    for v, block in results.items():
+        fusion_out[v] = {k: block[k] for k in block if k.startswith("fusion")}
+    print(json.dumps(fusion_out, indent=2))
     print(f"\nreport: {out/'REPORT.md'}")
 
 
-def compute_results(rows, variant_names, module_ids):
+def compute_results(rows, variant_names, module_ids, stacker_tags=None):
     module_cols = module_ids
+    tags = stacker_tags or []
     results = {}
     for vname in variant_names:
         sub = [r for r in rows if r["variant"] == vname and r["label"] in (0, 1)]
@@ -226,17 +270,30 @@ def compute_results(rows, variant_names, module_ids):
                 "eer": _r4(eer(s, l)),
                 "n": int(mask.sum()),
             }
-        preal = np.array([r["p_real"] if r["p_real"] is not None else np.nan for r in sub])
-        m = ~np.isnan(preal)
-        block["fusion"] = {
-            "auc": _r4(auc(-preal[m], labels[m])),
-            "eer": _r4(eer(-preal[m], labels[m])),
-            "n": int(m.sum()),
-            "brier_p_real": _r4(brier(preal[m], labels[m])),
-            "abstention_rate": _r4(abstention_rate([r["abstained"] for r in sub])),
-            "mean_trust": _r4(np.mean([r["trust"] for r in sub])),
-            "mean_risk": _r4(np.mean([r["risk"] for r in sub])),
-        }
+
+        def fusion_block(key_preal, key_abst, key_trust, key_risk):
+            preal = np.array([r[key_preal] if r.get(key_preal) is not None else np.nan
+                              for r in sub])
+            m = ~np.isnan(preal)
+            return {
+                "auc": _r4(auc(-preal[m], labels[m])),
+                "eer": _r4(eer(-preal[m], labels[m])),
+                "n": int(m.sum()),
+                "brier_p_real": _r4(brier(preal[m], labels[m])),
+                "abstention_rate": _r4(abstention_rate([r[key_abst] for r in sub])),
+                "mean_trust": _r4(np.mean([r[key_trust] for r in sub])),
+                "mean_risk": _r4(np.mean([r[key_risk] for r in sub])),
+            }
+
+        if tags:
+            for tag in tags:
+                blk = fusion_block(f"p_real_{tag}", f"abstained_{tag}",
+                                   f"trust_{tag}", f"risk_{tag}")
+                block[f"fusion_{tag}"] = blk
+                if tag == tags[0]:  # primary tag keeps the legacy key
+                    block["fusion"] = blk
+        else:
+            block["fusion"] = fusion_block("p_real", "abstained", "trust", "risk")
         block["runtime_ms"] = {
             "triage": round(mean_ms([r["triage_ms"] for r in sub]), 1),
             **{c: round(mean_ms([r[f"{c}_ms"] for r in sub]), 1) for c in module_cols},
