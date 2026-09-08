@@ -28,6 +28,11 @@ Format: `- YYYY-MM-DD [tag] mistake → fix/prevention`
 - Qwen2.5-VL emits "**SCENE:** ..." (markdown bold) regardless of the format instructions; naive startswith("SCENE:") matched nothing and fields came back empty while the raw narrative was perfect.
 - Antidote: strip '*', '**' and normalize whitespace before tag matching; always log/keep the raw narrative so parsing failures are visible, not silent.
 
+## [external-eval] Lab-domain numbers are marketing; in-the-wild exams are the truth serum (2026-09-08)
+- The audio branch: EER 3.5% on ASVspoof LA (near-perfect) → AUC 0.559, FPR 0.795 on Deepfake-Eval-2024 in-the-wild audio. A hypochondriac channel that flags 80% of real recordings — invisible to every internal gate because all internal corpora share the lab TTS distribution.
+- Antidote: every deployed branch needs an EXTERNAL exam on data it never touched and that wasn't curated by us; internal gates check regressions, external exams check reality. Threshold sweeps must be part of the exam — AUC hides FPR disasters at the deployed threshold. Record failures as decisions (D-033), never quietly.
+- Also: probe a channel's verdicts at label level before trusting its fusion weight; a channel with FPR>0.5 at 0.5 is harming the court, not helping it.
+
 ## [inversion] A signal-destroying view poisons a probe — test the probe ON the view before adding it to the diet (2026-09-08)
 - Adding screenshot-canvas views to the SD-VAE inversion probe's training collapsed 5-fold CV to 0.43±0.22: the 1280×800 canvas (≈70% flat background + chrome) dominates the round-trip and drives real/fake content to identical feature profiles (per-view AUC 0.46-0.47) — the probe learns view-type noise instead of class signal. The same views are fine for CLIP probes (CV 1.0).
 - Antidote: before laundering a probe's training set with a new view family, measure per-view AUC on the fresh cache. If the view destroys the signal, keep the probe content-only and let the STACKER discount the channel on that domain via dump rows. Also: overwriting a deployed probe joblib in place is risky — retrain from the prior npz to restore (inversion v2 restored: CV 0.7284).
