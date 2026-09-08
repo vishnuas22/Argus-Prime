@@ -14,3 +14,16 @@ Format: `- YYYY-MM-DD [tag] mistake → fix/prevention`
 - 2026-08-24 [ops] Hard shell timeouts kill the whole process group (nohup included) → keep long polls under the limit and spawn long jobs in their own short call.
 - 2026-08-24 [models] Crop pipelines and backbones must agree on input size (256px crop fed to 224px CLIP = silent contract-crash loop) → assert/embed resize at the module boundary, never assume upstream dimensions.
 - 2026-09-02 [ffpp] FF++ joint-training interferes: even 4k balanced FF++ views drop the WildDeepfake exam 0.906→0.790, and full-dose (86k, 65% of train) sinks it to 0.693 — while FF++ in-domain never exceeds 0.868 AUC. Destructive interference in CLIP space, NOT the SANA mix-law (D-012 does not transfer). Before adding any domain to a shared linear probe, run a dose-response sweep; domain count ≠ domain quality.
+
+## [scoreboard] Stale hardcoded stacker default nearly caused a false regression verdict (2026-09-07)
+- scoreboard.py had STACKER hardcoded to p6v3; a 'regression run' silently replayed ancient cached exam CSVs (mj 0.7651 = exact p6v3-era number was the tell).
+- Antidote: no consumer may hardcode an artifact tag — import the wired STACKER from argus_detect (fixed). Before believing any regression, confirm WHICH stacker actually ran (tag in work dir path) and whether scores.csv was fresh (mtime) or cached.
+- Corollary: exact reproduction of a historical score by a 'new' run is a cache-replay signature, not a coincidence.
+
+## [ui/api] Hardcoded artifact tags rot in every consumer, not just benchmark scripts (2026-09-07)
+- After promoting p6v7, the API server (server.py) and the web UI still hardcoded p6v5 in 4 places — the deployed court silently served the old 9-channel stacker for hours. Same disease as the scoreboard bug, different organ.
+- Antidote: single source of truth = argus_detect.STACKER; server health/detect now derive the tag from it and the UI prints what the server reports (v.stacker). When promoting a new stacker, grep ALL consumers for the old tag, not just the bench scripts.
+
+## [vlm] Structured-output parsing must tolerate markdown decoration (2026-09-07)
+- Qwen2.5-VL emits "**SCENE:** ..." (markdown bold) regardless of the format instructions; naive startswith("SCENE:") matched nothing and fields came back empty while the raw narrative was perfect.
+- Antidote: strip '*', '**' and normalize whitespace before tag matching; always log/keep the raw narrative so parsing failures are visible, not silent.

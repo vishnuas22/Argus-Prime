@@ -24,8 +24,7 @@ def load_vae():
     from diffusers import AutoencoderKL
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     vae = AutoencoderKL.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-1.0", subfolder="vae",
-        local_files_only=True, torch_dtype=torch.float32,
+        "stabilityai/sd-vae-ft-mse", torch_dtype=torch.float32,
     ).to(device).eval()
     return vae, torch, device
 

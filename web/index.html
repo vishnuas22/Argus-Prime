@@ -189,7 +189,7 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
 </section></div>
 <div class="wrap"><footer>
   <div>ARGUS PRIME — forensic court · all forensics run on this machine</div>
-  <div class="mono">stacker p6v5 · 9 channels · conformal α operator-controlled</div>
+  <div class="mono">stacker auto-wired · channels meta-driven · conformal α operator-controlled</div>
 </footer></div>
 <div class="scanline" id="scanline"></div>
 <script>
@@ -390,7 +390,7 @@ const IRIS = {state:"idle"};
     $("mTime").textContent = (+v.elapsed_s).toFixed(1);
     const notes = [];
     notes.push("Artefact: " + (v.filename||"") + " · kind: " + v.kind);
-    notes.push("Stacker: p6v5 · conformal α: " + (v.alpha ?? "0.10 (default)"));
+    notes.push("Stacker: " + (v.stacker || "deployed") + " · conformal α: " + (v.alpha ?? "0.10 (default)"));
     if(v.hypotheses && v.hypotheses.length>1)
       notes.push("Hypothesis set: " + v.hypotheses.join(" | ")
         + " → the court withholds a single verdict.");
@@ -402,6 +402,26 @@ const IRIS = {state:"idle"};
     renderModules(v);
     document.getElementById("verdictSec").scrollIntoView({behavior:"smooth"});
     loadHistory();
+    if(v.kind === "image" && !v.abstained){
+      notes.push("<i>Forensic analyst is examining the scene…</i>");
+      $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");
+      const xfd = new FormData(); xfd.append("file", file);
+      fetch("/api/explain",{method:"POST",body:xfd})
+        .then(r=> r.ok ? r.json() : null)
+        .then(x=>{
+          if(!x) { notes.push("Analyst report unavailable."); }
+          else {
+            notes.push("<b>ANALYST REPORT</b> — scene: "+ (x.scene||"n/a"));
+            if(x.lighting) notes.push("Lighting: "+x.lighting);
+            if(x.subjects) notes.push("Subjects: "+x.subjects);
+            if(x.text) notes.push("Text: "+x.text);
+            notes.push("<b>Unusual:</b> "+(x.unusual||"none observed")
+              +" <i>("+x.model+", "+x.elapsed_s+"s"+(x.cached?", cached":"")+")</i>");
+          }
+          $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");
+        })
+        .catch(()=>{});
+    }
   }
   function renderModules(v){
     const grid = $("egrid"); grid.innerHTML = "";

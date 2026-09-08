@@ -29,7 +29,15 @@ import numpy as np
 WS = Path(__file__).resolve().parents[2]
 PY = WS / ".venv" / "bin" / "python"
 BENCH = WS / "deepfake" / "bench" / "run_benchmark.py"
-OLD_STACKER = WS / "artifacts" / "p6v2" / "stacker.joblib"
+def _wired_stacker() -> Path:
+    """Incumbent stacker = the wired court's stacker, never a hardcoded tag."""
+    import sys
+    sys.path.insert(0, str(WS / "deepfake"))
+    from argus_detect import STACKER
+    return STACKER
+
+
+OLD_STACKER = None  # resolved lazily in main() (imports are heavy at module load)
 
 # (dump name, real dir, fake dir, per-class limit) — mirrors the stkv2 recipe
 CORPORA = [
@@ -41,6 +49,9 @@ CORPORA = [
     # on out-of-family inputs (D-026 lesson: FLUX gate caught MJ-probe drift)
     ("mj_train", "data/corpora/mj_train/real", "data/corpora/mj_train/fake", 100),
     ("flux_train", "data/corpora/mj_train/real", "data/corpora/flux_train/fake", 100),
+    # user-input-distribution domain: screenshot views (D-032 r6) — stacker must
+    # learn that canvas letterboxing + chrome + q60 re-encode is NOT fake evidence
+    ("shot_aug", "data/corpora/shot_aug/real", "data/corpora/shot_aug/fake", 100),
 ]
 
 GATES = [  # (gate name, real dir, fake dir)
@@ -157,15 +168,16 @@ def main() -> int:
                     choices=["all", "dump", "train", "gate", "verdict"])
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--work", default=None, help="work dir (default artifacts/restack_r1)")
-    ap.add_argument("--old", default=str(OLD_STACKER),
-                    help="incumbent stacker for A/B gates")
+    ap.add_argument("--old", default=None,
+                    help="incumbent stacker for A/B gates (default: argus_detect.STACKER)")
     ap.add_argument("--promote-to", default="p6v3",
                     help="artifact dir name for promotion (on PASS + --promote)")
     ap.add_argument("--promote", action="store_true",
                     help="on PASS, copy candidate to artifacts/<promote-to>/")
     args = ap.parse_args()
 
-    old_stacker = Path(args.old)
+    old_stacker = Path(args.old) if args.old else _wired_stacker()
+    print(f"[main] incumbent stacker: {old_stacker}", flush=True)
     old_tag = old_stacker.parent.name
     work = Path(args.work) if args.work else (
         WS / "artifacts" / ("restack_smoke" if args.smoke else "restack_r1"))

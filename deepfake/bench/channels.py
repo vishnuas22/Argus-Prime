@@ -39,10 +39,20 @@ def _aigc_factory(joblib_path, module_id=None, provenance=None):
     return LearnedAIGCProbe(joblib_path, **kw)
 
 
+def _inversion_factory(joblib_path, module_id=None, provenance=None):
+    from learned_inversion_probe import LearnedInversionProbe
+    kw = {}
+    if module_id:
+        kw["module_id"] = module_id
+    if provenance:
+        kw["provenance"] = provenance
+    return LearnedInversionProbe(joblib_path, **kw)
+
+
 OPTIONAL_CHANNELS = {
     "learned_aigc_probe": {
         "factory": _aigc_factory,
-        "joblib": WS / "artifacts/p5_full/probe.joblib",
+        "joblib": WS / "artifacts/aigc_shot_v2/probe.joblib",
         "description": "frozen CLIP ViT-L/14 linear probe (AIGC, multi-family)",
     },
     "learned_face_probe": {
@@ -61,6 +71,11 @@ OPTIONAL_CHANNELS = {
                                            provenance="Midjourney v5 fakes vs external reals"),
         "joblib": WS / "artifacts/p7_mj/probe.joblib",
         "description": "CLIP Midjourney-v5 specialist head (D-026 follow-up channel)",
+    },
+    "learned_inversion_probe": {
+        "factory": lambda p: _inversion_factory(p),
+        "joblib": WS / "artifacts/inversion_probe/inversion_probe.joblib",
+        "description": "SD-VAE round-trip inversion-error probe (generator-agnostic, D-029 Layer-2)",
     },
 }
 

@@ -18,6 +18,7 @@ from pathlib import Path
 WS = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WS / "deepfake"))
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
+sys.path.insert(0, str(WS / "deepfake" / "api"))
 sys.path.insert(0, str(WS / "integrations" / "Argus_Master" / "backend"))
 
 import os
@@ -38,18 +39,21 @@ _state = {}
 
 
 def init_court():
-    """Preload stacker + channel modules once (meta-driven, matches CLI)."""
+    """Preload stacker + channel modules once (meta-driven, matches CLI).
+
+    The stacker path comes from argus_detect.STACKER — the wired court —
+    never hardcoded (same lesson as the scoreboard p6v3 cache incident)."""
     import joblib
-    from argus_detect import build_modules
+    from argus_detect import build_modules, STACKER
     from triage import DegradationEstimator
     mids = None
-    meta = WS / "artifacts" / "p6v5" / "stacker_meta.json"
+    meta = STACKER.parent / "stacker_meta.json"
     if meta.exists():
         mids = json.loads(meta.read_text()).get("module_ids")
     modules, ids = build_modules()
     _state["modules"] = modules
     _state["ids"] = ids
-    _state["clf"] = joblib.load(WS / "artifacts" / "p6v5" / "stacker.joblib")
+    _state["clf"] = joblib.load(STACKER)
     _state["mids"] = mids or ids
     _state["estimator"] = DegradationEstimator()
     DB.parent.mkdir(parents=True, exist_ok=True)
@@ -125,8 +129,10 @@ def index():
 
 @app.get("/api/health")
 def health():
+    from argus_detect import STACKER
     return {"status": "ok", "channels": _state.get("ids", []),
-            "stacker": "artifacts/p6v5", "n_modules": len(_state.get("modules", []))}
+            "stacker": "artifacts/" + STACKER.parent.name,
+            "n_modules": len(_state.get("modules", []))}
 
 
 @app.get("/api/history")
@@ -181,11 +187,39 @@ async def detect(file: UploadFile = File(...), alpha: float = None):
             raise HTTPException(400, f"unsupported type {ext}")
     finally:
         shutil.rmtree(tmp.parent, ignore_errors=True)
+    from argus_detect import STACKER
     v.update({"kind": kind, "filename": file.filename,
+              "stacker": STACKER.parent.name,
               "elapsed_s": round(time.time() - t0, 2), "alpha": alpha})
     try:
         log_verdict(file.filename, kind, v, alpha)
     except Exception:
         pass
     return v
+
+
+@app.post("/api/explain")
+async def explain(file: UploadFile = File(...)):
+    """Layer-1 explanation engine: neutral VLM narration of an image (D-031).
+
+    Not evidence — the court never sees this. Human-readable observations
+    attached to an already-rendered verdict. Cached by image hash."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in IMAGE_EXTS:
+        raise HTTPException(400, "explain supports images only")
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "empty file")
+    tmp = Path(tempfile.mkdtemp(prefix="argus_ex_")) / f"f{ext}"
+    tmp.write_bytes(data)
+    try:
+        from PIL import Image
+        from vlm_explain import explain_image
+        pil = Image.open(tmp)
+        pil.load()
+        return explain_image(pil.convert("RGB"), save_path=tmp)
+    except Exception as e:
+        raise HTTPException(500, f"explain failed: {e}")
+    finally:
+        shutil.rmtree(tmp.parent, ignore_errors=True)
 

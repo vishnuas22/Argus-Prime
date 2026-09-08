@@ -26,6 +26,22 @@ def to_tensor(pil: Image.Image) -> "torch.Tensor":
     return torch.from_numpy(arr.transpose(2, 0, 1))
 
 
+def _shot_canvas(pil: Image.Image) -> Image.Image:
+    """Browser-window screenshot simulation: 1280x800 canvas, chrome bar, center fit."""
+    cw, ch, chrome = 1280, 800, 60
+    avail = ch - chrome
+    img = pil.convert("RGB")
+    scale = min(cw / img.width, avail / img.height, 1.0)
+    img = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.LANCZOS)
+    canvas = Image.new("RGB", (cw, ch), (240, 240, 245))
+    from PIL import ImageDraw
+    d = ImageDraw.Draw(canvas)
+    d.rectangle([0, 0, cw, chrome], fill=(52, 101, 164))
+    d.rectangle([90, 16, cw - 90, chrome - 16], fill=(255, 255, 255))
+    canvas.paste(img, ((cw - img.width) // 2, chrome + (avail - img.height) // 2))
+    return canvas
+
+
 def views(pil: Image.Image):
     yield "clean", pil
     buf = io.BytesIO()
@@ -33,6 +49,12 @@ def views(pil: Image.Image):
     yield "jpeg75", Image.open(buf)
     w, h = pil.size
     yield "resize75", pil.resize((max(64, int(w * .75)), max(64, int(h * .75))), Image.BILINEAR)
+    # screenshot family (D-032): canvas PNG + recompressed screenshot JPEG
+    shot = _shot_canvas(pil)
+    yield "shot", shot
+    buf2 = io.BytesIO()
+    shot.save(buf2, "JPEG", quality=60)
+    yield "shot_q60", Image.open(buf2)
 
 
 def main() -> int:
@@ -40,7 +62,7 @@ def main() -> int:
     ap.add_argument("indir")
     ap.add_argument("outnpz")
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--views", default="clean,jpeg75,resize75")
+    ap.add_argument("--views", default="clean,jpeg75,resize75,shot,shot_q60")
     args = ap.parse_args()
     VIEWS = [v.strip() for v in args.views.split(",") if v.strip()]
 

@@ -19,7 +19,10 @@ WS = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
 from restack import run_bench, build_ffpp_gate, auc_from_scores  # noqa: E402
 
-STACKER = WS / "artifacts" / "p6v3" / "stacker.joblib"
+# The deployed court stacker — imported from argus_detect so the scoreboard
+# always verifies what is actually wired (D-024: no consumer hardcodes a tag).
+sys.path.insert(0, str(WS / "deepfake"))
+from argus_detect import STACKER  # noqa: E402
 GOLDEN = WS / "artifacts" / "golden.json"
 WORK = WS / "artifacts" / "scoreboard"
 TOL = -0.01  # allowed AUC drop vs golden (sampling noise headroom)
