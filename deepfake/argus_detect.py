@@ -27,7 +27,7 @@ VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
 PROBE_AIGC = WS / "artifacts" / "p5_full" / "probe.joblib"
 PROBE_FACE = WS / "artifacts" / "p3_full" / "face_probe.joblib"
-STACKER = WS / "artifacts" / "p6v7" / "stacker.joblib"
+STACKER = WS / "artifacts" / "p6v8" / "stacker.joblib"
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
 

@@ -27,3 +27,7 @@ Format: `- YYYY-MM-DD [tag] mistake → fix/prevention`
 ## [vlm] Structured-output parsing must tolerate markdown decoration (2026-09-07)
 - Qwen2.5-VL emits "**SCENE:** ..." (markdown bold) regardless of the format instructions; naive startswith("SCENE:") matched nothing and fields came back empty while the raw narrative was perfect.
 - Antidote: strip '*', '**' and normalize whitespace before tag matching; always log/keep the raw narrative so parsing failures are visible, not silent.
+
+## [inversion] A signal-destroying view poisons a probe — test the probe ON the view before adding it to the diet (2026-09-08)
+- Adding screenshot-canvas views to the SD-VAE inversion probe's training collapsed 5-fold CV to 0.43±0.22: the 1280×800 canvas (≈70% flat background + chrome) dominates the round-trip and drives real/fake content to identical feature profiles (per-view AUC 0.46-0.47) — the probe learns view-type noise instead of class signal. The same views are fine for CLIP probes (CV 1.0).
+- Antidote: before laundering a probe's training set with a new view family, measure per-view AUC on the fresh cache. If the view destroys the signal, keep the probe content-only and let the STACKER discount the channel on that domain via dump rows. Also: overwriting a deployed probe joblib in place is risky — retrain from the prior npz to restore (inversion v2 restored: CV 0.7284).
