@@ -27,7 +27,7 @@ VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
 PROBE_AIGC = WS / "artifacts" / "p5_full" / "probe.joblib"
 PROBE_FACE = WS / "artifacts" / "p3_full" / "face_probe.joblib"
-STACKER = WS / "artifacts" / "p6v8" / "stacker.joblib"
+STACKER = WS / "artifacts" / "p6v9" / "stacker.joblib"
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
 
@@ -58,7 +58,7 @@ def build_modules():
     return modules, ids
 
 
-def detect_image(pil, stacker_clfs=None):
+def detect_image(pil, stacker_clfs=None, original_raw: bytes | None = None):
     from base import ImageContext
     from triage import DegradationEstimator
     from fusion import fuse
@@ -68,7 +68,8 @@ def detect_image(pil, stacker_clfs=None):
     tmp = Path(tempfile.mkdtemp(prefix="argus_detect_"))
     art = Path(tempfile.mkdtemp(prefix="argus_art_"))
     vid = hashlib.sha256(str(pil.size).encode()).hexdigest()[:12]
-    row = run_image(modules, estimator, pil, None, art, vid, tmp, stacker_clfs)
+    row = run_image(modules, estimator, pil, None, art, vid, tmp, stacker_clfs,
+                    original_raw=original_raw)
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
     shutil.rmtree(art, ignore_errors=True)
@@ -176,7 +177,8 @@ def main() -> int:
     result = {"file": path.name}
     if ext in IMAGE_EXTS:
         from PIL import Image
-        result.update(kind="image", **detect_image(Image.open(path), stacker_clfs))
+        result.update(kind="image", **detect_image(Image.open(path), stacker_clfs,
+                                                   original_raw=path.read_bytes()))
     elif ext in VIDEO_EXTS:
         result.update(kind="video", **detect_video(path, args.frames))
     elif ext in AUDIO_EXTS:

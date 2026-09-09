@@ -77,7 +77,20 @@ OPTIONAL_CHANNELS = {
         "joblib": WS / "artifacts/inversion_probe/inversion_probe.joblib",
         "description": "SD-VAE round-trip inversion-error probe (generator-agnostic, D-029 Layer-2)",
     },
+    "provenance_probe": {
+        "factory": lambda p: _provenance_factory(p),
+        "joblib": WS / "artifacts/provenance_probe/config.joblib",
+        "description": "C2PA Content Credentials manifest reader (Layer-3, D-034; deterministic, no training)",
+    },
 }
+
+
+def _provenance_factory(config_path, module_id=None):
+    from provenance_probe import ProvenanceProbe
+    kw = {}
+    if module_id:
+        kw["module_id"] = module_id
+    return ProvenanceProbe(config_path, **kw)
 
 
 def optional_ids():

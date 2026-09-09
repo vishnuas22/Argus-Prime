@@ -35,6 +35,7 @@ class ImageContext:
     verdict_id: str
     artifact_dir: Path  # /app/backend/artifacts/{verdict_id}
     src_path: Optional[Path] = None  # temp on-disk copy (deleted post-pipeline)
+    original_raw: Optional[bytes] = None  # bytes exactly as ingested (pre-re-encode; provenance reads these)
 
     def artifact_rel(self, filename: str) -> str:
         return f"artifacts/{self.verdict_id}/{filename}"

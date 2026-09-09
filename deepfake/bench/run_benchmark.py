@@ -83,7 +83,7 @@ def collect(paths: list, limit: int):
     return out[:limit]
 
 
-def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, vid: str, tmp_root: Path, stacker_clfs=None):
+def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, vid: str, tmp_root: Path, stacker_clfs=None, original_raw: bytes | None = None):
     img = apply_variant(pil, spec)
     raw = encode(img, spec)
     sha = hashlib.sha256(raw).hexdigest()[:16]
@@ -94,7 +94,8 @@ def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, v
     src_path.write_bytes(raw)
     ctx = ImageContext(pil=img.copy(), raw_bytes=raw, sha256=sha,
                        fmt="jpeg" if ext == "jpg" else "png",
-                       verdict_id=vid, artifact_dir=adir, src_path=src_path)
+                       verdict_id=vid, artifact_dir=adir, src_path=src_path,
+                       original_raw=original_raw)
     t0 = time.perf_counter()
     d = estimator.estimate(ctx)
     triage_ms = (time.perf_counter() - t0) * 1000
@@ -215,13 +216,14 @@ def main():
             try:
                 pil = Image.open(p)
                 pil.load()
+                file_raw = p.read_bytes()
             except Exception as e:
                 print(f"skip unreadable {p.name}: {e}", flush=True)
                 continue
             for vname, spec in variants.items():
                 vid = f"{p.stem}_{vname}"
                 try:
-                    row = run_image(modules, estimator, pil, spec, artifact_root, vid, tmp_root, stacker_clfs)
+                    row = run_image(modules, estimator, pil, spec, artifact_root, vid, tmp_root, stacker_clfs, original_raw=file_raw)
                 except Exception as e:
                     print(f"FAIL {vid}: {e}", flush=True)
                     continue

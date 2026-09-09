@@ -66,7 +66,7 @@ def init_court():
     con.close()
 
 
-def run_court(pil, alpha=None):
+def run_court(pil, alpha=None, original_raw: bytes | None = None):
     """Full court pass; returns verdict dict with per-module detail."""
     import functools
     import hashlib
@@ -88,7 +88,8 @@ def run_court(pil, alpha=None):
     src.write_bytes(raw)
     ctx = ImageContext(pil=pil.copy(), raw_bytes=raw,
                        sha256=hashlib.sha256(raw).hexdigest()[:16], fmt="png",
-                       verdict_id=vid, artifact_dir=art, src_path=src)
+                       verdict_id=vid, artifact_dir=art, src_path=src,
+                       original_raw=original_raw)
     d = _state["estimator"].estimate(ctx)
     outputs = [m.run(ctx, d) for m in modules]
     judge = StackerJudge(_state["clf"], d.evidence_capacity, _state["mids"])
@@ -168,7 +169,7 @@ async def detect(file: UploadFile = File(...), alpha: float = None):
             from argus_detect import detect_image
             pil = Image.open(tmp)
             pil.load()
-            v = run_court(pil.convert("RGB"), alpha)
+            v = run_court(pil.convert("RGB"), alpha, original_raw=data)
             kind = "image"
         elif ext in AUDIO_EXTS:
             from argus_detect import detect_audio
