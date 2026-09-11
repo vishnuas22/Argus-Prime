@@ -94,6 +94,7 @@ def detect_video(path: Path, n_frames: int):
         "p_fake_video_combined": combined(vis, aud),
         "visual": vis,
         "audio": {k: v for k, v in (aud or {}).items() if k != "per_segment"},
+        "audio_out_of_coverage": bool((aud or {}).get("out_of_coverage", False)),
     }
 
 
@@ -131,6 +132,7 @@ def detect_audio(path: Path):
     bundle = joblib.load(AUDIO_PROBE)
 
     probs = []
+    znorms = []
     with torch.no_grad():
         for seg in segs:
             if len(seg) < SEG:
@@ -139,11 +141,23 @@ def detect_audio(path: Path):
             h = model(inp).last_hidden_state.mean(dim=1).squeeze(0).float().cpu().numpy()
             x = ((h - bundle["mu"]) / bundle["sd"]).reshape(1, -1)
             probs.append(float(bundle["clf"].predict_proba(x)[0, 1]))
+            znorms.append(float(np.linalg.norm(x)))
     del model
+    # Coverage gate (D-035): embeddings far outside the training manifold mean
+    # the probe is extrapolating — the lab-TTS failure mode measured on
+    # Deepfake-Eval-2024 (AUC 0.559, FPR 0.795 with 0% abstention). Off-manifold
+    # input => the court abstains instead of voting.
+    zmean = float(np.mean(znorms))
+    cov_thresh = bundle.get("coverage_threshold")
+    ooc = bool(cov_thresh and zmean > cov_thresh)
     return {
         "p_fake_audio_mean": round(float(np.mean(probs)), 4),
         "segments_analyzed": len(probs),
         "per_segment": [round(p, 4) for p in probs],
+        "znorm_mean": round(zmean, 1),
+        "coverage_threshold": cov_thresh,
+        "out_of_coverage": ooc,
+        "abstained": ooc,
     }
 
 

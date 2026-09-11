@@ -175,8 +175,12 @@ async def detect(file: UploadFile = File(...), alpha: float = None):
             from argus_detect import detect_audio
             a = detect_audio(tmp)
             kind = "audio"
-            v = {"p_fake_fused": a["p_fake_audio_mean"], "abstained": False,
-                 "trust": 0.7, "risk": 0.0, "modules": [],
+            # D-035: coverage gate — off-manifold audio abstains, never votes
+            v = {"p_fake_fused": a["p_fake_audio_mean"],
+                 "abstained": bool(a.get("out_of_coverage", False)),
+                 "trust": 0.7 if not a.get("out_of_coverage") else 0.2,
+                 "risk": 0.9 if a.get("out_of_coverage") else 0.0,
+                 "modules": [],
                  "audio": {k: v2 for k, v2 in a.items() if k != "per_segment"}}
         elif ext in VIDEO_EXTS:
             from argus_detect import detect_video

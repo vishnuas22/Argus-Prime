@@ -102,7 +102,9 @@ def combined(visual, audio):
     if visual:
         parts.append(visual["mean"])
         parts.append(min(0.99, visual["frac_gt_half"] + visual["std"]))
-    if isinstance(audio, dict) and "p_fake_audio_mean" in audio:
+    # D-035: out-of-coverage audio (off-manifold) must not vote in the fusion
+    if isinstance(audio, dict) and "p_fake_audio_mean" in audio \
+            and not audio.get("out_of_coverage", False):
         parts.append(audio["p_fake_audio_mean"])
     if not parts:
         return None

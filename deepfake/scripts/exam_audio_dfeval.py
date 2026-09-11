@@ -40,12 +40,15 @@ def main():
             a = detect_audio(p)
             pf = a["p_fake_audio_mean"]
             abst = a.get("abstained", False)
+            ooc = a.get("out_of_coverage", False)
+            zn = a.get("znorm_mean")
             nseg = a.get("segments_analyzed", a.get("n_segments", 0))
         except Exception as e:
             print(f"ERR {p.name}: {e}", flush=True)
-            pf, abst, nseg = None, False, 0
+            pf, abst, ooc, zn, nseg = None, False, False, None, 0
         rows.append({"stem": stem, "label": y, "p_fake": pf,
-                     "abstained": abst, "n_segments": nseg})
+                     "abstained": abst, "out_of_coverage": ooc,
+                     "znorm_mean": zn, "n_segments": nseg})
         if (i + 1) % 25 == 0:
             print(f"{i+1}/{len(files)} ({time.time()-t0:.0f}s)", flush=True)
 
@@ -62,12 +65,29 @@ def main():
     auc = roc_auc_score(y, s)
     tpr = float((s[y == 1] >= 0.5).mean())
     fpr = float((s[y == 0] >= 0.5).mean())
-    ab = float(np.mean([r["abstained"] for r in valid]))
+    ooc = np.array([bool(r["out_of_coverage"]) for r in valid])
+    ab = float(np.mean([bool(r["abstained"]) for r in valid]))
+    # among stems the court still votes on (in-coverage), what's the accuracy?
+    in_cov = ~ooc
+    if in_cov.sum() >= 20 and len(set(y[in_cov])) > 1:
+        auc_cov = round(float(roc_auc_score(y[in_cov], s[in_cov])), 4)
+        fpr_cov = round(float((s[in_cov][y[in_cov] == 0] >= 0.5).mean()), 4)
+        tpr_cov = round(float((s[in_cov][y[in_cov] == 1] >= 0.5).mean()), 4)
+    else:
+        auc_cov = fpr_cov = tpr_cov = None
     summary = {
         "benchmark": "Deepfake-Eval-2024 (official test protocol, matched stems)",
         "n": len(valid), "real": int((y == 0).sum()), "fake": int((y == 1).sum()),
-        "auc": round(float(auc), 4), "tpr_at_0.5": round(tpr, 4),
-        "fpr_at_0.5": round(fpr, 4), "abstained_rate": round(ab, 4),
+        "raw_auc_no_gate": round(float(auc), 4),
+        "fpr_at_0.5_no_gate": round(fpr, 4),
+        "tpr_at_0.5_no_gate": round(tpr, 4),
+        "out_of_coverage_rate": round(float(ooc.mean()), 4),
+        "abstained_rate": round(ab, 4),
+        "in_coverage_n": int(in_cov.sum()),
+        "in_coverage_auc": auc_cov,
+        "in_coverage_fpr_at_0.5": fpr_cov,
+        "in_coverage_tpr_at_0.5": tpr_cov,
+        "coverage_gate": "z-norm > train p99.5 (D-035); off-manifold => abstain",
         "date_utc": time.strftime("%Y-%m-%d %H:%M", time.gmtime()),
     }
     (OUT / "audio_exam_summary.json").write_text(json.dumps(summary, indent=2))
