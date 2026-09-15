@@ -3,9 +3,15 @@
   "n": 703,
   "real": 395,
   "fake": 308,
-  "auc": 0.5593,
-  "tpr_at_0.5": 0.8766,
-  "fpr_at_0.5": 0.7949,
-  "abstained_rate": 0.0,
-  "date_utc": "2026-09-08 07:56"
+  "raw_auc_no_gate": 0.5593,
+  "fpr_at_0.5_no_gate": 0.7949,
+  "tpr_at_0.5_no_gate": 0.8766,
+  "out_of_coverage_rate": 0.8393,
+  "abstained_rate": 0.8393,
+  "in_coverage_n": 113,
+  "in_coverage_auc": 0.6204,
+  "in_coverage_fpr_at_0.5": 0.6034,
+  "in_coverage_tpr_at_0.5": 0.6909,
+  "coverage_gate": "z-norm > train p99.5 (D-035); off-manifold => abstain",
+  "date_utc": "2026-09-12 17:27"
 }

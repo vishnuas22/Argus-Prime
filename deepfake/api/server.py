@@ -131,9 +131,18 @@ def index():
 @app.get("/api/health")
 def health():
     from argus_detect import STACKER
-    return {"status": "ok", "channels": _state.get("ids", []),
-            "stacker": "artifacts/" + STACKER.parent.name,
-            "n_modules": len(_state.get("modules", []))}
+    out = {"status": "ok", "channels": _state.get("ids", []),
+           "stacker": "artifacts/" + STACKER.parent.name,
+           "n_modules": len(_state.get("modules", []))}
+    # Scope-labeled benchmark snapshot (D-037 arc): every number carries its
+    # measurement scope — operators must never quote a number without it.
+    bm_path = WS / "artifacts" / "benchmarks.json"
+    if bm_path.exists():
+        try:
+            out["benchmarks"] = json.loads(bm_path.read_text())
+        except Exception as e:
+            out["benchmarks_error"] = str(e)[:120]
+    return out
 
 
 @app.get("/api/history")

@@ -1,0 +1,56 @@
+{
+  "as_of": "2026-09-12",
+  "court": "p6v9 (11 channels)",
+  "note": "Curated scope-labeled snapshot of verified exam results. Every number carries its measurement scope. Regenerate from artifacts/exam_* after each restack.",
+  "image": {
+    "scope_in_domain": {
+      "claim": "detects synthetic images from trained generator families",
+      "verified": {"stacker_val_auc": 0.9952, "source": "artifacts/p6v9/stacker_meta.json"}
+    },
+    "scope_near_domain": {
+      "claim": "survives screenshots and messenger recompression",
+      "verified": {"screenshot_auc": 0.9975, "screenshot_jpg_auc": 0.9943,
+                   "screenshot_real_fpr": 0.022, "screenshot_jpg_real_fpr": 0.044,
+                   "source": "artifacts/exam_launder (verified on p6v8; p6v9 = p6v8 + dormant provenance channel, gates zero-delta)"}
+    },
+    "scope_external_generators": {
+      "claim": "detects unseen commercial/open generators",
+      "verified": {"midjourney_auc": 0.9898, "flux_auc": 0.9554,
+                   "source": "restack_r7 gates (modern_exam corpora, external to training)"},
+      "caveats": ["probes are generator-keyed: real_distribution_probe flips direction across generators (D-026)",
+                   "midjourney-family was a documented soft spot fixed only by adding MJ training dumps (D-027)"]
+    },
+    "scope_wild": {
+      "claim": "NOT YET MEASURED on in-the-wild images (Deepfake-Eval-2024 image set)",
+      "status": "blocked_on_hf_gate_approval",
+      "coverage_gate": "image-side coverage via CLIP z-norm measured NON-VIABLE (D-037) — do not claim OOD protection"
+    }
+  },
+  "audio": {
+    "status": "COVERAGE-GATED / UNTRUSTED for in-the-wild audio (D-033/D-035/D-036)",
+    "scope_in_domain": {
+      "claim": "detects ASVspoof-2019-style lab TTS/vocoder attacks",
+      "verified": {"val_eer": 0.035, "source": "artifacts/p4/train_meta.json"}
+    },
+    "scope_near_domain": {
+      "claim": "ASVspoof 2021 LA (held-out attacks)",
+      "verified": {"auc": 0.912, "eer": 0.172, "source": "artifacts/exam_audio_2021 (D-028)"}
+    },
+    "scope_external_wild": {
+      "claim": "NOT CLAIMED — fails on in-the-wild audio",
+      "verified": {"raw_auc_no_gate": 0.5593, "fpr_at_0.5_no_gate": 0.7949,
+                   "coverage_gate_abstention": 0.839,
+                   "in_coverage_residue_auc": 0.6204,
+                   "source": "artifacts/exam_dfeval/audio_exam_summary.json"},
+      "r8_retraining_attempt": "FAILED and reverted (D-036): synthetic degradation carries no class information"
+    }
+  },
+  "video": {
+    "scope_legacy": {
+      "claim": "detects face-swap video forgeries (DeepfakeTIMIT/CDF era)",
+      "verified": {"celebdf_auc": 0.952, "source": "D-022"},
+      "caveats": ["modern video generators (Sora/Veo era) untested",
+                   "audio contribution now coverage-gated (D-035)"]
+    }
+  }
+}
