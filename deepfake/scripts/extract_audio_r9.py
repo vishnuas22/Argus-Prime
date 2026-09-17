@@ -68,11 +68,11 @@ def main():
             print(f"[{i+1}/{len(files)}] {rate:.1f} files/s", flush=True)
 
     for split in ("train", "val"):
-        np.savez_compressed(OUTDIR / f"r8_{split}.npz", **caches[split])
-        (OUTDIR / f"r8_{split}.labels.json").write_text(json.dumps(labels[split]))
+        np.savez_compressed(OUTDIR / f"r9_{split}.npz", **caches[split])
+        (OUTDIR / f"r9_{split}.labels.json").write_text(json.dumps(labels[split]))
         n = len(caches[split])
         nf = sum(1 for v in labels[split].values() if v == 1)
-        print(f"{split}: {n} vectors ({nf} fake) -> r8_{split}.npz", flush=True)
+        print(f"{split}: {n} vectors ({nf} fake) -> r9_{split}.npz", flush=True)
     print(f"done ({bad} unreadable)", flush=True)
     return 0
 
