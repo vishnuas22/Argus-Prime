@@ -29,12 +29,14 @@
   "audio": {
     "status": "COVERAGE-GATED / UNTRUSTED for in-the-wild audio (D-033/D-035/D-036)",
     "scope_in_domain": {
-      "claim": "detects ASVspoof-2019-style lab TTS/vocoder attacks",
-      "verified": {"val_eer": 0.035, "source": "artifacts/p4/train_meta.json"}
+      "claim": "historical D-019-era ASVspoof 2019 LA eval EER 3.5%",
+      "verified": {"val_eer": 0.035, "source": "artifacts/p4/train_meta.json",
+                   "note": "artifact file shows 0.0; original eval-set number per D-019"}
     },
     "scope_near_domain": {
       "claim": "ASVspoof 2021 LA (held-out attacks)",
-      "verified": {"auc": 0.912, "eer": 0.172, "source": "artifacts/exam_audio_2021 (D-028)"}
+      "verified": {"auc": 0.912, "eer": 0.172, "source": "artifacts/exam_audio_2021 (D-028)",
+                   "note": "historical D-028, artifact overwritten by r9 run 2026-09-15; superseded"}
     },
     "scope_external_wild": {
       "claim": "NOT CLAIMED — fails on in-the-wild audio",
@@ -46,9 +48,11 @@
     }
   },
   "video": {
+    "status": "UNTRUSTED for in-the-wild video (n=39 FF++ exam only, no video stacker)",
     "scope_legacy": {
       "claim": "detects face-swap video forgeries (DeepfakeTIMIT/CDF era)",
-      "verified": {"celebdf_auc": 0.952, "source": "D-022"},
+      "verified": {"celebdf_auc": 0.952, "source": "D-022",
+                   "note": "prose-only (D-022); no artifact on disk"},
       "caveats": ["modern video generators (Sora/Veo era) untested",
                    "audio contribution now coverage-gated (D-035)"]
     }

@@ -7,12 +7,13 @@ Stages (resumable via --stage):
   3. GATE   A/B old vs candidate stacker on held-out gate sets in ONE pass:
             aigc (eval_real/eval_fake), cdf (face exam), ffpp (face exam)
   4. VERDICT  PROMOTE if AIGC + CDF gates hold; ffpp reported as gain signal.
-            --promote copies the candidate to artifacts/p6v3/ (never auto-wired).
+            --promote copies the candidate to artifacts/<promote-to>/ (explicit
+            tag required via --promote-to; never auto-wired).
 
 Usage:
   .venv/bin/python deepfake/scripts/restack.py [--gate-limit 100] [--smoke]
   .venv/bin/python deepfake/scripts/restack.py --stage gate
-  .venv/bin/python deepfake/scripts/restack.py --stage verdict --promote
+  .venv/bin/python deepfake/scripts/restack.py --stage verdict --promote --promote-to p6v10
 """
 import argparse
 import csv
@@ -139,6 +140,13 @@ def auc_from_scores(csv_path, tag):
     return float(roc_auc_score(y, s)), len(y)
 
 
+def _bool_rate(csv_path, col):
+    rows = list(csv.DictReader(open(csv_path)))
+    vals = [str(r.get(col, "")).strip().lower() in ("true", "1", "1.0") for r in rows
+            if r.get("variant") == "clean" and r.get("label") in ("0", "1")]
+    return round(sum(vals) / max(1, len(vals)), 4)
+
+
 def stage_gate(work, gate_limit, smoke, old_stacker):
     cand = work / "candidate" / "stacker.joblib"
     old_tag = Path(old_stacker).parent.name
@@ -155,7 +163,13 @@ def stage_gate(work, gate_limit, smoke, old_stacker):
         auc_c, _ = auc_from_scores(out / "scores.csv", cand_tag)
         ok = auc_c >= auc_o + TOL[name]
         results[name] = {"auc_old": round(auc_o, 4), "auc_new": round(auc_c, 4),
-                         "delta": round(auc_c - auc_o, 4), "n": n, "pass": bool(ok)}
+                         "delta": round(auc_c - auc_o, 4), "n": n, "pass": bool(ok),
+                         "abstained_rate_old": _bool_rate(out / "scores.csv",
+                                                          f"abstained_{old_tag}"),
+                         "abstained_rate_new": _bool_rate(out / "scores.csv",
+                                                          f"abstained_{cand_tag}"),
+                         "out_of_conflict_rate_new": _bool_rate(
+                             out / "scores.csv", f"out_of_conflict_{cand_tag}")}
         print(f"[gate] {name}: old={auc_o:.4f} new={auc_c:.4f} "
               f"delta={auc_c-auc_o:+.4f} -> {'PASS' if ok else 'FAIL'}", flush=True)
     return results
@@ -170,11 +184,14 @@ def main() -> int:
     ap.add_argument("--work", default=None, help="work dir (default artifacts/restack_r1)")
     ap.add_argument("--old", default=None,
                     help="incumbent stacker for A/B gates (default: argus_detect.STACKER)")
-    ap.add_argument("--promote-to", default="p6v3",
-                    help="artifact dir name for promotion (on PASS + --promote)")
+    ap.add_argument("--promote-to", default=None,
+                    help="artifact dir name for promotion (required with "
+                         "--promote; e.g. p6v10)")
     ap.add_argument("--promote", action="store_true",
                     help="on PASS, copy candidate to artifacts/<promote-to>/")
     args = ap.parse_args()
+    if args.promote and not args.promote_to:
+        raise SystemExit("--promote requires --promote-to <tag>")
 
     old_stacker = Path(args.old) if args.old else _wired_stacker()
     print(f"[main] incumbent stacker: {old_stacker}", flush=True)

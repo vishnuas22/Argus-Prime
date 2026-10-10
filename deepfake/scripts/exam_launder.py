@@ -17,9 +17,10 @@ Acceptance gates (defined BEFORE running):
   G2  fused FPR@0.5 on laundered/screenshot REALS <= 0.15 (user-facing false accusations)
   G3  report-only: sg2/flux/mj per-view AUC tracked (SG2 known-weak post-processing; no gate)
 
-Usage: ./.venv/bin/python deepfake/scripts/exam_launder.py
-Outputs: artifacts/exam_launder/launder_exam.csv + pivot to stdout + EXAM_REPORT.md
+Usage: ./.venv/bin/python deepfake/scripts/exam_launder.py [--out DIR] [--force]
+Outputs: artifacts/exam_launder_<stacker>_<YYYYMMDD>/launder_exam.csv + pivot to stdout + EXAM_REPORT.md
 """
+import argparse
 import csv
 import io
 import json
@@ -34,9 +35,6 @@ sys.path.insert(0, str(WS / "deepfake"))
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
 
 from PIL import Image, ImageDraw
-
-OUT = WS / "artifacts" / "exam_launder"
-OUT.mkdir(parents=True, exist_ok=True)
 
 N_SAMPLE = {"eval_real": 45, "train_fake": 45, "cdf_flat_fake": 25,
             "sg2_probe": 11, "flux_train": 20, "mj_train": 20}
@@ -111,11 +109,13 @@ def load_court():
     import joblib
     from argus_detect import STACKER, build_modules
     from triage import DegradationEstimator
-    mids = None
     meta = STACKER.parent / "stacker_meta.json"
-    if meta.exists():
-        mids = json.loads(meta.read_text()).get("module_ids")
-    stacker_clfs = {STACKER.parent.name: (joblib.load(STACKER), mids)}
+    meta_d = json.loads(meta.read_text()) if meta.exists() else {}
+    stacker_clfs = {STACKER.parent.name: {
+        "clf": joblib.load(STACKER),
+        "module_ids": meta_d.get("module_ids"),
+        "feature_names": meta_d.get("feature_names"),
+        "conflict_p99": meta_d.get("conflict_p99")}}
     modules, ids = build_modules()
     return modules, DegradationEstimator(), stacker_clfs
 
@@ -145,8 +145,11 @@ def score(modules, estimator, stacker_clfs, pil, fmt, vid):
         d = estimator.estimate(ctx)
         outputs = [m.run(ctx, d) for m in modules]
         tag = list(stacker_clfs.keys())[0]
-        clf, mids = stacker_clfs[tag]
-        core, *_ = fuse(outputs, d, judge=StackerJudge(clf, d.evidence_capacity, mids))
+        rec = stacker_clfs[tag]
+        judge = StackerJudge(rec["clf"], d.evidence_capacity, rec["module_ids"],
+                             feature_names=rec.get("feature_names"),
+                             conflict_p99=rec.get("conflict_p99"))
+        core, *_ = fuse(outputs, d, judge=judge)
         return 1.0 - core.probabilities.get("camera_original"), bool(core.abstained)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -154,6 +157,22 @@ def score(modules, estimator, stacker_clfs, pil, fmt, vid):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=None,
+                    help="output dir (default artifacts/exam_launder_<stacker>_<YYYYMMDD>)")
+    ap.add_argument("--force", action="store_true",
+                    help="write into an output dir that already contains results")
+    args = ap.parse_args()
+
+    from argus_detect import STACKER
+    out = Path(args.out) if args.out else WS / "artifacts" / (
+        f"exam_launder_{STACKER.parent.name}_{time.strftime('%Y%m%d')}")
+    if out.exists() and any(out.iterdir()) and not args.force:
+        print(f"ERROR: output dir {out} already contains results — pass --force to overwrite",
+              file=sys.stderr)
+        return 1
+    out.mkdir(parents=True, exist_ok=True)
+
     from sklearn.metrics import roc_auc_score
     modules, estimator, stacker_clfs = load_court()
     tag = list(stacker_clfs.keys())[0]
@@ -185,7 +204,7 @@ def main():
                     el = time.time() - t0
                     print(f"{done}/{n_runs} ({el:.0f}s, {el/done:.2f}s/run)", flush=True)
 
-    csvp = OUT / "launder_exam.csv"
+    csvp = out / "launder_exam.csv"
     with open(csvp, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader(); w.writerows(rows)
@@ -248,7 +267,7 @@ def main():
     for (cname, vname), (auc, fpr, tpr, ab, n) in pivot.items():
         report.append(f"| {cname} | {vname} | {auc:.4f} | {fpr:.3f} | {tpr:.3f} | {ab:.2f} | {n} |")
     report += ["", f"## Verdict: {verdict}", ""]
-    (OUT / "EXAM_REPORT.md").write_text("\n".join(report))
+    (out / "EXAM_REPORT.md").write_text("\n".join(report))
     return 0 if not gate_fail else 1
 
 

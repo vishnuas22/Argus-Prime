@@ -1,9 +1,10 @@
 """Modern voice-clone exam: ASVspoof 2021 LA eval vs the 2019-trained XLS-R probe.
 
-The audio probe (artifacts/p4, D-019) was trained on ASVspoof 2019 LA; the 2021
-eval uses different/reworked attack algorithms + channel compression — a genuine
-held-out exam. Samples a balanced subset from one parquet shard (labels: 0=fake,
-1=real) and scores every utterance through argus_detect.detect_audio.
+The wired audio probe (argus_detect.AUDIO_PROBE, D-019 lineage) was trained on
+ASVspoof 2019 LA; the 2021 eval uses different/reworked attack algorithms +
+channel compression — a genuine held-out exam. Samples a balanced subset from
+one parquet shard (labels: 0=fake, 1=real) and scores every utterance through
+argus_detect.detect_audio.
 
 Usage: .venv/bin/python deepfake/scripts/exam_audio_2021.py [--n-per-class 200]
 """
@@ -13,6 +14,7 @@ import json
 import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 WS = Path(__file__).resolve().parents[2]
@@ -25,12 +27,15 @@ SHARDS = {
          "resolve/main/data/test-00013-of-00014.parquet", 1),
 }
 SHARD_DIR = WS / "data" / "raw"
-OUT = WS / "artifacts" / "exam_audio_2021"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n-per-class", type=int, default=200)
+    ap.add_argument("--out", default=None,
+                    help="output dir (default artifacts/exam_audio_2021_<stacker>_<YYYYMMDD>)")
+    ap.add_argument("--force", action="store_true",
+                    help="write into an output dir that already contains results")
     args = ap.parse_args()
 
     import numpy as np
@@ -40,6 +45,15 @@ def main() -> int:
 
     sys.path.insert(0, str(WS / "deepfake"))
     from train_face_probe import eer_from
+    from argus_detect import AUDIO_PROBE, STACKER
+
+    out = Path(args.out) if args.out else WS / "artifacts" / (
+        f"exam_audio_2021_{STACKER.parent.name}_{time.strftime('%Y%m%d')}")
+    if out.exists() and any(out.iterdir()) and not args.force:
+        print(f"ERROR: output dir {out} already contains results — pass --force to overwrite",
+              file=sys.stderr)
+        return 1
+    out.mkdir(parents=True, exist_ok=True)
 
     # gather balanced utterances from the label-sorted shards
     picks = {0: [], 1: []}  # dataset label -> list[(shard_idx, row_bytes)]
@@ -93,16 +107,15 @@ def main() -> int:
                 print(f"[{len(rows)}] scored", flush=True)
     shutil.rmtree(tmp.parent, ignore_errors=True)
 
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "scores.json").write_text(json.dumps(rows))
+    (out / "scores.json").write_text(json.dumps(rows))
     auc = float(roc_auc_score(y, p))
     eer = eer_from(np.array(y), np.array(p))
     res = {"auc": round(auc, 4), "eer": round(eer, 4), "n": len(y),
            "n_real": int(sum(1 for v in y if v == 0)),
            "n_fake": int(sum(1 for v in y if v == 1)),
            "source": "ASVspoof 2021 LA eval (MoaazTalab balanced shard 0)",
-           "probe": "artifacts/p4/audio_probe.joblib (trained ASVspoof 2019 LA)"}
-    (OUT / "metrics.json").write_text(json.dumps(res, indent=2))
+           "probe": f"{AUDIO_PROBE.relative_to(WS)} (trained ASVspoof 2019 LA)"}
+    (out / "metrics.json").write_text(json.dumps(res, indent=2))
     print("AUDIO EXAM:", json.dumps(res), flush=True)
     return 0
 

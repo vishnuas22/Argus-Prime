@@ -44,9 +44,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from metrics import auc, eer, brier, abstention_rate, mean_ms  # noqa: E402
 from report import render_report  # noqa: E402
 
-MODULE_IDS = ["metadata", "compression_history", "spectral_probe",
-              "real_distribution_probe", "perturbation_probe"]
-
 LADDER = {
     "clean": None,
     "jpeg75": {"q": 75},
@@ -108,6 +105,12 @@ def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, v
         row[mo.module_id] = mo.evidence_score if mo.unavailable_reason is None else None
         row[f"{mo.module_id}_ms"] = mo.compute_ms
         row[f"{mo.module_id}_rel"] = mo.reliability_score
+    from fusion import gate, build_contradictions
+    survivors, _ = gate(outputs, d)
+    contras = build_contradictions(survivors)
+    row["n_survivors"] = len(survivors)
+    row["contradiction_count"] = len(contras)
+    row["contradiction_mass"] = round(sum(c.conflict_contribution for c in contras), 4)
     from stacker_judge import StackerJudge
     tags = list((stacker_clfs or {}).keys())
     if not tags:
@@ -118,20 +121,24 @@ def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, v
         row["risk"] = core.risk_score
         row["conflict"] = k
     for tag in tags:
-        clf, mids = stacker_clfs[tag]
-        core, ranking, contradictions, unavailable, k = fuse(
-            outputs, d, judge=StackerJudge(clf, d.evidence_capacity, mids))
+        rec = stacker_clfs[tag]
+        judge = StackerJudge(rec["clf"], d.evidence_capacity, module_ids=rec["module_ids"],
+                             feature_names=rec.get("feature_names"),
+                             conflict_p99=rec.get("conflict_p99"))
+        core, ranking, contradictions, unavailable, k = fuse(outputs, d, judge=judge)
         row[f"p_real_{tag}"] = core.probabilities.get("camera_original")
         row[f"abstained_{tag}"] = bool(core.abstained)
         row[f"trust_{tag}"] = core.trust_score
         row[f"risk_{tag}"] = core.risk_score
         row[f"conflict_{tag}"] = k
+        row[f"out_of_conflict_{tag}"] = bool(getattr(judge, "out_of_conflict", False))
         if len(tags) == 1:  # legacy single-stacker column names
             row["p_real"] = row[f"p_real_{tag}"]
             row["abstained"] = row[f"abstained_{tag}"]
             row["trust"] = row[f"trust_{tag}"]
             row["risk"] = row[f"risk_{tag}"]
             row["conflict"] = k
+            row["out_of_conflict"] = row[f"out_of_conflict_{tag}"]
     shutil.rmtree(adir, ignore_errors=True)
     return row
 
@@ -188,11 +195,12 @@ def main():
     for sp in (args.with_stacker or []):
         spath = Path(sp)
         tag = spath.parent.name or spath.stem
-        mids = None
         meta_p = spath.with_name("stacker_meta.json")
-        if meta_p.exists():
-            mids = json.loads(meta_p.read_text()).get("module_ids")
-        stacker_clfs[tag] = (joblib.load(sp), mids)
+        meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
+        stacker_clfs[tag] = {"clf": joblib.load(spath),
+                             "module_ids": meta.get("module_ids"),
+                             "feature_names": meta.get("feature_names"),
+                             "conflict_p99": meta.get("conflict_p99")}
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

@@ -22,6 +22,8 @@ from sklearn.model_selection import train_test_split
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bench"))
 from channels import active_ids  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "integrations" / "Argus_Master" / "backend"))
+from fusion import RELIABILITY_FLOOR  # noqa: E402
 
 CAPS = ["HIGH", "MODERATE", "LOW"]
 
@@ -29,12 +31,22 @@ CAPS = ["HIGH", "MODERATE", "LOW"]
 def featurize(df: pd.DataFrame, module_ids: list):
     cols, names = [], []
     for m in module_ids:
-        v = df[m].astype(float).fillna(0.0).to_numpy()
-        r = df[f"{m}_rel"].astype(float).fillna(0.0).to_numpy()
+        v = df[m].astype(float)
+        r = df[f"{m}_rel"].astype(float)
+        mask = v.isna() | r.isna() | (r < RELIABILITY_FLOOR)
+        v = v.mask(mask, 0.0).fillna(0.0).to_numpy()
+        r = r.mask(mask, 0.0).fillna(0.0).to_numpy()
         cols += [v, r]
         names += [f"{m}_e", f"{m}_r"]
     cap = pd.get_dummies(df["capacity"]).reindex(columns=CAPS, fill_value=0).to_numpy()
-    return np.column_stack(cols + [cap]), names + [f"cap_{c}" for c in CAPS]
+    extra, extra_names = [], []
+    for col in ("n_survivors", "contradiction_count", "contradiction_mass"):
+        if col not in df.columns:
+            raise SystemExit(f"{col!r} missing from dump CSVs — re-dump with updated run_benchmark")
+        extra.append(df[col].astype(float).fillna(0.0).to_numpy())
+        extra_names.append(col)
+    return (np.column_stack(cols + [cap] + extra),
+            names + [f"cap_{c}" for c in CAPS] + extra_names)
 
 
 def main() -> int:
@@ -55,6 +67,9 @@ def main() -> int:
         dfs.append(keep[keep["label"].isin([0, 1])])
         print(f"{p}: {len(keep)} rows")
     df = pd.concat(dfs, ignore_index=True).drop_duplicates(subset=["sha"])
+    if "conflict" not in df.columns:
+        raise SystemExit("dump CSVs lack 'conflict' column — re-dump")
+    conflict_p99 = float(np.quantile(df["conflict"].astype(float), 0.99))
     X, names = featurize(df, MODULE_IDS)
     y = df["label"].astype(int).to_numpy()
     print(f"stacker dataset: {X.shape}, fakes={y.sum()}")
@@ -79,6 +94,8 @@ def main() -> int:
         "feature_names": names,
         "module_ids": MODULE_IDS,
         "n_rows": int(len(X)), "val_auc": round(float(auc), 4),
+        "conflict_p99": conflict_p99,
+        "conflict_p99_n": int(len(df)),
         "trained_on": args.csv,
         "caveat": "trained on train-side corpora only; eval rows never seen",
     }, indent=2))

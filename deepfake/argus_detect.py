@@ -2,7 +2,7 @@
 
 Routes any media file through the right senses:
   image  -> Argus_Master evidence court + learned AIGC probe + face head (+ stacker fusion)
-  video  -> N sampled frames through the image path (audio track requires ffmpeg)
+  video  -> sampled-frame face head + temporal dispersion + XLS-R audio (ffmpeg)
   audio  -> frozen XLS-R voice-clone probe
 
 Usage:
@@ -25,9 +25,7 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg", ".m4a"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
-PROBE_AIGC = WS / "artifacts" / "p5_full" / "probe.joblib"
-PROBE_FACE = WS / "artifacts" / "p3_full" / "face_probe.joblib"
-STACKER = WS / "artifacts" / "p6v9" / "stacker.joblib"
+STACKER = WS / "artifacts" / "p6v10" / "stacker.joblib"
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
 
@@ -79,6 +77,7 @@ def detect_image(pil, stacker_clfs=None, original_raw: bytes | None = None):
         "abstained": row["abstained"],
         "trust": row["trust"],
         "risk": row["risk"],
+        "out_of_conflict": bool(row.get("out_of_conflict", False)),
         "module_evidence": {k: round(-v, 4) for k, v in module_scores.items()},
     }
 
@@ -89,9 +88,16 @@ def detect_video(path: Path, n_frames: int):
     vis = visual_channel(path, n_frames)
     aud = audio_channel(path)
     if vis is None:
-        return {"error": "no scoreable faces in sampled frames"}
+        return {"error": "no scoreable faces in sampled frames",
+                "p_fake_fused": None,
+                "abstained": True, "trust": 0.3, "risk": 0.8}
+    comb = combined(vis, aud)
     return {
-        "p_fake_video_combined": combined(vis, aud),
+        "p_fake_video_combined": comb,
+        "p_fake_fused": comb,
+        "abstained": comb is None,
+        "trust": 0.3 if comb is None else 0.5,
+        "risk": 0.8 if comb is None else 0.4,
         "visual": vis,
         "audio": {k: v for k, v in (aud or {}).items() if k != "per_segment"},
         "audio_out_of_coverage": bool((aud or {}).get("out_of_coverage", False)),
@@ -182,11 +188,13 @@ def main() -> int:
     stacker_clfs = {}
     if STACKER.exists():
         import joblib
-        mids = None
         meta_p = STACKER.with_name("stacker_meta.json")
-        if meta_p.exists():
-            mids = json.loads(meta_p.read_text()).get("module_ids")
-        stacker_clfs[STACKER.parent.name] = (joblib.load(STACKER), mids)
+        meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
+        stacker_clfs[STACKER.parent.name] = {
+            "clf": joblib.load(STACKER),
+            "module_ids": meta.get("module_ids"),
+            "feature_names": meta.get("feature_names"),
+            "conflict_p99": meta.get("conflict_p99")}
 
     result = {"file": path.name}
     if ext in IMAGE_EXTS:
@@ -212,6 +220,8 @@ def main() -> int:
             verdict = "SYNTHETIC/MANIPULATED" if pf > 0.5 else "AUTHENTIC-LEANING"
             if result["abstained"]:
                 verdict += " (court abstains: low confidence)"
+            if result.get("out_of_conflict"):
+                verdict += " (court abstains: out of conflict — panel unresolved)"
             print(f"fused P(fake): {pf:.3f}  ->  {verdict}")
             print(f"trust {result['trust']:.2f} | risk {result['risk']:.2f}")
             print("evidence (P-fake per module):")

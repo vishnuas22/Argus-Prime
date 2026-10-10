@@ -9,6 +9,7 @@ official-test files (703 mp3s: 395 Real / 308 Fake) and reports AUC, TPR@0.5,
 FPR@0.5, abstention. Usage:
   ./.venv/bin/python deepfake/scripts/exam_audio_dfeval.py
 """
+import argparse
 import csv
 import json
 import sys
@@ -21,11 +22,25 @@ sys.path.insert(0, str(WS / "deepfake" / "bench"))
 
 AUDIO_DIR = WS / "data" / "dfeval" / "audio" / "audio-data" / "audio-data"
 STEMS_CSV = WS / "data" / "dfeval" / "meta" / "matched_stems.csv"
-OUT = WS / "artifacts" / "exam_dfeval"
-OUT.mkdir(parents=True, exist_ok=True)
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=None,
+                    help="output dir (default artifacts/exam_dfeval_<stacker>_<YYYYMMDD>)")
+    ap.add_argument("--force", action="store_true",
+                    help="write into an output dir that already contains results")
+    args = ap.parse_args()
+
+    from argus_detect import STACKER
+    outdir = Path(args.out) if args.out else WS / "artifacts" / (
+        f"exam_dfeval_{STACKER.parent.name}_{time.strftime('%Y%m%d')}")
+    if outdir.exists() and any(outdir.iterdir()) and not args.force:
+        print(f"ERROR: output dir {outdir} already contains results — pass --force to overwrite",
+              file=sys.stderr)
+        return 1
+    outdir.mkdir(parents=True, exist_ok=True)
+
     stems = {r["stem"]: r["label"] for r in csv.DictReader(open(STEMS_CSV))}
     files = sorted(AUDIO_DIR.glob("*.mp3"))
     rows, t0 = [], time.time()
@@ -52,7 +67,7 @@ def main():
         if (i + 1) % 25 == 0:
             print(f"{i+1}/{len(files)} ({time.time()-t0:.0f}s)", flush=True)
 
-    out = OUT / "audio_exam.csv"
+    out = outdir / "audio_exam.csv"
     with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader(); w.writerows(rows)
@@ -90,7 +105,7 @@ def main():
         "coverage_gate": "z-norm > train p99.5 (D-035); off-manifold => abstain",
         "date_utc": time.strftime("%Y-%m-%d %H:%M", time.gmtime()),
     }
-    (OUT / "audio_exam_summary.json").write_text(json.dumps(summary, indent=2))
+    (outdir / "audio_exam_summary.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2), flush=True)
     print("field reference: open-source SOTA audio AUC drops ~48% on this benchmark", flush=True)
     return 0

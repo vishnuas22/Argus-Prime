@@ -1,41 +1,44 @@
 # Argus Prime - PRD
 
 ## Project Overview
-Multi-Modal Deepfake Detection & Forensic Platform
+Multi-Modal Deepfake Detection & Forensic Platform — an evidence court that
+scores images, audio and video for synthesis/manipulation and renders an
+abstention-aware verdict with per-module evidence.
 
 ## Repository
 - Source: https://github.com/vishnuas22/Argus-Prime.git
 - Branch: main
 
-## Tech Stack
-- **Backend**: FastAPI (Python 3.11), PostgreSQL (async), Redis
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, React Query
-- **AI/ML**: PyTorch, Transformers, OpenCV, Librosa
+## System (as it EXISTS — revised 2026-10-09)
+- **API**: single-file FastAPI server `deepfake/api/server.py`, port **8420**
+  — `POST /api/detect`, `GET /api/health`, `GET /api/history`,
+  `POST /api/explain`, static UI at `/`.
+- **UI**: single-file web UI `web/index.html` (no Next.js, no React build,
+  no WebSocket layer).
+- **Persistence**: SQLite `artifacts/verdicts.db` (verdict log).
+  No PostgreSQL, no Redis — those were deleted 2026-09-02.
+- **ML**: PyTorch (MPS), Transformers, scikit-learn; deps listed in
+  `deepfake/requirements.txt`.
 
-## Implementation Status (Jan 25, 2026)
-✅ Repository cloned and configured
-✅ Backend dependencies installed (requirements.txt)
-✅ Frontend dependencies installed (package.json via yarn)
-✅ Backend running on port 8001 (supervisor-managed)
-✅ Frontend running on port 3000 (supervisor-managed)
-✅ Health endpoint verified: /api/v1/health
-✅ API documentation: /docs
+## Detection branches (trust labels)
+- **Image court** (primary): 11 evidence channels + HistGBM stacker
+  `artifacts/p6v9/stacker.joblib`, wired through `argus_detect.STACKER`
+  (never hardcoded in consumers), conformal abstention; robust to screenshots
+  and messenger laundering (D-032) and to modern generators (D-026/D-027).
+- **Audio**: frozen XLS-R voice-clone probe `artifacts/p4` + D-035 coverage
+  gate. **UNTRUSTED for in-the-wild audio** (Deepfake-Eval-2024 AUC ≈0.56,
+  D-033); off-manifold input → the branch abstains instead of voting.
+- **Video**: thin scorer — sampled-frame face head + temporal dispersion +
+  XLS-R audio track. **UNTRUSTED** for in-the-wild video (n=39 FF++ exam only,
+  no video stacker).
 
-## Core Features
-- Video deepfake detection (ForensicFlow, DistilDIRE, KAN)
-- Audio analysis (RawNet2, Transcrypt)
-- Text forensics (SpecDetect, Perplexity)
-- Multi-modal fusion engine
-- Real-time processing with WebSocket
-- Enterprise security middleware
-
-## Backlog
-- P0: Database setup (PostgreSQL connection)
-- P1: Redis cache configuration
-- P2: Model weights loading
-- P2: Full e2e testing
-
-## Next Steps
-1. Configure PostgreSQL database connection
-2. Set up Redis for caching
-3. Load ML model weights for actual detection
+## Operating model
+- Channel intake: dump → train → gate → verdict via
+  `deepfake/scripts/restack.py`; promotion requires an explicit
+  `--promote-to <tag>` (never a default, never auto-wired).
+- Regression suite: `deepfake/scripts/scoreboard.py` vs
+  `artifacts/golden.json` — missing golden fails closed, stale score caches
+  re-run against the current stacker mtime.
+- Benchmark claims live in `artifacts/benchmarks.json` with explicit scope
+  and trust labels; memory/{patterns,lessons,decisions}.md hold the
+  institutional record.

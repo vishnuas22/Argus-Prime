@@ -11,3 +11,10 @@ diffusers>=0.32
 transformers
 accelerate
 safetensors
+fastapi
+uvicorn
+python-multipart
+joblib
+opencv-python-headless
+soundfile
+c2pa-python

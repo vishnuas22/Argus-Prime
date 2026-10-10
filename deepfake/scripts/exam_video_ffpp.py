@@ -5,14 +5,18 @@ runs the three-channel video scorer (visual face head + temporal + XLS-R audio),
 reports video-level AUCs.
 
 Usage: .venv/bin/python deepfake/scripts/exam_video_ffpp.py \
-           [--n-real 30] [--per-method 8] --out artifacts/exam_video_ffpp
+           [--n-real 30] [--per-method 8] --out <dir>
+Default --out is stamped: artifacts/exam_video_ffpp_<stacker>_<YYYYMMDD>.
+A non-empty out dir is refused unless --force (which resumes/appends).
 """
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 WS = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(WS / "deepfake"))
 sys.path.insert(0, str(WS / "deepfake" / "scripts"))
 from video_score import visual_channel, audio_channel, combined  # noqa: E402
 
@@ -26,9 +30,19 @@ def main() -> int:
     ap.add_argument("--n-real", type=int, default=30)
     ap.add_argument("--per-method", type=int, default=8)
     ap.add_argument("--frames", type=int, default=8)
-    ap.add_argument("--out", default="artifacts/exam_video_ffpp")
+    ap.add_argument("--out", default=None,
+                    help="output dir (default artifacts/exam_video_ffpp_<stacker>_<YYYYMMDD>)")
+    ap.add_argument("--force", action="store_true",
+                    help="run in an output dir that already contains results "
+                         "(existing scores.jsonl is kept and appended — resume)")
     args = ap.parse_args()
-    out = Path(args.out)
+    from argus_detect import STACKER
+    out = (Path(args.out) if args.out else WS / "artifacts" /
+           f"exam_video_ffpp_{STACKER.parent.name}_{time.strftime('%Y%m%d')}")
+    if out.exists() and any(out.iterdir()) and not args.force:
+        print(f"ERROR: output dir {out} already contains results — pass --force to append/resume",
+              file=sys.stderr)
+        return 1
     out.mkdir(parents=True, exist_ok=True)
 
     test_pairs = json.load(open(SPLITS / "test.json"))

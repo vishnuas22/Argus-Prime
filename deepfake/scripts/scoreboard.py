@@ -1,7 +1,8 @@
 """Court scoreboard — one-command regression suite over all standing exams.
 
-Runs the CURRENT court stacker (--stacker, default the deployed p6v3) over the
-standing exam sets and diffs each fused AUC against artifacts/golden.json.
+Runs the CURRENT court stacker (--stacker, default the wired stacker imported
+from argus_detect) over the standing exam sets and diffs each fused AUC against
+artifacts/golden.json.
 
   .venv/bin/python deepfake/scripts/scoreboard.py                 # verify vs golden
   .venv/bin/python deepfake/scripts/scoreboard.py --update-golden # (re)baseline
@@ -54,7 +55,8 @@ def main() -> int:
         out = work / f"exam_{name}" / (f"limit{limit}")
         if name == "ffpp":
             real, fake = build_ffpp_gate(work, limit)
-        if not (out / "scores.csv").exists():
+        if not (out / "scores.csv").exists() or not stacker.exists() \
+                or (out / "scores.csv").stat().st_mtime < stacker.stat().st_mtime:
             run_bench(real, fake, out, limit, stackers=[stacker])
         auc, n = auc_from_scores(out / "scores.csv", tag)
         results[name] = {"auc": round(auc, 4), "n": n, "limit": limit}
@@ -75,8 +77,8 @@ def main() -> int:
         print(f"golden baselined -> {GOLDEN}")
         return 0
     if not golden:
-        print("no golden file — run with --update-golden to baseline")
-        return 0
+        print("no golden file — run with --update-golden to baseline", file=sys.stderr)
+        return 1
     print("STATUS:", "FAIL (regression)" if regressions else "PASS")
     return 1 if regressions else 0
 

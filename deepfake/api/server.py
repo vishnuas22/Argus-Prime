@@ -24,7 +24,7 @@ sys.path.insert(0, str(WS / "integrations" / "Argus_Master" / "backend"))
 import os
 os.environ["PATH"] = f"{WS/'tools'/'bin'}:{os.environ['PATH']}"
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -47,14 +47,21 @@ def init_court():
     from argus_detect import build_modules, STACKER
     from triage import DegradationEstimator
     mids = None
+    feature_names = None
+    conflict_p99 = None
     meta = STACKER.parent / "stacker_meta.json"
     if meta.exists():
-        mids = json.loads(meta.read_text()).get("module_ids")
+        meta_d = json.loads(meta.read_text())
+        mids = meta_d.get("module_ids")
+        feature_names = meta_d.get("feature_names")
+        conflict_p99 = meta_d.get("conflict_p99")
     modules, ids = build_modules()
     _state["modules"] = modules
     _state["ids"] = ids
     _state["clf"] = joblib.load(STACKER)
     _state["mids"] = mids or ids
+    _state["feature_names"] = feature_names
+    _state["conflict_p99"] = conflict_p99
     _state["estimator"] = DegradationEstimator()
     DB.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB)
@@ -92,7 +99,9 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
                        original_raw=original_raw)
     d = _state["estimator"].estimate(ctx)
     outputs = [m.run(ctx, d) for m in modules]
-    judge = StackerJudge(_state["clf"], d.evidence_capacity, _state["mids"])
+    judge = StackerJudge(_state["clf"], d.evidence_capacity, _state["mids"],
+                         feature_names=_state.get("feature_names"),
+                         conflict_p99=_state.get("conflict_p99"))
     core, *_ = fuse(outputs, d, judge=judge)
     detail = []
     for mo in outputs:
@@ -110,6 +119,7 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
     return {"p_fake_fused": round(1.0 - core.probabilities["camera_original"], 4),
             "abstained": bool(core.abstained), "trust": core.trust_score,
             "risk": core.risk_score, "hypotheses": core.hypothesis_set,
+            "out_of_conflict": bool(getattr(judge, "out_of_conflict", False)),
             "modules": detail}
 
 
@@ -164,7 +174,7 @@ def log_verdict(filename, kind, v, alpha):
 
 
 @app.post("/api/detect")
-async def detect(file: UploadFile = File(...), alpha: float = None):
+async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
     ext = Path(file.filename or "").suffix.lower()
     data = await file.read()
     if not data:
@@ -205,10 +215,11 @@ async def detect(file: UploadFile = File(...), alpha: float = None):
     v.update({"kind": kind, "filename": file.filename,
               "stacker": STACKER.parent.name,
               "elapsed_s": round(time.time() - t0, 2), "alpha": alpha})
+    v.setdefault("out_of_conflict", False)
     try:
         log_verdict(file.filename, kind, v, alpha)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[log_verdict] failed: {e}")
     return v
 
 
