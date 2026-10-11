@@ -162,6 +162,7 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
         <div class="dialval"><div class="n" id="vnum">0.00</div><div class="l">P( SYNTHETIC )</div></div>
       </div>
       <div class="vtag abs" id="vtag">DELIBERATING…</div>
+      <div id="honesty" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
       <div class="meta">
         <div class="mk"><div class="v" id="mTrust">–</div><div class="k">TRUST</div></div>
         <div class="mk"><div class="v" id="mRisk">–</div><div class="k">RISK</div></div>
@@ -374,28 +375,57 @@ const IRIS = {state:"idle"};
   window.__renderVerdict = render;
   function render(v){
     $("verdictSec").style.display = "block";
-    const pf = +v.p_fake_fused;
-    gsap.to("#arc",{strokeDashoffset:628*(1-pf),duration:1.6,ease:"power3.inOut"});
-    const cnt = {v:0};
-    gsap.to(cnt,{v:pf,duration:1.6,ease:"power3.inOut",
-      onUpdate:()=>{ $("vnum").textContent = cnt.v.toFixed(2); }});
-    const state = v.abstained ? "abs" : (pf>=0.5 ? "fake" : "real");
+    // null p_fake_fused = the court produced NO probability (fully abstained
+    // route, e.g. every no-face frame abstained) — show a dash, never a
+    // fabricated 0.00 that would read as "AUTHENTIC".
+    const hasP = typeof v.p_fake_fused === "number" && isFinite(v.p_fake_fused);
+    const pf = hasP ? +v.p_fake_fused : null;
+    if(hasP){
+      gsap.to("#arc",{strokeDashoffset:628*(1-pf),duration:1.6,ease:"power3.inOut"});
+      const cnt = {v:0};
+      gsap.to(cnt,{v:pf,duration:1.6,ease:"power3.inOut",
+        onUpdate:()=>{ $("vnum").textContent = cnt.v.toFixed(2); }});
+    } else {
+      gsap.to("#arc",{strokeDashoffset:628,duration:1,ease:"power2.out"});
+      $("vnum").textContent = "––";
+    }
+    const state = (!hasP || v.abstained) ? "abs" : (pf>=0.5 ? "fake" : "real");
     const tag = $("vtag");
     tag.className = "vtag "+state;
-    tag.textContent = v.abstained ? "COURT ABSTAINS — UNCERTAIN"
+    tag.textContent = (!hasP || v.abstained) ? "COURT ABSTAINS — UNCERTAIN"
       : state==="fake" ? "VERDICT: SYNTHETIC / MANIPULATED" : "VERDICT: AUTHENTIC";
-    IRIS.setVerdict(v.abstained ? "abstain" : state);
+    IRIS.setVerdict((!hasP || v.abstained) ? "abstain" : state);
     $("mTrust").textContent = (+v.trust).toFixed(2);
     $("mRisk").textContent = (+v.risk).toFixed(2);
     $("mTime").textContent = (+v.elapsed_s).toFixed(1);
     const notes = [];
+    // honesty badges: route (video), DEGRADED confidence, conflict advisory
+    const hb = $("honesty");
+    if(hb){
+      const bits = [];
+      if(v.route) bits.push('<span class="vtag abs" style="font-size:11px;padding:4px 12px;margin:0">'
+        + (v.route==="image_court" ? "ROUTE: IMAGE COURT (no face in frame)"
+                                   : "ROUTE: FACE (video)") + '</span>');
+      if(v.confidence_degraded) bits.push('<span class="vtag abs" style="font-size:11px;padding:4px 12px;margin:0">DEGRADED CONFIDENCE</span>');
+      hb.innerHTML = bits.join(" ");
+    }
     notes.push("Artefact: " + (v.filename||"") + " · kind: " + v.kind);
-    notes.push("Stacker: " + (v.stacker || "deployed") + " · conformal α: " + (v.alpha ?? "0.10 (default)"));
+    if(v.route) notes.push("Route: " + v.route
+      + (v.confidence_degraded ? " (confidence DEGRADED — no temporal evidence on this route)" : ""));
+    if(v.out_of_conflict)
+      notes.push("Out of conflict: the panel is unresolved — treat the probability as advisory (mechanism-b flag; the score is never overwritten).");
+    notes.push("Stacker: "
+      + (v.stacker ? v.stacker
+         : v.route === "image_court" ? "image court (frame-level, no video stacker)"
+         : (v.kind==="video" ? "none (naive fallback)" : "deployed"))
+      + " · conformal α: " + (v.alpha ?? "0.10 (default)"));
     if(v.hypotheses && v.hypotheses.length>1)
       notes.push("Hypothesis set: " + v.hypotheses.join(" | ")
         + " → the court withholds a single verdict.");
-    if(v.audio) notes.push("Voice-clone probe: P(fake) " + v.audio.p_fake_audio_mean
+    if(v.audio && v.audio.p_fake_audio_mean != null) notes.push("Voice-clone probe: P(fake) " + v.audio.p_fake_audio_mean
       + " across " + v.audio.segments_analyzed + " segments.");
+    else if(v.kind === "video")
+      notes.push("Voice-clone probe: not run (no extractable audio track in this file).");
     if(!v.modules || !v.modules.length)
       notes.push("No per-module notes for this artefact kind.");
     $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");

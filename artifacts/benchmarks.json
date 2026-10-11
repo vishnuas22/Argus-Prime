@@ -5,56 +5,162 @@
   "image": {
     "scope_in_domain": {
       "claim": "detects synthetic images from trained generator families",
-      "verified": {"stacker_val_auc": 0.9952, "source": "artifacts/p6v9/stacker_meta.json"}
+      "verified": {
+        "stacker_val_auc": 0.9952,
+        "source": "artifacts/p6v9/stacker_meta.json"
+      }
     },
     "scope_near_domain": {
       "claim": "survives screenshots and messenger recompression",
-      "verified": {"screenshot_auc": 0.9975, "screenshot_jpg_auc": 0.9943,
-                   "screenshot_real_fpr": 0.022, "screenshot_jpg_real_fpr": 0.044,
-                   "source": "artifacts/exam_launder (verified on p6v8; p6v9 = p6v8 + dormant provenance channel, gates zero-delta)"}
+      "verified": {
+        "screenshot_auc": 0.9975,
+        "screenshot_jpg_auc": 0.9943,
+        "screenshot_real_fpr": 0.022,
+        "screenshot_jpg_real_fpr": 0.044,
+        "source": "artifacts/exam_launder (verified on p6v8; p6v9 = p6v8 + dormant provenance channel, gates zero-delta)"
+      }
     },
     "scope_external_generators": {
       "claim": "detects unseen commercial/open generators",
-      "verified": {"midjourney_auc": 0.9898, "flux_auc": 0.9554,
-                   "source": "restack_r7 gates (modern_exam corpora, external to training)"},
-      "caveats": ["probes are generator-keyed: real_distribution_probe flips direction across generators (D-026)",
-                   "midjourney-family was a documented soft spot fixed only by adding MJ training dumps (D-027)"]
+      "verified": {
+        "midjourney_auc": 0.9898,
+        "flux_auc": 0.9554,
+        "source": "restack_r7 gates (modern_exam corpora, external to training)"
+      },
+      "caveats": [
+        "probes are generator-keyed: real_distribution_probe flips direction across generators (D-026)",
+        "midjourney-family was a documented soft spot fixed only by adding MJ training dumps (D-027)"
+      ]
     },
     "scope_wild": {
       "claim": "NOT YET MEASURED on in-the-wild images (Deepfake-Eval-2024 image set)",
       "status": "blocked_on_hf_gate_approval",
-      "coverage_gate": "image-side coverage via CLIP z-norm measured NON-VIABLE (D-037) — do not claim OOD protection"
+      "coverage_gate": "image-side coverage via CLIP z-norm measured NON-VIABLE (D-037) \u2014 do not claim OOD protection"
     }
   },
   "audio": {
     "status": "COVERAGE-GATED / UNTRUSTED for in-the-wild audio (D-033/D-035/D-036)",
     "scope_in_domain": {
       "claim": "historical D-019-era ASVspoof 2019 LA eval EER 3.5%",
-      "verified": {"val_eer": 0.035, "source": "artifacts/p4/train_meta.json",
-                   "note": "artifact file shows 0.0; original eval-set number per D-019"}
+      "verified": {
+        "val_eer": 0.035,
+        "source": "artifacts/p4/train_meta.json",
+        "note": "artifact file shows 0.0; original eval-set number per D-019"
+      }
     },
     "scope_near_domain": {
       "claim": "ASVspoof 2021 LA (held-out attacks)",
-      "verified": {"auc": 0.912, "eer": 0.172, "source": "artifacts/exam_audio_2021 (D-028)",
-                   "note": "historical D-028, artifact overwritten by r9 run 2026-09-15; superseded"}
+      "verified": {
+        "auc": 0.912,
+        "eer": 0.172,
+        "source": "artifacts/exam_audio_2021 (D-028)",
+        "note": "historical D-028, artifact overwritten by r9 run 2026-09-15; superseded"
+      }
     },
     "scope_external_wild": {
-      "claim": "NOT CLAIMED — fails on in-the-wild audio",
-      "verified": {"raw_auc_no_gate": 0.5593, "fpr_at_0.5_no_gate": 0.7949,
-                   "coverage_gate_abstention": 0.839,
-                   "in_coverage_residue_auc": 0.6204,
-                   "source": "artifacts/exam_dfeval/audio_exam_summary.json"},
+      "claim": "NOT CLAIMED \u2014 fails on in-the-wild audio",
+      "verified": {
+        "raw_auc_no_gate": 0.5593,
+        "fpr_at_0.5_no_gate": 0.7949,
+        "coverage_gate_abstention": 0.839,
+        "in_coverage_residue_auc": 0.6204,
+        "source": "artifacts/exam_dfeval/audio_exam_summary.json"
+      },
       "r8_retraining_attempt": "FAILED and reverted (D-036): synthetic degradation carries no class information"
     }
   },
   "video": {
-    "status": "UNTRUSTED for in-the-wild video (n=39 FF++ exam only, no video stacker)",
+    "status": "Phase-5 identity-aware video stacker TRAINED but NOT PROMOTED (verdict HOLD, 2026-10-11, gate re-run at the official n=700): FF++ official test split (140 real + 4x140 fake) stacked AUC 0.7469 (gate needs >=0.90; naive 0.7406, identity 0.7403, delta vs naive +0.0063) with per-method stacked Deepfakes 0.8910 / Face2Face 0.6229 / FaceSwap 0.8897 / NeuralTextures 0.5841 — Face2Face and NeuralTextures below their per-method bars; LOMO 2/4 (Face2Face 0.6287, NeuralTextures 0.5550 < 0.70) FAIL; Celeb-DF cross-dataset 0.9004 PASS. Serve path therefore stays on the naive combined() fallback. UNTRUSTED for in-the-wild video (no wild-video corpus examined this phase).",
     "scope_legacy": {
       "claim": "detects face-swap video forgeries (DeepfakeTIMIT/CDF era)",
-      "verified": {"celebdf_auc": 0.952, "source": "D-022",
-                   "note": "prose-only (D-022); no artifact on disk"},
-      "caveats": ["modern video generators (Sora/Veo era) untested",
-                   "audio contribution now coverage-gated (D-035)"]
+      "verified": {
+        "celebdf_auc": 0.952,
+        "source": "D-022",
+        "note": "prose-only (D-022); no artifact on disk"
+      },
+      "caveats": [
+        "modern video generators (Sora/Veo era) untested",
+        "audio contribution now coverage-gated (D-035)"
+      ]
+    },
+    "phase5": {
+      "as_of": "2026-10-11",
+      "verdict": "HOLD (no promotion, no waiver written)",
+      "candidate": "artifacts/restack_video/candidate (val_auc 0.7121, 1800 rows, 23 features)",
+      "embedder": "arcface (contingency 2.4: SFace drift probe AUC 0.5862 < 0.60)",
+      "embedder_model": "tools/models/arcface_w600k_r50.onnx (insightface w600k_r50, sha256 4c06341c...619e43; fetch: fetch_face_models.py --arcface)",
+      "frame_budget": 12,
+      "gates": {
+        "ffpp_test_split": {
+          "n": 700,
+          "composition": "official FF++ C23 test split: 140 real + 4x140 fake, 12 frames",
+          "stacked": 0.7469,
+          "naive": 0.7406,
+          "identity": 0.7403,
+          "delta_vs_naive": 0.0063,
+          "per_method_stacked": {
+            "Deepfakes": 0.8910,
+            "Face2Face": 0.6229,
+            "FaceSwap": 0.8897,
+            "NeuralTextures": 0.5841
+          },
+          "requirement": ">=0.90 stacked, >= -0.005 vs naive, per-method bars Deepfakes/Face2Face/FaceSwap >= 0.88, NeuralTextures >= 0.60",
+          "pass": false,
+          "note": "re-run at the official n=700 on 2026-10-11 (reject cycle 1); the earlier n=420 half-sample gate (delta -0.0150, Deepfakes 0.8694) was a sampling artifact — archived at artifacts/restack_video/gate_ffpp_n420_20261011"
+        },
+        "lomo": {
+          "per_method": {
+            "Deepfakes": 0.8572,
+            "Face2Face": 0.6287,
+            "FaceSwap": 0.7360,
+            "NeuralTextures": 0.5550
+          },
+          "n_fake": 140,
+          "n_real": 140,
+          "requirement": ">=0.70 each",
+          "pass": false
+        },
+        "celebdf": {
+          "n": 518,
+          "stacked": 0.9004,
+          "naive": 0.9192,
+          "identity": 0.9267,
+          "fpr@0.5": 0.3933,
+          "tpr@0.5": 0.8941,
+          "requirement": ">=0.75 (0.70-0.75 = escalate)",
+          "pass": true,
+          "op_on": "stacked"
+        },
+        "drift_probe": {
+          "auc_p95": 0.6124,
+          "auc_probe": 0.6408,
+          "embedder": "arcface",
+          "n": 420,
+          "source": "artifacts/exam_video_drift_arcface_20261011"
+        }
+      },
+      "audio": "not scoreable on these corpora: ffprobe found 0 audio streams in 0/60 FF++ and 0/50 Celeb-DF samples; audio_present=0 for every train and gate row",
+      "source": "artifacts/restack_video/gates.json",
+      "t2v_informational": {
+        "as_of": "2026-10-11",
+        "corpus": "GenVidBench Tier-1 (14114 clips / 5.00 GB); sampled 150/gen + 140 FF++ test-split reals; frames=12",
+        "stacker": "artifacts/restack_video/candidate (NOT promoted)",
+        "embedder": "arcface",
+        "auc": {
+          "kling": 0.6035,
+          "opentora": 0.7497,
+          "sora": 0.6812
+        },
+        "route_distribution": {
+          "video_face": 407,
+          "image_court": 84
+        },
+        "image_court_share": 0.1711,
+        "abstained_rows": 50,
+        "wall_min": 35.59,
+        "source": "artifacts/exam_video_t2v_20261011_arcface/metrics.json",
+        "note": "INFORMATIONAL only - no Phase 5 threshold (spec 4.4). A second pass on the naive combined() fallback with the module-default embedder is archived at artifacts/exam_video_t2v_20261011 (kling 0.4925 / opentora 0.6297 / sora 0.5144)."
+      }
     }
   }
 }

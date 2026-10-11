@@ -203,9 +203,17 @@ async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
                  "audio": {k: v2 for k, v2 in a.items() if k != "per_segment"}}
         elif ext in VIDEO_EXTS:
             from argus_detect import detect_video
+            # frame budget 5 for the API path by design (decision #4)
             v = detect_video(tmp, 5)
             kind = "video"
+            # honesty fields (Phase 5): trust/risk/route come from detect_video —
+            # never hardcoded here (D-035 lesson: hardcoded trust is silent
+            # overconfidence)
+            v.setdefault("route", "video_face")
+            v.setdefault("confidence_degraded", False)
+            v.setdefault("out_of_conflict", False)
             v.setdefault("abstained", False)
+            v.setdefault("stacker", None)
             v.setdefault("modules", [])
         else:
             raise HTTPException(400, f"unsupported type {ext}")
@@ -213,8 +221,11 @@ async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
         shutil.rmtree(tmp.parent, ignore_errors=True)
     from argus_detect import STACKER
     v.update({"kind": kind, "filename": file.filename,
-              "stacker": STACKER.parent.name,
               "elapsed_s": round(time.time() - t0, 2), "alpha": alpha})
+    if kind == "video":
+        v.setdefault("stacker", None)     # the VIDEO stacker, not the image court's
+    else:
+        v["stacker"] = STACKER.parent.name
     v.setdefault("out_of_conflict", False)
     try:
         log_verdict(file.filename, kind, v, alpha)
