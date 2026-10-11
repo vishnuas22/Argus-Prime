@@ -41,11 +41,12 @@ FEAT_COLS = ["file", "sha256_12", "label", "method", "split", "route",
 def load_stacker(spec, embedder):
     """None when absent/unwired — the honest 'no stacker' path.
 
-    Guard (D-040 skew class): when a stacker IS present, its meta embedder
-    must equal the --embedder argument — identity clustering and drift
-    features are embedder-dependent, so a mismatched gate would measure a
-    model that does not exist (same shape as train_video_stacker's dump
-    guard)."""
+    Guards (D-040 skew class): when a stacker IS present, (a) its meta
+    embedder must equal the --embedder argument — identity clustering and
+    drift features are embedder-dependent, so a mismatched gate would measure
+    a model that does not exist (same shape as train_video_stacker's dump
+    guard); (b) its meta feature_names must equal video_features.FEATURE_NAMES
+    — otherwise a stale candidate scores a NEW dump in the wrong feature space."""
     if not spec:
         return None, None
     p = Path(spec)
@@ -55,10 +56,18 @@ def load_stacker(spec, embedder):
         return None, None
     meta_p = p.with_name("stacker_meta.json")
     if meta_p.exists():
-        dumped = json.loads(meta_p.read_text()).get("embedder")
+        meta = json.loads(meta_p.read_text())
+        dumped = meta.get("embedder")
         if dumped and dumped != embedder:
             raise SystemExit(f"embedder mismatch: stacker trained with '{dumped}' "
                              f"but --embedder {embedder} — re-train or match")
+        names = meta.get("feature_names")
+        if names is not None and names != FEATURE_NAMES:
+            raise SystemExit(
+                f"feature-space mismatch: stacker_meta.feature_names != "
+                f"video_features.FEATURE_NAMES ({len(names)} vs "
+                f"{len(FEATURE_NAMES)} dims) — this stacker was trained in a "
+                f"different feature space (D-040 skew class); re-train or match")
     import joblib
     return joblib.load(p), p.parent.name
 
@@ -248,6 +257,18 @@ def main() -> int:
         yy = [r["label"] for r in face if r.get(key) is not None]
         if len(set(yy)) > 1 and len(s):
             aucs[name] = round(float(roc_auc_score(yy, s)), 4)
+    # 5b.9 diagnostic: FF++-specialist verdict space through the SAME
+    # combined() shape as naive_combined — a gen-vs-spec gate miss is then
+    # self-diagnosing from metrics.json alone.
+    from video_score import combined as _combined
+    spec_pairs = [(r["label"], _combined((r.get("visual") or {}).get("spec"),
+                                         r.get("audio")))
+                  for r in face if (r.get("visual") or {}).get("spec")]
+    spec_pairs = [p for p in spec_pairs if p[1] is not None]
+    if spec_pairs and len({p[0] for p in spec_pairs}) > 1:
+        aucs["naive_spec"] = round(float(
+            roc_auc_score([p[0] for p in spec_pairs],
+                          [p[1] for p in spec_pairs])), 4)
     per_method = {}
     for m in METHODS:
         sub = [r for r in face if r["method"] == m]

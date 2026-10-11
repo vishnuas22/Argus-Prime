@@ -1,10 +1,14 @@
 """Video deepfake scoring: identity-aware visual + advisory audio.
 
   VISUAL   - ALL faces on ALL sampled frames, clustered into identity tracks
-             (SFace); per-identity robust stats; verdict = max over voting
-             identities of per-identity top-k-mean (the MINTIME multi-identity
-             fix — a manipulated secondary face no longer hides behind the
-             largest face). Legacy largest-face stats stay in-row for A/B.
+             (embedder seam, D-042); per-identity robust stats; verdict =
+             max over voting identities of per-identity top-k-mean (the
+             MINTIME multi-identity fix — a manipulated secondary face no
+             longer hides behind the largest face). Every face is scored by
+             BOTH the court-generalist probe (p3_full) and the FF++ specialist
+             (p3_ffpp) on one CLIP forward; visual["spec"] is the same
+             aggregation on the specialist verdict space (5b.1/5b.2).
+             Legacy largest-face stats stay in-row for A/B.
   TEMPORAL - identity-drift module lives in video_channels.py (item 2); the
              old `std < 0.08` pseudo-temporal is retired as unsupported.
   AUDIO    - extracted soundtrack through the XLS-R voice-clone probe (D-035
@@ -28,7 +32,14 @@ import numpy as np
 WS = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
 FFMPEG = WS / "tools" / "ffmpeg"
-FACE_PROBE = WS / "artifacts" / "p3_full" / "face_probe.joblib"
+FACE_PROBES = {
+    # gen  = court-generalist head (Celeb-DF + WildDeepfake trained; D-024's
+    #        learned_face_probe zero-shot FF++ is 0.728)
+    "gen": WS / "artifacts" / "p3_full" / "face_probe.joblib",
+    # spec = FF++ specialist head (the D-024 learned_ffpp_probe channel;
+    #        0.8885 FF++ in-domain, 0.790 zero-shot Celeb-DF)
+    "spec": WS / "artifacts" / "p3_ffpp" / "ffpp_only_probe.joblib",
+}
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
 
@@ -54,30 +65,43 @@ class _FaceScorer:
 
     @classmethod
     def get(cls):
+        """({gen, spec} heads, CLIP model, torch, device) — both heads share
+        ONE CLIP service; the second head is just a 1024-dim matmul."""
         if cls._inst is None:
             import joblib
             from learned_face_probe import _ClipService
-            clf = joblib.load(FACE_PROBE)
+            clfs = {name: joblib.load(p) for name, p in FACE_PROBES.items()}
             model, torch, device = _ClipService.get()
-            cls._inst = (clf, model, torch, device)
+            cls._inst = (clfs, model, torch, device)
         return cls._inst
 
 
-def frame_pfake(pil_crop):
+def frame_scores(pil_crop) -> tuple:
+    """One CLIP forward -> (p_gen, p_spec): the court-generalist AND the FF++
+    specialist heads on the SAME L2-normalized feature. 256->224 is PIL
+    LANCZOS (5b.4), the convention both heads' training crops were embedded
+    with (learned_face_probe.assess) — measured gen +0.0119 AUC (p≈0.024) vs
+    cv2.INTER_AREA on the FF++ paired smoke."""
     from learned_aigc_probe import _MEAN, _STD
-    clf, model, torch, device = _FaceScorer.get()
-    if hasattr(pil_crop, "resize"):
-        import cv2
-        arr_rgb = cv2.resize(np.asarray(pil_crop), (224, 224), interpolation=cv2.INTER_AREA)
-        arr = arr_rgb.astype(np.float32) / 255.0
-    else:
-        arr = np.asarray(pil_crop, dtype=np.float32) / 255.0
+    from PIL import Image
+    clfs, model, torch, device = _FaceScorer.get()
+    rgb = (np.asarray(pil_crop.convert("RGB")) if hasattr(pil_crop, "convert")
+           else np.asarray(pil_crop))
+    arr = np.asarray(Image.fromarray(rgb).resize((224, 224), Image.LANCZOS),
+                     dtype=np.float32) / 255.0
     arr = (arr - _MEAN) / _STD
     x = torch.from_numpy(arr.transpose(2, 0, 1)).unsqueeze(0).to(device)
     with torch.no_grad():
         f = model(x).squeeze(0).float().cpu().numpy()
     f = f / (np.linalg.norm(f) + 1e-8)
-    return float(clf.predict_proba(f.reshape(1, -1))[0, 1])
+    feat = f.reshape(1, -1)
+    return (float(clfs["gen"].predict_proba(feat)[0, 1]),
+            float(clfs["spec"].predict_proba(feat)[0, 1]))
+
+
+def frame_pfake(pil_crop):
+    """Gen-head-only view of frame_scores (backward compat for legacy callers)."""
+    return frame_scores(pil_crop)[0]
 
 
 def _robust(scores: np.ndarray) -> dict:
@@ -107,21 +131,12 @@ def visual_channel(path: Path, n_frames: int = 12):
     return vis
 
 
-def visual_channel_bundle(path: Path, n_frames: int = 12):
-    """visual_channel + the observation bundle the drift module needs.
+def _aggregate(scores: np.ndarray, tracks, obs) -> tuple:
+    """Robust-stat block + identity aggregation for ONE verdict space.
 
-    Returns (visual dict | None, tracks, per-track CLIP scores, obs).
-    Single decode pass; every face's CLIP score is shared between the
-    identity stats and the legacy largest-face stats."""
-    from video_face_track import (FRAME_BUDGET_DEFAULT, cluster_identities,
-                                  observe_video)
-    obs, stats = observe_video(path, n_frames or FRAME_BUDGET_DEFAULT,
-                               with_scores=True)
-    if not obs:
-        return None, [], {}, []
-    scores = np.asarray(stats["scores"], dtype=np.float32)
-    tracks = cluster_identities(obs)
-
+    Identity clustering is embedder-based and probe-independent, so the SAME
+    tracks serve both the gen and the spec score vectors. Returns
+    (agg dict, voting rows, {track_id: per-obs scores})."""
     track_of = {id(x): t.track_id for t in tracks for x in t.obs}
     per_track = {t.track_id: [] for t in tracks}
     for o, s in zip(obs, scores):
@@ -132,10 +147,40 @@ def visual_channel_bundle(path: Path, n_frames: int = 12):
 
     voting = [r for r in identity_rows if not r["obs_only"]]
     video_score = (round(max(r["topk_mean"] for r in voting), 4) if voting else None)
+    agg = {"identities": identity_rows,
+           "n_identities": len(identity_rows),
+           "n_voting_identities": len(voting),
+           "video_score": video_score,
+           **_robust(scores)}
+    return agg, voting, per_track
+
+
+def visual_channel_bundle(path: Path, n_frames: int = 12):
+    """visual_channel + the observation bundle the drift module needs.
+
+    Returns (visual dict | None, tracks, per-track gen CLIP scores, obs).
+    Single decode pass; every face's CLIP scores (gen AND spec heads) are
+    shared between the identity stats and the legacy largest-face stats.
+    visual["spec"] mirrors the identity/robust-stat block on the FF++
+    specialist verdict space (5b.2) — same tracks, second head."""
+    from video_face_track import (FRAME_BUDGET_DEFAULT, cluster_identities,
+                                  observe_video)
+    obs, stats = observe_video(path, n_frames or FRAME_BUDGET_DEFAULT,
+                               with_scores=True)
+    if not obs:
+        return None, [], {}, []
+    scores = np.asarray(stats["scores"], dtype=np.float32)
+    _ss = stats.get("scores_spec")
+    scores_spec = np.asarray(_ss if _ss is not None else [], dtype=np.float32)
+    if len(scores_spec) != len(scores):   # defensive: zero-fill, never crash
+        scores_spec = np.zeros_like(scores)
+    tracks = cluster_identities(obs)
+
+    gen, voting, per_track = _aggregate(scores, tracks, obs)
+    spec, _svoting, _spt = _aggregate(scores_spec, tracks, obs)
 
     big = scores[np.asarray(stats["largest_idx"], dtype=int)] \
         if stats["largest_idx"] else np.zeros(0, dtype=np.float32)
-    all_stats = _robust(scores)
     legacy = _robust(big) if len(big) else {}
 
     conflict_votes = [r for r in voting if r["frames"] >= 3]
@@ -151,18 +196,15 @@ def visual_channel_bundle(path: Path, n_frames: int = 12):
         spike = float(_json.loads(DRIFT_CALIB.read_text())["spike_thresh"])
 
     visual = {
-        "identities": identity_rows,
-        "n_identities": len(identity_rows),
-        "n_voting_identities": len(voting),
+        **gen,
         "frames_scored": int(len({o.frame_idx for o in obs})),
         "faces_detected": len(obs),
-        "video_score": video_score,
-        **all_stats,
         "largest_face_mean": legacy.get("mean", 0.0),
         "largest_face_std": legacy.get("std", 0.0),
         "largest_face_frames": len(big),
         "identity_conflict": identity_conflict,
         "_drift": drift_features(tracks, spike_thresh=spike),
+        "spec": spec,
     }
     return visual, tracks, per_track, obs
 

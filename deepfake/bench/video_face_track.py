@@ -185,13 +185,15 @@ def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
       obs   : list[FaceObs] in (frame_idx, detection order) — <=4 faces/frame
       stats : {"frames_sampled", "frames_decoded", "faces_detected"}
               plus, when with_scores=True:
-                "scores"     : np.ndarray (len(obs),) CLIP p_fake per face
-                "largest_idx": list[int] obs index of the largest face per frame
+                "scores"      : np.ndarray (len(obs),) gen-head p_fake per face
+                "scores_spec" : np.ndarray (len(obs),) FF++-specialist p_fake
+                                per face (same CLIP forward, second head)
+                "largest_idx" : list[int] obs index of the largest face per frame
     """
     cap = cv2.VideoCapture(str(path))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
     idxs = sample_frame_indices(total, n_frames)
-    obs, scores, largest_idx = [], [], []
+    obs, scores, scores_spec, largest_idx = [], [], [], []
     frames_decoded = 0
     for fi in idxs:
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(fi))
@@ -210,7 +212,6 @@ def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
         if big not in keep:                      # the legacy-largest face always scores
             keep[-1] = big
         big_pos = keep.index(big)
-        frame_scores = {}
         for pos in keep:
             row = faces[pos]
             e = _embed(row, img)
@@ -218,9 +219,10 @@ def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
                                landmarks=row.copy(),
                                det_score=float(row[14]), emb=e))
             if with_scores:
-                from video_score import frame_pfake
-                frame_scores[pos] = frame_pfake(clip_crop(img, row[:4]))
-                scores.append(frame_scores[pos])
+                from video_score import frame_scores
+                p_gen, p_spec = frame_scores(clip_crop(img, row[:4]))
+                scores.append(p_gen)
+                scores_spec.append(p_spec)
         if with_scores:
             largest_idx.append(len(obs) - len(keep) + big_pos)
     cap.release()
@@ -228,6 +230,7 @@ def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
              "faces_detected": len(obs)}
     if with_scores:
         stats["scores"] = np.asarray(scores, dtype=np.float32)
+        stats["scores_spec"] = np.asarray(scores_spec, dtype=np.float32)
         stats["largest_idx"] = [i for i in largest_idx if 0 <= i < len(obs)]
     return obs, stats
 

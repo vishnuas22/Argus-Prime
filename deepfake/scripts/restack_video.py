@@ -1,9 +1,12 @@
 """Video restack pipeline — dump -> train -> gate -> verdict (spec item 3.3).
 
   DUMP    video_dump --split train (limit 1500) and --split val (limit 300);
-          audio on a deterministic 200-video subsample only (decision #3)
-  TRAIN   train_video_stacker -> work/candidate/{stacker.joblib,
-          stacker_meta.json, drift_calibration.json}
+          plus the D-021 domain diet: dump_cdf = --corpus celebdf (limit 1000,
+          official CDF test list excluded — 5b.5); audio on a deterministic
+          200-video subsample only (decision #3)
+  TRAIN   train_video_stacker on dump_train + dump_val + dump_cdf ->
+          work/candidate/{stacker.joblib, stacker_meta.json,
+          drift_calibration.json}
   GATE    A: full official FF++ test split (700 videos, one pass) — stacked
             >= 0.90 AND stacked >= naive_combined - 0.005 AND per-method bars
             (Deepfakes/Face2Face/FaceSwap >= 0.88, NeuralTextures >= 0.60)
@@ -16,7 +19,8 @@
 
 Usage:
   .venv/bin/python deepfake/scripts/restack_video.py [--stage all|dump|train|gate|verdict]
-      [--smoke] [--work artifacts/restack_video] [--promote --promote-to p6vid_v1]
+      [--smoke] [--work artifacts/restack_video_v2] [--embedder arcface]
+      [--promote --promote-to p6vid_v2]
 """
 import argparse
 import json
@@ -62,12 +66,29 @@ def stage_dump(work, smoke, embedder):
         out = work / f"dump_{split}"
         if (out / "scores.csv").exists():
             print(f"[dump] {split}: exists, skipped", flush=True)
-            continue
-        cmd = [PY, SCRIPTS / "video_dump.py", "--split", split, "--limit", lim,
-               "--audio-limit", audio, "--out", work, "--embedder", embedder]
-        if audio == 0:
-            cmd.append("--no-audio")
-        run(cmd)
+        else:
+            cmd = [PY, SCRIPTS / "video_dump.py", "--split", split, "--limit", lim,
+                   "--audio-limit", audio, "--out", work, "--embedder", embedder]
+            if audio == 0:
+                cmd.append("--no-audio")
+            run(cmd)
+        if split == "train":
+            # D-021 diet stage BETWEEN the train-dump and the val-dump (5b.6)
+            stage_dump_cdf(work, smoke, embedder)
+
+
+def stage_dump_cdf(work, smoke, embedder):
+    """D-021 domain diet (5b.5): Celeb-DF TRAIN videos (test list excluded by
+    video_dump.enumerate_celebdf) so the stacker sees both verdict spaces on
+    BOTH domains — an FF++-only diet would teach 'spec always wins' and risk
+    gate C. SIZE=1000 (500/500) per the user's binding decision."""
+    out = work / "dump_cdf"
+    if (out / "scores.csv").exists():
+        print("[dump] cdf: exists, skipped", flush=True)
+        return
+    lim = 40 if smoke else 1000
+    run([PY, SCRIPTS / "video_dump.py", "--split", "train", "--corpus", "celebdf",
+         "--limit", lim, "--no-audio", "--out", work, "--embedder", embedder])
 
 
 def stage_train(work, embedder):
@@ -75,10 +96,16 @@ def stage_train(work, embedder):
     if (out / "stacker.joblib").exists():
         print("[train] candidate exists, skipped", flush=True)
         return
+    # D-021: ALL three dumps are the diet — a missing dump_cdf would silently
+    # train FF++-only (the exact stale-diet failure class 5b.5 exists to fix).
+    csvs = []
+    for name in ("dump_train", "dump_val", "dump_cdf"):
+        p = work / name / "scores.csv"
+        if not p.exists():
+            raise SystemExit(f"missing {p} — run the dump stage first")
+        csvs.append(str(p))
     run([PY, SCRIPTS / "train_video_stacker.py",
-         "--csv", work / "dump_train" / "scores.csv",
-         work / "dump_val" / "scores.csv", "--out", out,
-         "--embedder", embedder])
+         "--csv", *csvs, "--out", out, "--embedder", embedder])
     meta = json.loads((out / "stacker_meta.json").read_text())
     print(f"[train] candidate: val_auc={meta['val_auc']} "
           f"features={len(meta['feature_names'])} embedder={embedder}", flush=True)
@@ -183,8 +210,9 @@ def stage_verdict(work, promote, promote_to):
         raise SystemExit("no gate results — run the gate stage first")
     gates = json.loads(gp.read_text())
     if gates.get("smoke"):
-        raise SystemExit("gates.json is from a --smoke run — run the full gate "
-                         "stage before any verdict")
+        print("[verdict] gates.json is from a --smoke run — verdict skipped "
+              "(run the full gate stage before any verdict)", flush=True)
+        return 0
     a, b, c = (gates["ffpp"]["pass"], gates["lomo"]["pass"], gates["celebdf"]["pass"])
     stacked = gates["ffpp"]["auc_stacked"]
     print(f"\nVERDICT: {'PROMOTE' if (a and b and c) else 'HOLD'}  "
@@ -220,19 +248,21 @@ def main() -> int:
                     choices=["all", "dump", "train", "gate", "verdict"])
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--work", default=None,
-                    help="work dir (default artifacts/restack_video[_smoke])")
+                    help="work dir (default artifacts/restack_video_v2[_smoke]; "
+                         "MUST be fresh — _gate_exam reuses existing metrics.json "
+                         "and stage_dump skips existing scores)")
     ap.add_argument("--promote", action="store_true")
     ap.add_argument("--promote-to", default=None)
-    ap.add_argument("--embedder", choices=["sface", "arcface"], default="sface",
+    ap.add_argument("--embedder", choices=["sface", "arcface"], default="arcface",
                     help="identity embedder for ALL stages — dump/train/gate "
                          "must match, and the serve path reads it from "
-                         "stacker_meta.embedder")
+                         "stacker_meta.embedder (phase default: arcface, D-042)")
     args = ap.parse_args()
     if args.promote and not args.promote_to:
         raise SystemExit("--promote requires --promote-to <tag>")
 
     work = Path(args.work) if args.work else (WS / "artifacts" /
-        ("restack_video_smoke" if args.smoke else "restack_video"))
+        ("restack_video_v2_smoke" if args.smoke else "restack_video_v2"))
     work.mkdir(parents=True, exist_ok=True)
     stages = (["dump", "train", "gate", "verdict"] if args.stage == "all"
               else [args.stage])

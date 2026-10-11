@@ -36,9 +36,11 @@ FEAT_COLS = ["file", "sha256_12", "label", "method", "split", "route",
 
 
 def load_stacker(spec, embedder):
-    """None when absent/unwired; hard-fail on embedder mismatch (D-040 skew
-    class — identity clustering and drift features are embedder-dependent,
-    same shape as train_video_stacker's dump guard)."""
+    """None when absent/unwired; hard-fail on (a) embedder mismatch and
+    (b) feature-space mismatch (D-040 skew class — identity clustering and
+    drift features are embedder-dependent, and a stale candidate must never
+    score a new dump in the wrong feature space; same shape as
+    argus_detect._load_video_stacker)."""
     if not spec:
         return None, None
     p = Path(spec)
@@ -48,10 +50,18 @@ def load_stacker(spec, embedder):
         return None, None
     meta_p = p.with_name("stacker_meta.json")
     if meta_p.exists():
-        dumped = json.loads(meta_p.read_text()).get("embedder")
+        meta = json.loads(meta_p.read_text())
+        dumped = meta.get("embedder")
         if dumped and dumped != embedder:
             raise SystemExit(f"embedder mismatch: stacker trained with '{dumped}' "
                              f"but --embedder {embedder} — re-train or match")
+        names = meta.get("feature_names")
+        if names is not None and names != FEATURE_NAMES:
+            raise SystemExit(
+                f"feature-space mismatch: stacker_meta.feature_names != "
+                f"video_features.FEATURE_NAMES ({len(names)} vs "
+                f"{len(FEATURE_NAMES)} dims) — this stacker was trained in a "
+                f"different feature space (D-040 skew class); re-train or match")
     import joblib
     return joblib.load(p), p.parent.name
 
@@ -219,6 +229,18 @@ def main() -> int:
         if len({p[0] for p in pairs}) > 1:
             aucs[name] = round(float(roc_auc_score([p[0] for p in pairs],
                                                    [p[1] for p in pairs])), 4)
+    # 5b.9 diagnostic: FF++-specialist verdict space through the SAME
+    # combined() shape as naive — a gen-vs-spec gate miss is then
+    # self-diagnosing from metrics.json alone.
+    from video_score import combined as _combined
+    spec_pairs = [(r["label"], _combined((r.get("visual") or {}).get("spec"),
+                                         r.get("audio")))
+                  for r in face if (r.get("visual") or {}).get("spec")]
+    spec_pairs = [p for p in spec_pairs if p[1] is not None]
+    if spec_pairs and len({p[0] for p in spec_pairs}) > 1:
+        aucs["naive_spec"] = round(float(
+            roc_auc_score([p[0] for p in spec_pairs],
+                          [p[1] for p in spec_pairs])), 4)
     # operating point at 0.5 on the stacked (or naive) score
     op_key = "stacked" if aucs.get("stacked") is not None else "naive_combined"
     op = [(r["label"], r[op_key]) for r in face if r.get(op_key) is not None]

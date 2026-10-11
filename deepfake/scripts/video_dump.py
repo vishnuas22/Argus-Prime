@@ -5,14 +5,24 @@ DISJOINT split preserved (720/140/140 ids): reals = real/*.mp4 whose stem is
 in the split-id set; fakes = fake/<Method>/<a>_<b>.mp4 whose PAIR tuple is in
 the split pairs (both directions; pair semantics exactly as exam_video_ffpp).
 
+--corpus celebdf (5b.5, D-021 domain diet): Celeb-DF-v2 TRAIN videos only —
+all of {Celeb-synthesis,Celeb-real,YouTube-real} MINUS every path in
+List_of_testing_videos.txt (the official test list NEVER trains). Balanced
+50/50 real/fake, sha-sorted with deterministic seed 11; method = "CelebSynthesis"
+for fakes / "real" for reals (CDF has no method axes). Output lands in
+dump_cdf/ instead of dump_<split>/. CDF videos have zero audio streams, so
+--no-audio is consistent with what the files actually contain (no skew).
+
 Usage:
   .venv/bin/python deepfake/scripts/video_dump.py --split train|val \
-      [--frames 12] [--limit 1500] [--audio-limit 1200] [--no-audio] \
+      [--corpus ffpp|celebdf] [--frames 12] [--limit 1500] \
+      [--audio-limit 1200] [--no-audio] \
       [--out artifacts/restack_video] [--drift-cal PATH]
 
 Selection is deterministic: sha-sorted within each class, reals first up to
 limit//2, then fakes (so the drift calibration always sees the full real
-quota). Append-resumable via the done-set of file names (exam guard pattern).
+quota). Append-resumable via the done-set of (method, file) keys (exam guard
+pattern; dir-qualified per patterns:40).
 
 Audio: only the first --audio-limit rows in sha-sorted order run the XLS-R
 probe; every other row gets audio_present=0 (missingness is an explicit
@@ -22,7 +32,9 @@ drift_l2 (per-video pooled embedding steps) is stored so drift_spikes can be
 backfilled exactly once the spike threshold is known: either --drift-cal
 (gate/test dumps use the trained calibration) or, for the train dump, the
 train-real p95 of per-video drift (sidecar drift_spike.json) — the same
-definition train_video_stacker uses to fit the calibration.
+definition train_video_stacker uses to fit the calibration. n_drift_tracks is
+a NON-FEATURE column (dropped from the 24-dim space in 5b.3) kept so the
+drift-calibration row filters in this file and train_video_stacker stay exact.
 """
 import argparse
 import csv
@@ -42,9 +54,14 @@ from video_features import FEATURE_NAMES, compute_row  # noqa: E402
 
 MIRROR = WS / "data" / "raw" / "ffpp_mirror" / "FaceForensics++_C23"
 SPLITS = WS / "data" / "raw" / "ffpp"
+CDF = WS / "data" / "raw" / "celebdf" / "Celeb-DF-v2"
+CDF_REAL_DIRS = ("Celeb-real", "YouTube-real")
+CDF_FAKE_DIR = "Celeb-synthesis"
+CDF_FAKE_METHOD = "CelebSynthesis"   # method label for CDF fakes (no method axes)
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
 CSV_COLS = ["file", "sha256_12", "label", "method", "split", "route",
-            "naive_combined", "identity_video_score", "drift_l2"] + FEATURE_NAMES
+            "naive_combined", "identity_video_score", "drift_l2"] + FEATURE_NAMES \
+    + ["n_drift_tracks"]     # non-feature: drift-calibration row filter (5b.3)
 
 
 def sha12(path: Path) -> str:
@@ -88,6 +105,37 @@ def enumerate_split(split: str, limit: int, progress=print):
     return sel_reals, picked[:n_fake]
 
 
+def enumerate_celebdf(limit: int, progress=print):
+    """Celeb-DF-v2 train diet (5b.5 / D-021): (reals, fakes) Path lists.
+
+    ALL of {Celeb-synthesis, Celeb-real, YouTube-real} MINUS every path in the
+    official List_of_testing_videos.txt — the CDF test set NEVER trains
+    (gate C's 518 stay unseen). Balanced 50/50, sha-sorted, deterministic
+    (seed 11 permutation over the sha-sorted pool, mirroring the exam
+    scripts' selection style)."""
+    lst = CDF / "List_of_testing_videos.txt"
+    test = {line.split()[1] for line in lst.read_text().splitlines()
+            if line.strip() and len(line.split()) >= 2}
+    reals = [v for d in CDF_REAL_DIRS
+             for v in sorted((CDF / d).glob("*.mp4"))
+             if f"{d}/{v.name}" not in test]
+    fakes = [v for v in sorted((CDF / CDF_FAKE_DIR).glob("*.mp4"))
+             if f"{CDF_FAKE_DIR}/{v.name}" not in test]
+    progress(f"[enum] celebdf: {len(reals)} reals / {len(fakes)} fakes available "
+             f"(official test list excluded: {len(test)} paths)")
+    t0 = time.time()
+    reals = sorted(((sha12(v), v) for v in reals), key=lambda t: t[0])
+    fakes = sorted(((sha12(v), v) for v in fakes), key=lambda t: t[0])
+    progress(f"[enum] hashed {len(reals)+len(fakes)} files in "
+             f"{time.time()-t0:.0f}s")
+    rng = np.random.default_rng(11)
+    n_real = min(len(reals), limit // 2)
+    n_fake = max(0, limit - n_real)
+    sel_reals = [reals[i][1] for i in rng.permutation(len(reals))[:n_real]]
+    picked = [fakes[i][1] for i in rng.permutation(len(fakes))[:n_fake]]
+    return sel_reals, picked
+
+
 def featurize_video(path: Path, frames: int = 12, with_audio: bool = False,
                     spike_thresh: float | None = None):
     """Score one video through visual+drift(+audio) -> flat stacker row.
@@ -102,7 +150,10 @@ def featurize_video(path: Path, frames: int = 12, with_audio: bool = False,
     l2 = _pooled_l2(tracks)
     aud = audio_channel(path) if with_audio else None
     row = {"file": path.name, "sha256_12": sha12(path), "route": "video_face",
-           **compute_row(vis, d, aud)}
+           **compute_row(vis, d, aud),
+           # NON-FEATURE column: the drift-calibration row filters (this file
+           # and train_video_stacker) read it straight from the CSV (5b.3)
+           "n_drift_tracks": d.get("n_drift_tracks", 0)}
     row["naive_combined"] = combined(vis, aud)
     row["identity_video_score"] = vis.get("video_score")
     return {"row": row, "visual": vis, "drift": d, "audio": aud,
@@ -136,6 +187,9 @@ def _apply_spikes(rows, spike):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=["train", "val", "test"], required=True)
+    ap.add_argument("--corpus", choices=["ffpp", "celebdf"], default="ffpp",
+                    help="ffpp = the identity-disjoint split logic; celebdf = "
+                         "the D-021 train diet (official CDF test list excluded)")
     ap.add_argument("--frames", type=int, default=12)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--audio-limit", type=int, default=1200)
@@ -150,24 +204,31 @@ def main() -> int:
     args = ap.parse_args()
     from video_face_track import set_embedder
     set_embedder(args.embedder)
-    limit = args.limit or (1500 if args.split == "train" else
+    limit = args.limit or (1000 if args.corpus == "celebdf" else
+                           1500 if args.split == "train" else
                            300 if args.split == "val" else 700)
-    out = Path(args.out) / f"dump_{args.split}"
+    out = Path(args.out) / ("dump_cdf" if args.corpus == "celebdf"
+                            else f"dump_{args.split}")
     out.mkdir(parents=True, exist_ok=True)
     rows_path = out / "scores.csv"
     noface_path = out / "noface.jsonl"
 
-    reals, fakes = enumerate_split(args.split, limit)
+    if args.corpus == "celebdf":
+        reals, fakes = enumerate_celebdf(limit)
+    else:
+        reals, fakes = enumerate_split(args.split, limit)
     jobs = [(v, 0, "real") for v in reals] + \
-           [(v, 1, v.parent.name) for v in fakes]
+           [(v, 1, CDF_FAKE_METHOD if args.corpus == "celebdf" else v.parent.name)
+            for v in fakes]
     jobs = sorted(jobs, key=lambda j: (j[1] != 0, j[0].parent.name, j[0].name))
     # keys are (method, filename): FF++ method dirs REUSE filenames across
     # methods (220 of 780 train-fake names collide), so a bare-filename key
-    # silently drops every later method's copy.
-    sha_of = {(v.parent.name, v.name): sha12(v) for v, _, _ in jobs}
-    audio_set = set(sorted(((v.parent.name, v.name) for v, _, _ in jobs),
-                           key=lambda k: sha_of[k])[: 0 if args.no_audio
-                                                     else args.audio_limit])
+    # silently drops every later method's copy. Keyed on the job's method
+    # label (dir name for FF++, CDF_FAKE_METHOD/"real" for celebdf) so the
+    # membership test below matches exactly.
+    sha_of = {(method, v.name): sha12(v) for v, _, method in jobs}
+    audio_set = set(sorted(sha_of, key=lambda k: sha_of[k])
+                    [: 0 if args.no_audio else args.audio_limit])
 
     spike = None
     if args.drift_cal:
@@ -230,7 +291,8 @@ def main() -> int:
     from video_face_track import EMBEDDER_NAME
     (out / "drift_spike.json").write_text(json.dumps(
         {"spike_thresh": round(float(spike), 6),
-         "fit_on": f"ffpp {args.split}-split real videos only",
+         "fit_on": (f"celebdf train-diet real videos only" if args.corpus == "celebdf"
+                    else f"ffpp {args.split}-split real videos only"),
          "embedder": EMBEDDER_NAME}, indent=2))
     n_audio = sum(int(r.get("audio_present", 0) or 0) for r in rows)
     print(f"[dump:{args.split}] done: {len(rows)} rows "
