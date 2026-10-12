@@ -70,7 +70,7 @@
     }
   },
   "video": {
-    "status": "Phase-5 identity-aware video stacker TRAINED but NOT PROMOTED (verdict HOLD, 2026-10-11, gate re-run at the official n=700): FF++ official test split (140 real + 4x140 fake) stacked AUC 0.7469 (gate needs >=0.90; naive 0.7406, identity 0.7403, delta vs naive +0.0063) with per-method stacked Deepfakes 0.8910 / Face2Face 0.6229 / FaceSwap 0.8897 / NeuralTextures 0.5841 — Face2Face and NeuralTextures below their per-method bars; LOMO 2/4 (Face2Face 0.6287, NeuralTextures 0.5550 < 0.70) FAIL; Celeb-DF cross-dataset 0.9004 PASS. Serve path therefore stays on the naive combined() fallback. UNTRUSTED for in-the-wild video (no wild-video corpus examined this phase).",
+    "status": "Phase-5b PROMOTED as p6vid_v2 under documented user-authorized Face2Face waiver (2026-10-12, artifacts/p6vid_v2/WAIVER.md): FF++ official test split n=700 stacked AUC 0.9016 (bar 0.90 PASS; naive 0.7487, naive_spec 0.8977, delta +0.1529), per-method Deepfakes 0.9849 / Face2Face 0.8760 WAIVED vs 0.88 bar (miss 0.004, within retraining-noise sd 0.0076) / FaceSwap 0.9730 / NeuralTextures 0.7726; LOMO 4/4 PASS (0.9774/0.8716/0.9518/0.7713); Celeb-DF cross-dataset 0.9411 PASS (n=518, naive 0.9232). Serve now uses p6vid_v2 (24-feature dual-probe space: p3_full generalist + p3_ffpp specialist, arcface). UNTRUSTED for in-the-wild video (no wild-video corpus examined; Deepfake-Eval-2024 exam still blocked on user registration).",
     "scope_legacy": {
       "claim": "detects face-swap video forgeries (DeepfakeTIMIT/CDF era)",
       "verified": {
@@ -85,7 +85,7 @@
     },
     "phase5": {
       "as_of": "2026-10-11",
-      "verdict": "HOLD (no promotion, no waiver written)",
+      "verdict": "PROMOTED to p6vid_v2 (2026-10-12) under documented F2F per-method waiver; see artifacts/p6vid_v2/WAIVER.md",
       "candidate": "artifacts/restack_video/candidate (val_auc 0.7121, 1800 rows, 23 features)",
       "embedder": "arcface (contingency 2.4: SFace drift probe AUC 0.5862 < 0.60)",
       "embedder_model": "tools/models/arcface_w600k_r50.onnx (insightface w600k_r50, sha256 4c06341c...619e43; fetch: fetch_face_models.py --arcface)",
@@ -99,21 +99,21 @@
           "identity": 0.7403,
           "delta_vs_naive": 0.0063,
           "per_method_stacked": {
-            "Deepfakes": 0.8910,
+            "Deepfakes": 0.891,
             "Face2Face": 0.6229,
             "FaceSwap": 0.8897,
             "NeuralTextures": 0.5841
           },
           "requirement": ">=0.90 stacked, >= -0.005 vs naive, per-method bars Deepfakes/Face2Face/FaceSwap >= 0.88, NeuralTextures >= 0.60",
           "pass": false,
-          "note": "re-run at the official n=700 on 2026-10-11 (reject cycle 1); the earlier n=420 half-sample gate (delta -0.0150, Deepfakes 0.8694) was a sampling artifact — archived at artifacts/restack_video/gate_ffpp_n420_20261011"
+          "note": "re-run at the official n=700 on 2026-10-11 (reject cycle 1); the earlier n=420 half-sample gate (delta -0.0150, Deepfakes 0.8694) was a sampling artifact \u2014 archived at artifacts/restack_video/gate_ffpp_n420_20261011"
         },
         "lomo": {
           "per_method": {
             "Deepfakes": 0.8572,
             "Face2Face": 0.6287,
-            "FaceSwap": 0.7360,
-            "NeuralTextures": 0.5550
+            "FaceSwap": 0.736,
+            "NeuralTextures": 0.555
           },
           "n_fake": 140,
           "n_real": 140,
@@ -161,6 +161,51 @@
         "source": "artifacts/exam_video_t2v_20261011_arcface/metrics.json",
         "note": "INFORMATIONAL only - no Phase 5 threshold (spec 4.4). A second pass on the naive combined() fallback with the module-default embedder is archived at artifacts/exam_video_t2v_20261011 (kling 0.4925 / opentora 0.6297 / sora 0.5144)."
       }
+    },
+    "phase5b": {
+      "as_of": "2026-10-12",
+      "verdict": "PROMOTED to p6vid_v2 (user-authorized waiver of Face2Face 0.8760 vs 0.88 per-method bar)",
+      "waiver": "artifacts/p6vid_v2/WAIVER.md",
+      "candidate": "artifacts/restack_video_v2/candidate (val_auc 0.9306, 2800 rows, 24 features)",
+      "embedder": "arcface",
+      "frame_budget": 12,
+      "gates": {
+        "ffpp_test_split": {
+          "n": 700,
+          "stacked": 0.9016,
+          "naive": 0.7487,
+          "naive_spec": 0.8977,
+          "delta_vs_naive": 0.1529,
+          "per_method_stacked": {
+            "Deepfakes": 0.9849,
+            "Face2Face": 0.876,
+            "FaceSwap": 0.973,
+            "NeuralTextures": 0.7726
+          },
+          "requirement": ">=0.90 stacked, >= -0.005 vs naive, per-method DF/F2F/FS >=0.88, NT >=0.60",
+          "pass": false,
+          "note": "headline+delta+DF/FS/NT PASS; Face2Face 0.8760 missed 0.88 by 0.004 -> WAIVED by user"
+        },
+        "lomo": {
+          "per_method_auc": {
+            "Deepfakes": 0.9774,
+            "Face2Face": 0.8716,
+            "FaceSwap": 0.9518,
+            "NeuralTextures": 0.7713
+          },
+          "requirement": "all >=0.70",
+          "pass": true
+        },
+        "celebdf": {
+          "n": 518,
+          "stacked": 0.9411,
+          "naive": 0.9232,
+          "requirement": ">=0.75",
+          "pass": true
+        }
+      },
+      "root_cause_fixed": "Phase-5 video path scored FF++ frames with the court-generalist probe p3_full (zero-shot FF++ 0.728) instead of the FF++ specialist p3_ffpp (0.8885 in-domain); 5b wired BOTH probes as separate stacker features (single CLIP forward, two heads) + 1000-video Celeb-DF diet for probe arbitration (D-021)",
+      "work_dir": "artifacts/restack_video_v2"
     }
   }
 }

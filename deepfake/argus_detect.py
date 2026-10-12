@@ -26,10 +26,12 @@ AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg", ".m4a"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
 STACKER = WS / "artifacts" / "p6v10" / "stacker.joblib"
-# Video stacker (Phase 5). Loaded ONLY if the file exists — promotion is the
-# file being present (restack_video.py --stage verdict + --promote). Until
-# then detect_video serves the documented naive fallback with stacker=null.
-VIDEO_STACKER = WS / "artifacts" / "p6vid_v1" / "stacker.joblib"
+# Video stacker (Phase 5b, promoted p6vid_v2 under a documented user-authorized
+# Face2Face per-method waiver — artifacts/p6vid_v2/WAIVER.md; gates:
+# FF++ 0.9016/LOMO 4-of-4/Celeb-DF 0.9411, F2F 0.8760 vs 0.88 bar). Loaded
+# ONLY if the file exists — a missing bundle means detect_video serves the
+# documented naive fallback with stacker=null.
+VIDEO_STACKER = WS / "artifacts" / "p6vid_v2" / "stacker.joblib"
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
 

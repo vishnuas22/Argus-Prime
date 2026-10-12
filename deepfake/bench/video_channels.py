@@ -38,7 +38,7 @@ import video_face_track as _vft  # noqa: E402
 
 logger = logging.getLogger("argus.video_module")
 
-DRIFT_CALIB = WS / "artifacts" / "p6vid_v1" / "drift_calibration.json"
+DRIFT_CALIB = WS / "artifacts" / "p6vid_v2" / "drift_calibration.json"
 MIN_TRACK_OBS = 3                  # a drift-capable track needs >=3 observations
 
 
