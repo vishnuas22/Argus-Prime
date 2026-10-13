@@ -129,7 +129,9 @@ def main() -> int:
         "drift_calibration_fit": cal,
         "frame_budget": 12,
         "embedder": EMBEDDER_NAME,
-        "caveat": "trained train-split only; test/celeb never seen",
+        "caveat": ("trained on the listed dumps only; FF++ test split and "
+                   "Celeb-DF List_of_testing_videos never seen "
+                   "(Celeb-DF train-diet videos ARE in-distribution when provided)"),
     }, indent=2))
     print(f"saved {out / 'stacker.joblib'} (val_auc={auc:.4f}, "
           f"drift cal n={cal['n_videos']})")
