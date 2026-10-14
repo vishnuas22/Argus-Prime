@@ -93,8 +93,8 @@ def main() -> int:
         for data in picks[lab]:
             tmp.write_bytes(data)
             try:
-                out = detect_audio(tmp)
-                score = out.get("p_fake_audio_mean")
+                res = detect_audio(tmp)
+                score = res.get("p_fake_audio_mean")
             except Exception:
                 score = None
             if score is None:

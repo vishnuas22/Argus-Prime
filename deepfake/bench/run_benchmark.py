@@ -60,6 +60,12 @@ def apply_variant(pil: Image.Image, spec) -> Image.Image:
     if "scale" in spec:
         s = spec["scale"]
         img = img.resize((max(64, int(img.width * s)), max(64, int(img.height * s))), Image.BILINEAR)
+    if "inset" in spec:                    # P3-C7 center-crop inset (additive)
+        f = float(spec["inset"])
+        w, h = img.size
+        dx, dy = int(w * f), int(h * f)
+        if w - 2 * dx > 0 and h - 2 * dy > 0:
+            img = img.crop((dx, dy, w - dx, h - dy))
     return img
 
 
@@ -80,7 +86,7 @@ def collect(paths: list, limit: int):
     return out[:limit]
 
 
-def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, vid: str, tmp_root: Path, stacker_clfs=None, original_raw: bytes | None = None):
+def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, vid: str, tmp_root: Path, stacker_clfs=None, original_raw: bytes | None = None, return_extras: bool = False):
     img = apply_variant(pil, spec)
     raw = encode(img, spec)
     sha = hashlib.sha256(raw).hexdigest()[:16]
@@ -113,6 +119,8 @@ def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, v
     row["contradiction_mass"] = round(sum(c.conflict_contribution for c in contras), 4)
     from stacker_judge import StackerJudge
     tags = list((stacker_clfs or {}).keys())
+    core = judge = None
+    k = None
     if not tags:
         core, ranking, contradictions, unavailable, k = fuse(outputs, d)
         row["p_real"] = core.probabilities.get("camera_original")
@@ -140,6 +148,9 @@ def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, v
             row["conflict"] = k
             row["out_of_conflict"] = row[f"out_of_conflict_{tag}"]
     shutil.rmtree(adir, ignore_errors=True)
+    if return_extras:    # Phase 3 recovery ladder context (§5.5, default OFF)
+        return row, {"outputs": outputs, "d": d, "survivors": survivors,
+                     "core": core, "judge": judge, "k": k}
     return row
 
 
@@ -163,6 +174,10 @@ def main():
                          "for A/B gating (tag = parent dir name)")
     ap.add_argument("--with-face", default=None, metavar="FACE_PROBE_JOBLIB",
                     help="append learned_face_probe module using trained face probe")
+    ap.add_argument("--recovery", action="store_true", default=False,
+                    help="Phase 3: after each clean-variant row, run the recovery "
+                         "ladder if triggered (default OFF; gates/scoreboard never "
+                         "pass this — §5.5)")
     args = ap.parse_args()
 
     if args.alpha is not None:
@@ -231,7 +246,33 @@ def main():
             for vname, spec in variants.items():
                 vid = f"{p.stem}_{vname}"
                 try:
-                    row = run_image(modules, estimator, pil, spec, artifact_root, vid, tmp_root, stacker_clfs, original_raw=file_raw)
+                    if args.recovery and vname == "clean":
+                        row, extras = run_image(modules, estimator, pil, spec,
+                                                artifact_root, vid, tmp_root,
+                                                stacker_clfs,
+                                                original_raw=file_raw,
+                                                return_extras=True)
+                        extras.update({"pil": pil, "modules": modules,
+                                       "estimator": estimator,
+                                       "stacker_clfs": stacker_clfs,
+                                       "original_raw": file_raw})
+                        original = {"p_fake_fused": None if row["p_real"] is None
+                                    else round(1.0 - row["p_real"], 4),
+                                    "abstained": row["abstained"],
+                                    "out_of_conflict": row.get("out_of_conflict", False),
+                                    "trust": row["trust"], "risk": row["risk"]}
+                        import recovery as recovery_mod
+                        rec = recovery_mod.run("image", original, extras)
+                        row["recovery_outcome"] = rec["outcome"]
+                        row["recovery_steps"] = json.dumps(
+                            [{"step": s["step"], "name": s["name"], "ok": s["ok"]}
+                             for s in rec["attempted_steps"]])
+                        row["recovery_p_fake"] = (rec.get("verdict") or {}).get("p_fake_fused")
+                        row["recovery_trust"] = rec.get("trust")
+                        row["recovery_risk"] = rec.get("risk")
+                        row["recovery_reasons"] = json.dumps(rec["reasons"])
+                    else:
+                        row = run_image(modules, estimator, pil, spec, artifact_root, vid, tmp_root, stacker_clfs, original_raw=file_raw)
                 except Exception as e:
                     print(f"FAIL {vid}: {e}", flush=True)
                     continue

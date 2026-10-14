@@ -68,7 +68,11 @@ def init_court():
     con.execute("""CREATE TABLE IF NOT EXISTS verdicts (
         id INTEGER PRIMARY KEY, ts REAL, filename TEXT, kind TEXT,
         p_fake REAL, abstained INTEGER, trust REAL, risk REAL,
-        alpha REAL, modules_json TEXT)""")
+        alpha REAL, modules_json TEXT, recovery_json TEXT)""")
+    try:                          # Phase 3 (§5.3): additive column on old DBs
+        con.execute("ALTER TABLE verdicts ADD COLUMN recovery_json TEXT")
+    except sqlite3.OperationalError:
+        pass
     con.commit()
     con.close()
 

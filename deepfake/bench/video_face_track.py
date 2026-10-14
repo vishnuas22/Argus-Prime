@@ -36,6 +36,22 @@ EMBEDDER_NAME = "sface"
 _DET = None
 _REC = None
 _ARC_NET = None
+_SCORE_THRESHOLD = 0.55         # repo convention (P3-C19 default; recovery retries at 0.45)
+
+
+def set_score_threshold(t: float) -> float:
+    """Select the YuNet detection score threshold (repo default 0.55).
+
+    Returns the previous threshold so callers can restore it (recovery V2
+    restores in a finally). The threshold is baked into the cached detector,
+    so a change invalidates _DET; the next get_det() rebuilds at the new value."""
+    global _DET, _SCORE_THRESHOLD
+    old = _SCORE_THRESHOLD
+    t = float(t)
+    if t != _SCORE_THRESHOLD:
+        _SCORE_THRESHOLD = t
+        _DET = None
+    return old
 
 
 def set_embedder(name: str) -> str:
@@ -50,7 +66,8 @@ def set_embedder(name: str) -> str:
 
 
 def get_det() -> cv2.FaceDetectorYN:
-    """Process-cached YuNet detector, score_threshold=0.55 (repo convention).
+    """Process-cached YuNet detector at the active score_threshold (0.55
+    default; set_score_threshold overrides, e.g. recovery V2 at 0.45).
 
     Input size is (re)set per frame via setInputSize."""
     global _DET
@@ -58,7 +75,7 @@ def get_det() -> cv2.FaceDetectorYN:
         if not YUNET.exists():
             raise FileNotFoundError(f"YuNet model missing: {YUNET}")
         _DET = cv2.FaceDetectorYN.create(str(YUNET), "", (320, 320),
-                                         score_threshold=0.55)
+                                         score_threshold=_SCORE_THRESHOLD)
     return _DET
 
 

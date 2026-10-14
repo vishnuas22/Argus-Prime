@@ -72,13 +72,13 @@ def detect_image(pil, stacker_clfs=None, original_raw: bytes | None = None):
     tmp = Path(tempfile.mkdtemp(prefix="argus_detect_"))
     art = Path(tempfile.mkdtemp(prefix="argus_art_"))
     vid = hashlib.sha256(str(pil.size).encode()).hexdigest()[:12]
-    row = run_image(modules, estimator, pil, None, art, vid, tmp, stacker_clfs,
-                    original_raw=original_raw)
+    row, extras = run_image(modules, estimator, pil, None, art, vid, tmp, stacker_clfs,
+                            original_raw=original_raw, return_extras=True)
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
     shutil.rmtree(art, ignore_errors=True)
     module_scores = {m: row.get(m) for m in mids if row.get(m) is not None}
-    return {
+    result = {
         "p_fake_fused": round(1.0 - row["p_real"], 4),
         "abstained": row["abstained"],
         "trust": row["trust"],
@@ -86,6 +86,14 @@ def detect_image(pil, stacker_clfs=None, original_raw: bytes | None = None):
         "out_of_conflict": bool(row.get("out_of_conflict", False)),
         "module_evidence": {k: round(-v, 4) for k, v in module_scores.items()},
     }
+    # Phase 3 recovery ladder — flagged layer only (C-MECHB: top-level
+    # p_fake_fused/abstained/trust/risk are never overwritten; §5.2)
+    extras.update({"pil": pil, "modules": modules, "estimator": estimator,
+                   "stacker_clfs": stacker_clfs or {},
+                   "original_raw": original_raw})
+    import recovery as recovery_mod
+    result["recovery"] = recovery_mod.run("image", result, extras)
+    return result
 
 
 def _image_stacker_clfs() -> dict:
@@ -203,7 +211,7 @@ def _load_video_stacker():
     return _VID_STACKER_CACHE["clf"]
 
 
-def detect_video(path: Path, n_frames: int = 12) -> dict:
+def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True) -> dict:
     """Identity-aware video route with an honest no-face fallback.
 
     route=video_face : visual aggregation + identity drift + audio; verdict
@@ -211,6 +219,8 @@ def detect_video(path: Path, n_frames: int = 12) -> dict:
         documented naive fallback (combined()).
     route=image_court: zero faces in the sampled frames -> whole-frame image
         court on k=4 frames, median, confidence degraded (spec item 5.2).
+    recovery_enabled=False is the Phase 3 ladder's own re-entry (V1/V2) —
+    one court implementation, no nested recovery (§5.2).
     """
     sys.path.insert(0, str(WS / "deepfake" / "scripts"))
     from video_score import audio_channel, combined, visual_channel_bundle
@@ -234,6 +244,11 @@ def detect_video(path: Path, n_frames: int = 12) -> dict:
             "audio": {}, "audio_out_of_coverage": False,
             "confidence_degraded": True,
         })
+        if recovery_enabled:
+            import recovery as recovery_mod
+            court["recovery"] = recovery_mod.run("video", court, {
+                "path": path, "n_frames": n_frames, "route": "image_court",
+                "identity_conflict": False})
         return court
 
     from video_channels import IdentityDriftProbe, VideoContext, drift_features
@@ -263,7 +278,7 @@ def detect_video(path: Path, n_frames: int = 12) -> dict:
         p = combined(vis, aud)          # documented naive fallback (pre-promotion)
         stacker_tag = None
     scored = p is not None
-    return {
+    result = {
         "route": "video_face",
         "p_fake_video_combined": p,
         "p_fake_fused": p,
@@ -290,6 +305,13 @@ def detect_video(path: Path, n_frames: int = 12) -> dict:
         "confidence_degraded": False,
         "visual": vis,
     }
+    if recovery_enabled:
+        import recovery as recovery_mod
+        result["recovery"] = recovery_mod.run("video", result, {
+            "path": path, "n_frames": n_frames,
+            "identity_conflict": bool(vis.get("identity_conflict")),
+            "visual": vis, "drift": drift, "audio": aud})
+    return result
 
 
 _AUDIO_MODEL = None
@@ -306,7 +328,7 @@ def _get_audio_model(device):
     return _AUDIO_MODEL
 
 
-def detect_audio(path: Path):
+def detect_audio(path: Path, recovery_enabled: bool = True):
     import torch
     import soundfile as sf
     import joblib
@@ -344,15 +366,24 @@ def detect_audio(path: Path):
     zmean = float(np.mean(znorms))
     cov_thresh = bundle.get("coverage_threshold")
     ooc = bool(cov_thresh and zmean > cov_thresh)
-    return {
+    result = {
         "p_fake_audio_mean": round(float(np.mean(probs)), 4),
         "segments_analyzed": len(probs),
         "per_segment": [round(p, 4) for p in probs],
+        # Phase 3 (§5.2, additive): per-segment z-norms for the A2 coverage vote
+        "per_segment_znorm": [round(z, 1) for z in znorms],
         "znorm_mean": round(zmean, 1),
         "coverage_threshold": cov_thresh,
         "out_of_coverage": ooc,
         "abstained": ooc,
     }
+    # Phase 3 recovery ladder — flagged layer only (C-MECHB); recovery_enabled
+    # False is the ladder's own A1 re-entry (no nested recovery).
+    if recovery_enabled:
+        import recovery as recovery_mod
+        result["recovery"] = recovery_mod.run(
+            "audio", result, {"path": path, "audio_result": result})
+    return result
 
 
 def main() -> int:
@@ -440,6 +471,16 @@ def main() -> int:
         else:
             pf = result["p_fake_audio_mean"]
             print(f"voice-clone P(fake): {pf:.3f} over {result['segments_analyzed']} segments")
+        rec = result.get("recovery")
+        if rec:                     # §5.2 recovery line (flagged layer, C-MECHB)
+            steps = ",".join(s["step"] for s in (rec.get("attempted_steps") or []))
+            rsn = ",".join(rec.get("reasons") or []) or "-"
+            print(f"recovery: {rec['outcome']} steps={steps or '-'} reasons={rsn}")
+            if rec["outcome"] == "recovered":
+                rv = rec.get("verdict") or {}
+                if rv.get("p_fake_fused") is not None:
+                    print(f"recovered P(fake): {rv['p_fake_fused']:.3f} "
+                          f"(penalized trust {rec.get('trust')} / risk {rec.get('risk')})")
     return 0
 
 
