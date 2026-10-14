@@ -382,7 +382,12 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
     if recovery_enabled:
         import recovery as recovery_mod
         result["recovery"] = recovery_mod.run(
-            "audio", result, {"path": path, "audio_result": result})
+            "audio",
+            {"p_fake_fused": result["p_fake_audio_mean"],
+             "abstained": result["abstained"],
+             "out_of_coverage": result["out_of_coverage"],
+             "trust": None, "risk": None},
+            {"path": path, "audio_result": result})
     return result
 
 

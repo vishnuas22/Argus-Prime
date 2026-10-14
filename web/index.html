@@ -73,6 +73,8 @@ input[type=range]{width:100%;accent-color:var(--gold);cursor:none}
 .vtag.fake{background:rgba(255,77,109,.12);color:var(--red);border:1px solid rgba(255,77,109,.4)}
 .vtag.real{background:rgba(62,240,197,.1);color:var(--teal);border:1px solid rgba(62,240,197,.4)}
 .vtag.abs{background:rgba(232,196,106,.1);color:var(--gold);border:1px solid rgba(232,196,106,.4)}
+.vtag.rec{background:rgba(255,140,50,.14);color:#ff9a3c;border:1px solid rgba(255,140,50,.5)}
+.vtag.review{background:rgba(255,214,80,.16);color:#ffe066;border:1px solid rgba(255,214,80,.55)}
 .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px;width:100%}
 .mk{border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}
 .mk .v{font-family:'JetBrains Mono';font-size:18px;font-weight:600}
@@ -159,7 +161,7 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
             <stop offset="0" stop-color="#3ef0c5"/><stop offset="1" stop-color="#ff4d6d"/>
           </linearGradient></defs>
         </svg>
-        <div class="dialval"><div class="n" id="vnum">0.00</div><div class="l">P( SYNTHETIC )</div></div>
+        <div class="dialval" id="dialval"><div class="n" id="vnum">0.00</div><div class="l" id="vdialab">P( SYNTHETIC )</div></div>
       </div>
       <div class="vtag abs" id="vtag">DELIBERATING…</div>
       <div id="honesty" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
@@ -375,11 +377,20 @@ const IRIS = {state:"idle"};
   window.__renderVerdict = render;
   function render(v){
     $("verdictSec").style.display = "block";
+    // Phase 3 recovery layer (§5.4): a flagged layer only — top-level
+    // p_fake_fused/abstained are never rewritten; recovered shows recovery
+    // numbers with the original p alongside, needs_review dims the ORIGINAL
+    // p as ADVISORY. not_attempted renders byte-for-byte as before.
+    const rec = (v.recovery && v.recovery.outcome && v.recovery.outcome !== "not_attempted") ? v.recovery : null;
+    const recOk = !!(rec && rec.outcome === "recovered" && rec.verdict
+                     && typeof rec.verdict.p_fake_fused === "number"
+                     && isFinite(rec.verdict.p_fake_fused));
     // null p_fake_fused = the court produced NO probability (fully abstained
     // route, e.g. every no-face frame abstained) — show a dash, never a
     // fabricated 0.00 that would read as "AUTHENTIC".
-    const hasP = typeof v.p_fake_fused === "number" && isFinite(v.p_fake_fused);
-    const pf = hasP ? +v.p_fake_fused : null;
+    const hasP0 = typeof v.p_fake_fused === "number" && isFinite(v.p_fake_fused);
+    const hasP = recOk ? true : hasP0;
+    const pf = recOk ? +rec.verdict.p_fake_fused : (hasP0 ? +v.p_fake_fused : null);
     if(hasP){
       gsap.to("#arc",{strokeDashoffset:628*(1-pf),duration:1.6,ease:"power3.inOut"});
       const cnt = {v:0};
@@ -389,17 +400,35 @@ const IRIS = {state:"idle"};
       gsap.to("#arc",{strokeDashoffset:628,duration:1,ease:"power2.out"});
       $("vnum").textContent = "––";
     }
-    const state = (!hasP || v.abstained) ? "abs" : (pf>=0.5 ? "fake" : "real");
     const tag = $("vtag");
-    tag.className = "vtag "+state;
-    tag.textContent = (!hasP || v.abstained) ? "COURT ABSTAINS — UNCERTAIN"
-      : state==="fake" ? "VERDICT: SYNTHETIC / MANIPULATED" : "VERDICT: AUTHENTIC";
-    IRIS.setVerdict((!hasP || v.abstained) ? "abstain" : state);
-    $("mTrust").textContent = (+v.trust).toFixed(2);
-    $("mRisk").textContent = (+v.risk).toFixed(2);
+    const dialval = $("dialval"), vdialab = $("vdialab");
+    if(dialval) dialval.style.opacity = "1";
+    if(vdialab) vdialab.textContent = "P( SYNTHETIC )";
+    if(rec && rec.outcome === "recovered"){
+      tag.className = "vtag rec";
+      tag.textContent = "RECOVERED (PENALIZED)";
+      IRIS.setVerdict(pf>=0.5 ? "fake" : "real");
+    } else if(rec && rec.outcome === "needs_review"){
+      tag.className = "vtag review";
+      tag.textContent = "NEEDS HUMAN REVIEW";
+      IRIS.setVerdict("abstain");
+      if(dialval) dialval.style.opacity = ".5";   // original p, ADVISORY only
+      if(vdialab) vdialab.textContent = "P( SYNTH ) · ADVISORY";
+    } else {
+      const state = (!hasP || v.abstained) ? "abs" : (pf>=0.5 ? "fake" : "real");
+      tag.className = "vtag "+state;
+      tag.textContent = (!hasP || v.abstained) ? "COURT ABSTAINS — UNCERTAIN"
+        : state==="fake" ? "VERDICT: SYNTHETIC / MANIPULATED" : "VERDICT: AUTHENTIC";
+      IRIS.setVerdict((!hasP || v.abstained) ? "abstain" : state);
+    }
+    // recovered/needs_review: TRUST/RISK tiles carry the recovery layer's
+    // (penalty-clamped) numbers; not_attempted keeps the court's own.
+    $("mTrust").textContent = (+(rec ? rec.trust : v.trust)).toFixed(2);
+    $("mRisk").textContent = (+(rec ? rec.risk : v.risk)).toFixed(2);
     $("mTime").textContent = (+v.elapsed_s).toFixed(1);
     const notes = [];
-    // honesty badges: route (video), DEGRADED confidence, conflict advisory
+    // honesty badges: route (video), DEGRADED confidence, conflict advisory,
+    // recovery
     const hb = $("honesty");
     if(hb){
       const bits = [];
@@ -407,6 +436,10 @@ const IRIS = {state:"idle"};
         + (v.route==="image_court" ? "ROUTE: IMAGE COURT (no face in frame)"
                                    : "ROUTE: FACE (video)") + '</span>');
       if(v.confidence_degraded) bits.push('<span class="vtag abs" style="font-size:11px;padding:4px 12px;margin:0">DEGRADED CONFIDENCE</span>');
+      if(rec && rec.outcome === "recovered")
+        bits.push('<span class="vtag rec" style="font-size:11px;padding:4px 12px;margin:0">RECOVERED — DEGRADED CONFIDENCE</span>');
+      if(rec && rec.outcome === "needs_review")
+        bits.push('<span class="vtag review" style="font-size:11px;padding:4px 12px;margin:0">HUMAN REVIEW REQUIRED</span>');
       hb.innerHTML = bits.join(" ");
     }
     notes.push("Artefact: " + (v.filename||"") + " · kind: " + v.kind);
@@ -419,6 +452,26 @@ const IRIS = {state:"idle"};
          : v.route === "image_court" ? "image court (frame-level, no video stacker)"
          : (v.kind==="video" ? "none (naive fallback)" : "deployed"))
       + " · conformal α: " + (v.alpha ?? "0.10 (default)"));
+    if(rec && rec.outcome === "recovered" && rec.verdict){
+      notes.push("Recovery: RECOVERED (penalized) — original P(fake) "
+        + (hasP0 ? (+v.p_fake_fused).toFixed(4) : "–")
+        + " → recovered P(fake) " + (+rec.verdict.p_fake_fused).toFixed(4)
+        + " · trust capped " + rec.trust + " / risk floored " + rec.risk + ".");
+      const st = (rec.attempted_steps||[]).map(s=>s.step+":" + s.name + (s.ok?" ✓":" ✗")).join(" · ");
+      if(st) notes.push("Ladder: " + st + ".");
+    } else if(rec && rec.outcome === "needs_review"){
+      notes.push("Recovery: NEEDS HUMAN REVIEW — the ladder could not recover a "
+        + "confident verdict. Original P(fake) " + (hasP0 ? (+v.p_fake_fused).toFixed(4) : "–")
+        + " is ADVISORY only (trust " + rec.trust + " / risk " + rec.risk + ").");
+      if((rec.reasons||[]).length) notes.push("Reasons: " + rec.reasons.join(", ") + ".");
+      const st = (rec.attempted_steps||[]).map(s=>s.step+":" + s.name + (s.ok?" ✓":" ✗")).join(" · ");
+      if(st) notes.push("Ladder: " + st + ".");
+      const pi = (rec.verdict && rec.verdict.per_identity) || [];
+      if(pi.length) notes.push("Per-identity split (never fused): "
+        + pi.map(r=>"id "+r.id+" n="+r.frames+" topk="+(r.topk_mean??"–")).join(" | ") + ".");
+      if(v.kind === "image")
+        notes.push("Uploading an uncropped, uncompressed original may help.");
+    }
     if(v.hypotheses && v.hypotheses.length>1)
       notes.push("Hypothesis set: " + v.hypotheses.join(" | ")
         + " → the court withholds a single verdict.");
@@ -484,8 +537,11 @@ const IRIS = {state:"idle"};
       const h = await (await fetch("/api/history?limit=12")).json();
       const tb = $("tbody");
       tb.innerHTML = h.map(r=>{
-        const pf=+r.p_fake, st = r.abstained?"ABSTAIN":(pf>=0.5?"FAKE":"REAL");
-        const cls = r.abstained?"abs":(pf>=0.5?"fake":"real");
+        const pf=+r.p_fake;
+        let st = r.abstained?"ABSTAIN":(pf>=0.5?"FAKE":"REAL");
+        let cls = r.abstained?"abs":(pf>=0.5?"fake":"real");
+        if(r.recovery && r.recovery.outcome === "recovered"){ st="RECOVERED"; cls="rec"; }
+        else if(r.recovery && r.recovery.outcome === "needs_review"){ st="REVIEW"; cls="review"; }
         const t = new Date(r.ts*1000).toLocaleTimeString();
         return "<tr><td class='mono'>"+t+"</td><td>"+(r.filename||"—")+"</td><td>"
           +r.kind+"</td><td class='mono'>"+pf.toFixed(3)+"</td><td><span class='vtag "

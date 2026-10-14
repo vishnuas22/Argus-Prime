@@ -120,11 +120,28 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
                        "confidence": mo.confidence_score, "claim": claim})
     shutil.rmtree(tmp, ignore_errors=True)
     shutil.rmtree(art, ignore_errors=True)
-    return {"p_fake_fused": round(1.0 - core.probabilities["camera_original"], 4),
-            "abstained": bool(core.abstained), "trust": core.trust_score,
-            "risk": core.risk_score, "hypotheses": core.hypothesis_set,
-            "out_of_conflict": bool(getattr(judge, "out_of_conflict", False)),
-            "modules": detail}
+    from argus_detect import STACKER
+    from fusion import conflict_metric, gate
+    survivors, _unavailable = gate(outputs, d)
+    verdict = {"p_fake_fused": round(1.0 - core.probabilities["camera_original"], 4),
+               "abstained": bool(core.abstained), "trust": core.trust_score,
+               "risk": core.risk_score, "hypotheses": core.hypothesis_set,
+               "out_of_conflict": bool(getattr(judge, "out_of_conflict", False)),
+               "modules": detail}
+    # Phase 3 recovery ladder (§5.3): flagged layer; extras already in scope.
+    # Top-level verdict fields are NEVER mutated (C-MECHB) — recovery rides
+    # alongside as verdict["recovery"]; needs_review stays a flagged HTTP 200.
+    extras = {"outputs": outputs, "d": d, "survivors": survivors, "core": core,
+              "judge": judge, "k": conflict_metric(survivors), "pil": pil,
+              "modules": modules, "estimator": _state["estimator"],
+              "original_raw": original_raw,
+              "stacker_clfs": {STACKER.parent.name: {
+                  "clf": _state["clf"], "module_ids": _state["mids"],
+                  "feature_names": _state.get("feature_names"),
+                  "conflict_p99": _state.get("conflict_p99")}}}
+    import recovery as recovery_mod
+    verdict["recovery"] = recovery_mod.run("image", verdict, extras)
+    return verdict
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
@@ -165,14 +182,23 @@ def history(limit: int = 30):
     con.row_factory = sqlite3.Row
     rows = con.execute("SELECT * FROM verdicts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     con.close()
-    return [dict(r) | {"modules": json.loads(r["modules_json"])} for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r) | {"modules": json.loads(r["modules_json"])}
+        try:                       # Phase 3 (§5.3): merge recovery back
+            d["recovery"] = json.loads(r["recovery_json"]) if r["recovery_json"] else None
+        except (KeyError, TypeError, json.JSONDecodeError):
+            d["recovery"] = None
+        out.append(d)
+    return out
 
 
 def log_verdict(filename, kind, v, alpha):
     con = sqlite3.connect(DB)
-    con.execute("INSERT INTO verdicts (ts, filename, kind, p_fake, abstained, trust, risk, alpha, modules_json) VALUES (?,?,?,?,?,?,?,?,?)",
+    con.execute("INSERT INTO verdicts (ts, filename, kind, p_fake, abstained, trust, risk, alpha, modules_json, recovery_json) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (time.time(), filename, kind, v["p_fake_fused"], int(v["abstained"]),
-                 v["trust"], v["risk"], alpha, json.dumps(v["modules"])))
+                 v["trust"], v["risk"], alpha, json.dumps(v["modules"]),
+                 json.dumps(v.get("recovery") or {})))
     con.commit()
     con.close()
 
@@ -198,13 +224,17 @@ async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
             from argus_detect import detect_audio
             a = detect_audio(tmp)
             kind = "audio"
-            # D-035: coverage gate — off-manifold audio abstains, never votes
+            # D-035: coverage gate — off-manifold audio abstains, never votes.
+            # The D-035 posture stays the ORIGINAL top-level trust/risk; the
+            # Phase-3 recovery layer (attached by detect_audio) carries the
+            # operative numbers when triggered (§5.3, C-MECHB).
             v = {"p_fake_fused": a["p_fake_audio_mean"],
                  "abstained": bool(a.get("out_of_coverage", False)),
                  "trust": 0.7 if not a.get("out_of_coverage") else 0.2,
                  "risk": 0.9 if a.get("out_of_coverage") else 0.0,
                  "modules": [],
-                 "audio": {k: v2 for k, v2 in a.items() if k != "per_segment"}}
+                 "audio": {k: v2 for k, v2 in a.items() if k != "per_segment"},
+                 "recovery": a.get("recovery")}
         elif ext in VIDEO_EXTS:
             from argus_detect import detect_video
             # frame budget 5 for the API path by design (decision #4)

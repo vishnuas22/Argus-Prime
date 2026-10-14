@@ -1,7 +1,9 @@
 """End-to-end visual test of the Argus UI: real browser, real user flow.
 
 Stages: load -> health (chip + API contract) -> drop image -> deliberation ->
-verdict -> evidence -> drop video (SKIP note when no .mp4 fixture exists).
+verdict -> evidence -> drop video (SKIP note when no .mp4 fixture exists) ->
+drop OOC audio (recovery scenario: outcome in {recovered, needs_review},
+#vtag and #mTrust match the recovery verdict).
 Captures console errors, page errors, and screenshots at every stage to
 artifacts/e2e_ui/.
 Usage: .venv/bin/python deepfake/scripts/e2e_ui_test.py <image_path>
@@ -173,6 +175,64 @@ def main() -> int:
                                       "(expected 'video')")
                 time.sleep(2)
                 shot(page, "05_video_verdict")
+
+        # Stage 7: OOC audio recovery scenario (fixture 1, smoke_fixtures.json)
+        audio_fx = (WS / "data" / "dfeval" / "audio" / "audio-data" /
+                    "audio-data" / "-0ljEYr8ZyqCHRqy5Bx4f4J6YOg.mp3")
+        if not audio_fx.exists():
+            print("[7] SKIP audio recovery e2e: fixture missing:",
+                  audio_fx.relative_to(WS), flush=True)
+        else:
+            print("[7] drop OOC audio (recovery scenario):", flush=True)
+            ab64 = base64.b64encode(audio_fx.read_bytes()).decode()
+            page.evaluate("""async (b64) => {
+                const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+                const dt = new DataTransfer();
+                dt.items.add(new File([buf], 'wild_ooc.mp3', {type:'audio/mpeg'}));
+                const dz = document.getElementById('dz');
+                dz.dispatchEvent(new DragEvent('drop', {dataTransfer: dt, bubbles: true}));
+            }""", ab64)
+            time.sleep(1)
+            if page.locator("#go").is_disabled():
+                issues.append("audio drop did not enable the button (setFile failed)")
+            else:
+                with page.expect_response("**/api/detect", timeout=180000) as aresp:
+                    page.locator("#go").click()
+                ar = aresp.value
+                print("    /api/detect (audio) status:", ar.status, flush=True)
+                if ar.status != 200:
+                    issues.append(f"audio detect returned {ar.status}: " +
+                                  ar.text()[:300])
+                else:
+                    av = check_verdict_json(ar.text(), "audio")
+                    rec = av.get("recovery") or {}
+                    outcome = rec.get("outcome")
+                    print(f"    audio kind={av.get('kind')} "
+                          f"out_of_coverage={av.get('audio', {}).get('out_of_coverage')} "
+                          f"recovery.outcome={outcome} trust={rec.get('trust')} "
+                          f"risk={rec.get('risk')}", flush=True)
+                    if outcome not in ("recovered", "needs_review"):
+                        issues.append(f"OOC audio recovery outcome {outcome!r} "
+                                      "not in {recovered, needs_review}")
+                    if av.get("abstained") is not True:
+                        issues.append("expected abstained=True for this wild "
+                                      "OOC fixture")
+                    time.sleep(2)
+                    shot(page, "06_audio_recovery")
+                    vtag = page.locator("#vtag").inner_text()
+                    want = {"recovered": "RECOVERED (PENALIZED)",
+                            "needs_review": "NEEDS HUMAN REVIEW"}.get(outcome, "")
+                    print(f"    #vtag={vtag!r} (want {want!r})", flush=True)
+                    if want and vtag.strip() != want:
+                        issues.append(f"#vtag {vtag.strip()!r} != expected {want!r}")
+                    mtrust = page.locator("#mTrust").inner_text()
+                    if rec.get("trust") is not None:
+                        want_t = f"{float(rec['trust']):.2f}"
+                        print(f"    #mTrust={mtrust!r} (recovery.trust "
+                              f"{want_t!r})", flush=True)
+                        if mtrust != want_t:
+                            issues.append(f"#mTrust {mtrust!r} != "
+                                          f"recovery.trust {want_t!r}")
 
         browser.close()
 
