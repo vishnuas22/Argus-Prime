@@ -18,3 +18,4 @@ joblib
 opencv-python-headless
 soundfile
 c2pa-python
+mflux==0.22.0

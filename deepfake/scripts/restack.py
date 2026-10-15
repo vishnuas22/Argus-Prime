@@ -53,6 +53,26 @@ CORPORA = [
     # user-input-distribution domain: screenshot views (D-032 r6) — stacker must
     # learn that canvas letterboxing + chrome + q60 re-encode is NOT fake evidence
     ("shot_aug", "data/corpora/shot_aug/real", "data/corpora/shot_aug/fake", 100),
+    # Phase 4 generator-intake domains (spec B.3, D-049): aigenimages2026
+    # CC-BY-4.0 train shards (build_intake_train.py) + B.1 self-generated
+    # FLUX.2-klein corpus; shared real side = sha256-deduped aigen train
+    # reals (gen_train/real, P4-C19 1000-cap, P4-C22-clean)
+    ("flux-1-pro", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/flux-1-pro", 100),
+    ("gpt4o", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/gpt4o", 100),
+    ("hidream", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/hidream", 100),
+    ("ideogram3", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/ideogram3", 100),
+    ("imagen4", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/imagen4", 100),
+    ("nanao-banana", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/nanao-banana", 100),
+    ("seedream3-0", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/seedream3-0", 100),
+    ("flux2-klein-4b", "data/corpora/gen_train/real",
+     "data/corpora/gen_intake_train/flux2-klein-4b", 100),
 ]
 
 GATES = [  # (gate name, real dir, fake dir)
@@ -61,9 +81,33 @@ GATES = [  # (gate name, real dir, fake dir)
     ("ffpp", None, None),  # flat sample dirs built from ffpp_faces/test
     ("mj", "data/corpora/modern_exam/real_ext", "data/corpora/modern_exam/fake_mj"),
     ("flux", "data/corpora/modern_exam/real_ext", "data/corpora/modern_exam/fake_flux"),
+    # Phase 4 intake-domain gates (spec B.3, D-027: every intake domain is
+    # gated on its Stage A exam slug; flux2-klein-4b gates on its
+    # SELF-GENERATED exam — disclosed in-domain regression gate, not a
+    # generalization test; D-049: TOL -0.005 like the other modern gates)
+    ("flux-1-pro", "data/corpora/gen_exam/flux-1-pro/real",
+     "data/corpora/gen_exam/flux-1-pro/fake"),
+    ("gpt4o", "data/corpora/gen_exam/gpt4o/real",
+     "data/corpora/gen_exam/gpt4o/fake"),
+    ("hidream", "data/corpora/gen_exam/hidream/real",
+     "data/corpora/gen_exam/hidream/fake"),
+    ("ideogram3", "data/corpora/gen_exam/ideogram3/real",
+     "data/corpora/gen_exam/ideogram3/fake"),
+    ("imagen4", "data/corpora/gen_exam/imagen4/real",
+     "data/corpora/gen_exam/imagen4/fake"),
+    ("nanao-banana", "data/corpora/gen_exam/nanao-banana/real",
+     "data/corpora/gen_exam/nanao-banana/fake"),
+    ("seedream3-0", "data/corpora/gen_exam/seedream3-0/real",
+     "data/corpora/gen_exam/seedream3-0/fake"),
+    ("flux2-klein-4b", "data/corpora/gen_exam/flux2-klein-4b/real",
+     "data/corpora/gen_exam/flux2-klein-4b/fake"),
 ]
 # gate tolerances (auc_new - auc_old); ffpp informational + regression guard
-TOL = {"aigc": -0.005, "cdf": -0.010, "ffpp": -1.0, "mj": -0.005, "flux": -0.005}
+TOL = {"aigc": -0.005, "cdf": -0.010, "ffpp": -1.0, "mj": -0.005, "flux": -0.005,
+       # Phase 4 intake gates (D-049)
+       "flux-1-pro": -0.005, "gpt4o": -0.005, "hidream": -0.005,
+       "ideogram3": -0.005, "imagen4": -0.005, "nanao-banana": -0.005,
+       "seedream3-0": -0.005, "flux2-klein-4b": -0.005}
 
 
 def run_bench(real, fake, out, limit, stackers):
@@ -216,7 +260,10 @@ def main() -> int:
                 gates = json.loads(gp.read_text())
             if gates is None:
                 raise SystemExit("no gate results — run the gate stage first")
-            promote = all(gates[g]["pass"] for g in ("aigc", "cdf", "mj", "flux"))
+            # verdict over ALL gates (original 5 + Phase 4 intake); ffpp's
+            # TOL -1.0 keeps it non-binding, so this is behavior-preserving
+            # for the pre-Phase-4 configuration
+            promote = all(gates[g]["pass"] for g in gates)
             verdict = "PROMOTE" if promote else "HOLD"
             print(f"\nVERDICT: {verdict}  (aigc={gates['aigc']['pass']}, "
                   f"cdf={gates['cdf']['pass']}, mj={gates['mj']['pass']}, "
