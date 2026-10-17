@@ -19,14 +19,18 @@ set -euo pipefail
 WS="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$WS"
 PY="$WS/.venv/bin/python"
-BATCH_PID=81244
+# watched-on batch PID is a parameter (default 81244 for compatibility);
+# relaunch after an incident passes the NEW pid: stage_b_auto.sh <new_pid>
+BATCH_PID="${1:-81244}"
 BATCH_LOG=/tmp/gen_flux2.log
 RESTACK_LOG=/tmp/restack_r9_full.log
+WAITER_LOG=/tmp/stage_b_auto.log
 TRAIN_DIR="$WS/data/corpora/gen_intake_train/flux2-klein-4b"
 EXAM_FAKE="$WS/data/corpora/gen_exam/flux2-klein-4b/fake"
 ART="$WS/artifacts/generator_intake"
 FAILED="$ART/stage_b_auto.FAILED"
 DONE="$ART/stage_b_auto.DONE"
+WAITER_PID_FILE="$ART/stage_b_auto.waiter_pid"
 
 rm -f "$FAILED" "$DONE"
 mkdir -p "$ART"
@@ -42,13 +46,19 @@ fail() {
   exit 1
 }
 
-# --- 1. wait for the batch (spec: until ! kill -0 81244, poll 300s) ---------
-echo "[stage_b_auto] $(date -u +%FT%TZ) waiting for batch PID $BATCH_PID..."
+# --- 1. wait for the batch (spec: until ! kill -0 $BATCH_PID, poll 300s) -----
+# self-watchdog: record our own PID so an abrupt death is attributable, and
+# append a heartbeat every poll cycle so silence in the log = dead waiter.
+echo "$$" > "$WAITER_PID_FILE"
+echo "[stage_b_auto] $(date -u +%FT%TZ) waiting for batch PID $BATCH_PID (waiter pid $$, watchdog: $WAITER_PID_FILE)"
+echo "[stage_b_auto] heartbeat $(date -u +%FT%TZ) waiter_pid=$$ batch_pid=$BATCH_PID batch_alive=startup" >> "$WAITER_LOG"
 while kill -0 "$BATCH_PID" 2>/dev/null; do
-  # PID-reuse guard: if 81244 is no longer our generator, treat as exited
+  # PID-reuse guard: if $BATCH_PID is no longer our generator, treat as exited
   ps -p "$BATCH_PID" -o command= 2>/dev/null | grep -q "[g]en_modern_corpus" || break
+  echo "[stage_b_auto] heartbeat $(date -u +%FT%TZ) waiter_pid=$$ batch_pid=$BATCH_PID batch_alive=yes" >> "$WAITER_LOG"
   sleep 300
 done
+echo "[stage_b_auto] heartbeat $(date -u +%FT%TZ) waiter_pid=$$ batch_pid=$BATCH_PID batch_alive=no (wait loop exited)" >> "$WAITER_LOG"
 echo "[stage_b_auto] batch PID $BATCH_PID exited at $(date -u +%FT%TZ)"
 
 # --- 2. output assertions (fail-closed) -------------------------------------
