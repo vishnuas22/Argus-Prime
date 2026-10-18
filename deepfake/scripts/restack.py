@@ -122,9 +122,10 @@ def run_bench(real, fake, out, limit, stackers):
         raise SystemExit(f"benchmark failed: {' '.join(cmd)}")
 
 
-def stage_dump(work, smoke):
+def stage_dump(work, smoke, corpora=None):
+    corpora = CORPORA if corpora is None else corpora
     limits = 4 if smoke else None
-    for name, real, fake, lim in CORPORA:
+    for name, real, fake, lim in corpora:
         out = work / f"dump_{name}"
         if (out / "scores.csv").exists():
             print(f"[dump] {name}: exists, skipped", flush=True)
@@ -134,12 +135,13 @@ def stage_dump(work, smoke):
         print(f"[dump] {name}: done in {(time.time()-t0)/60:.1f} min", flush=True)
 
 
-def stage_train(work):
+def stage_train(work, corpora=None):
+    corpora = CORPORA if corpora is None else corpora
     out = work / "candidate"
     if (out / "stacker.joblib").exists():
         print("[train] candidate exists, skipped", flush=True)
         return
-    csvs = [str(work / f"dump_{name}" / "scores.csv") for name, *_ in CORPORA]
+    csvs = [str(work / f"dump_{name}" / "scores.csv") for name, *_ in corpora]
     cmd = [str(PY), str(WS / "deepfake/scripts/train_stacker.py"),
            "--csv", *csvs, "--out", str(out)]
     r = subprocess.run(cmd, cwd=WS)
@@ -233,9 +235,32 @@ def main() -> int:
                          "--promote; e.g. p6v10)")
     ap.add_argument("--promote", action="store_true",
                     help="on PASS, copy candidate to artifacts/<promote-to>/")
+    ap.add_argument("--exclude-domains", default="",
+                    help="comma-separated CORPORA dump names to DROP from the "
+                         "TRAIN diet only (dump+train). GATES/TOL are "
+                         "unaffected — every gate is still evaluated. Empty "
+                         "default = full canonical CORPORA. Used for causal "
+                         "ablations (D-046 HOLD cycle).")
     args = ap.parse_args()
     if args.promote and not args.promote_to:
         raise SystemExit("--promote requires --promote-to <tag>")
+
+    # Ablation diet filter: drop named dump corpora from the TRAIN side only.
+    # The canonical CORPORA/GATES/TOL maps stay the single source of truth; we
+    # derive a filtered list, never fork the maps. Fail-closed on typos.
+    excluded = {d.strip() for d in args.exclude_domains.split(",") if d.strip()}
+    known = {name for name, *_ in CORPORA}
+    bad = excluded - known
+    if bad:
+        raise SystemExit(f"--exclude-domains: unknown CORPORA name(s) {sorted(bad)}; "
+                         f"valid: {sorted(known)}")
+    train_corpora = [c for c in CORPORA if c[0] not in excluded]
+    if not train_corpora:
+        raise SystemExit("--exclude-domains would empty the train diet")
+    if excluded:
+        print(f"[main] ablation diet: excluded {sorted(excluded)} -> "
+              f"{len(train_corpora)}/{len(CORPORA)} train domains "
+              f"({[c[0] for c in train_corpora]})", flush=True)
 
     old_stacker = Path(args.old) if args.old else _wired_stacker()
     print(f"[main] incumbent stacker: {old_stacker}", flush=True)
@@ -248,9 +273,9 @@ def main() -> int:
     gates = None
     for st in stages:
         if st == "dump":
-            stage_dump(work, args.smoke)
+            stage_dump(work, args.smoke, train_corpora)
         elif st == "train":
-            stage_train(work)
+            stage_train(work, train_corpora)
         elif st == "gate":
             gates = stage_gate(work, args.gate_limit, args.smoke, old_stacker)
             (work / "gates.json").write_text(json.dumps(gates, indent=2))

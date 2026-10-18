@@ -86,11 +86,17 @@ fi
   || fail "holdout-split (--split-only) failed"
 
 # --- 3b. D-049 carve-out assert: exam reals DISJOINT from gen_train/real ----
+# Counting is FILE-based (extension-robust); sha256 sets are used ONLY for the
+# overlap test. The aigen real pool ships a byte-identical duplicate pair, so
+# counting unique sha256 under-counts exam reals (100 files -> 99 hashes) and
+# false-failed here (D-046 close-out precedent: counted the wrong quantity).
 EXAM_REAL="$WS/data/corpora/gen_exam/flux2-klein-4b/real"
 GEN_REAL="$WS/data/corpora/gen_train/real"
 "$PY" - "$EXAM_REAL" "$GEN_REAL" <<'PYEOF' || fail "D-049 carve-out assert failed (exam real overlap with gen_train/real, or bad counts)"
-import hashlib, sys
+import hashlib, json, sys
 from pathlib import Path
+
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 
 def sha256(p):
     h = hashlib.sha256()
@@ -100,14 +106,38 @@ def sha256(p):
     return h.hexdigest()
 
 exam, train = Path(sys.argv[1]), Path(sys.argv[2])
-exam_h = {sha256(p) for p in exam.iterdir() if p.is_file()}
-train_h = {sha256(p) for p in train.iterdir()
-           if p.is_file() and p.suffix.lower() != ".jsonl"}
-assert len(exam_h) == 100, f"exam real count {len(exam_h)} != 100"
-assert len(train_h) == 1000, f"gen_train/real count {len(train_h)} != 1000"
+
+# (a) manifest exam-real rows (role=SELFGEN-REFERENCE) == 100
+man = json.loads((exam.parent / "manifest.json").read_text())
+reals = [r for r in man.get("reals", []) if r.get("role") == "SELFGEN-REFERENCE"]
+n_manifest = len(reals)
+assert n_manifest == 100, f"manifest exam-real rows {n_manifest} != 100"
+assert man.get("n_exam_real") == 100, f"manifest n_exam_real {man.get('n_exam_real')} != 100"
+
+# (b) on-disk images, extension-robust (case-insensitive), == 100 and == manifest
+disk = [p for p in exam.iterdir()
+        if p.is_file() and p.suffix.lower() in IMG_EXTS]
+n_disk = len(disk)
+assert n_disk == 100, f"exam real image files {n_disk} != 100"
+assert n_disk == n_manifest, f"exam real on-disk {n_disk} != manifest {n_manifest}"
+man_files = {r["file"] for r in reals}
+disk_files = {p.name for p in disk}
+assert man_files == disk_files, (
+    "exam real manifest/disk filename mismatch: only_in_manifest="
+    f"{sorted(man_files - disk_files)[:5]} only_on_disk="
+    f"{sorted(disk_files - man_files)[:5]}")
+
+# (c) sha256 disjointness exam-real vs gen_train/real (set overlap == 0 ONLY)
+train_files = [p for p in train.iterdir()
+               if p.is_file() and p.suffix.lower() in IMG_EXTS]
+assert len(train_files) == 1000, \
+    f"gen_train/real image files {len(train_files)} != 1000"
+exam_h = {sha256(p) for p in disk}
+train_h = {sha256(p) for p in train_files}
 overlap = exam_h & train_h
 assert not overlap, f"D-049 carve-out violated: {len(overlap)} exam/train real overlap"
-print(f"[stage_b_auto] carve-out OK: exam 100, train 1000, overlap 0", flush=True)
+print(f"[stage_b_auto] carve-out OK: exam manifest={n_manifest} disk={n_disk} "
+      f"(unique_sha={len(exam_h)}), train=1000, overlap=0", flush=True)
 PYEOF
 
 # --- 4. B.4 full restack r9 (NO promote flag anywhere — B.5 is user-gated) --
