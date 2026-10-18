@@ -11,6 +11,7 @@ Usage:
 """
 import argparse
 import csv
+import functools
 import hashlib
 import io
 import json
@@ -38,6 +39,7 @@ from registry import get_modules  # noqa: E402
 from base import ImageContext  # noqa: E402
 from triage import DegradationEstimator  # noqa: E402
 from fusion import fuse  # noqa: E402
+import fusion  # noqa: E402
 from schemas import HYPOTHESES  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -133,7 +135,18 @@ def run_image(modules, estimator, pil: Image.Image, spec, artifact_root: Path, v
         judge = StackerJudge(rec["clf"], d.evidence_capacity, module_ids=rec["module_ids"],
                              feature_names=rec.get("feature_names"),
                              conflict_p99=rec.get("conflict_p99"))
-        core, ranking, contradictions, unavailable, k = fuse(outputs, d, judge=judge)
+        # B3: bind the stacker's own conformal alpha for THIS judge call only
+        # (D-028: vendored code untouched; recs without "alpha" — older
+        # artifacts or user --alpha wins — restore nothing, zero delta).
+        bind_alpha = rec.get("alpha")
+        prev_conformal = fusion.conformal_set if bind_alpha is not None else None
+        if bind_alpha is not None:
+            fusion.conformal_set = functools.partial(prev_conformal, alpha=bind_alpha)
+        try:
+            core, ranking, contradictions, unavailable, k = fuse(outputs, d, judge=judge)
+        finally:
+            if prev_conformal is not None:
+                fusion.conformal_set = prev_conformal
         row[f"p_real_{tag}"] = core.probabilities.get("camera_original")
         row[f"abstained_{tag}"] = bool(core.abstained)
         row[f"trust_{tag}"] = core.trust_score
@@ -215,7 +228,11 @@ def main():
         stacker_clfs[tag] = {"clf": joblib.load(spath),
                              "module_ids": meta.get("module_ids"),
                              "feature_names": meta.get("feature_names"),
-                             "conflict_p99": meta.get("conflict_p99")}
+                             "conflict_p99": meta.get("conflict_p99"),
+                             # B3: per-artifact conformal alpha; an explicit
+                             # harness --alpha always wins over the meta value
+                             "alpha": (None if args.alpha is not None
+                                       else meta.get("conformal_alpha"))}
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

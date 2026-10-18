@@ -78,6 +78,12 @@ def main() -> int:
     base = HistGradientBoostingClassifier(max_iter=200, learning_rate=0.08, random_state=11)
     clf = CalibratedClassifierCV(base, method="sigmoid", cv=3).fit(X_tr, y_tr)
     p = clf.predict_proba(X_va)[:, 1]
+    p_top = np.maximum(p, 1.0 - p)
+    thr = float(np.quantile(p_top, 0.10))
+    alpha_cal = float(np.clip(1.0 - thr, 0.02, 0.60))
+    conformal_flagged = bool(thr < 0.40)
+    print(f"[b3] conformal alpha={alpha_cal} p10={thr} calib_n={len(X_va)} "
+          f"flagged={conformal_flagged}")
     auc = roc_auc_score(y_va, p)
     fpr, tpr, _ = roc_curve(y_va, p)
     i = int(np.argmin(np.abs(fpr - (1 - tpr))))
@@ -98,6 +104,11 @@ def main() -> int:
         "conflict_p99_n": int(len(df)),
         "trained_on": args.csv,
         "caveat": "trained on train-side corpora only; eval rows never seen",
+        "conformal_alpha": round(alpha_cal, 6),
+        "conformal_p10_top_prob": round(thr, 6),
+        "conformal_calib_n": int(len(X_va)),
+        "conformal_method": "split-conformal: 1-P10(max(P_FAKE,1-P_FAKE)) on the val split predicted by the X_tr-fit model; D-035 train-only",
+        "conformal_flagged": conformal_flagged,
     }, indent=2))
     print(f"saved {out/'stacker.joblib'}")
     return 0

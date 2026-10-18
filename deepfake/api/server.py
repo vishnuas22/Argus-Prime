@@ -55,6 +55,7 @@ def init_court():
         mids = meta_d.get("module_ids")
         feature_names = meta_d.get("feature_names")
         conflict_p99 = meta_d.get("conflict_p99")
+        _state["conformal_alpha"] = meta_d.get("conformal_alpha")  # B3
     modules, ids = build_modules()
     _state["modules"] = modules
     _state["ids"] = ids
@@ -106,7 +107,18 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
     judge = StackerJudge(_state["clf"], d.evidence_capacity, _state["mids"],
                          feature_names=_state.get("feature_names"),
                          conflict_p99=_state.get("conflict_p99"))
-    core, *_ = fuse(outputs, d, judge=judge)
+    # B3: bind the stacker's own conformal alpha for THIS fuse call (only when
+    # no form α was provided — D-039: an explicit request always wins); no key
+    # in the artifact's meta => nothing saved/restored (no-op contract)
+    bind_alpha = None if alpha is not None else _state.get("conformal_alpha")
+    prev_conformal = fusion.conformal_set if bind_alpha is not None else None
+    if bind_alpha is not None:
+        fusion.conformal_set = functools.partial(prev_conformal, alpha=bind_alpha)
+    try:
+        core, *_ = fuse(outputs, d, judge=judge)
+    finally:
+        if prev_conformal is not None:
+            fusion.conformal_set = prev_conformal
     detail = []
     for mo in outputs:
         if getattr(mo, "unavailable_reason", None):
@@ -138,7 +150,11 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
               "stacker_clfs": {STACKER.parent.name: {
                   "clf": _state["clf"], "module_ids": _state["mids"],
                   "feature_names": _state.get("feature_names"),
-                  "conflict_p99": _state.get("conflict_p99")}}}
+                  "conflict_p99": _state.get("conflict_p99"),
+                  # B3: R1 rescores at the court's operating point unless a
+                  # form α was requested for this call (D-039)
+                  "alpha": (None if alpha is not None
+                            else _state.get("conformal_alpha"))}}}
     import recovery as recovery_mod
     verdict["recovery"] = recovery_mod.run("image", verdict, extras)
     return verdict
@@ -165,6 +181,9 @@ def health():
     out = {"status": "ok", "channels": _state.get("ids", []),
            "stacker": "artifacts/" + STACKER.parent.name,
            "n_modules": len(_state.get("modules", []))}
+    # B3 transparency: the stacker's own conformal alpha (what the court binds
+    # when a request supplies no explicit alpha)
+    out["conformal_alpha"] = _state.get("conformal_alpha")
     # Scope-labeled benchmark snapshot (D-037 arc): every number carries its
     # measurement scope — operators must never quote a number without it.
     bm_path = WS / "artifacts" / "benchmarks.json"
@@ -237,8 +256,17 @@ async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
                  "recovery": a.get("recovery")}
         elif ext in VIDEO_EXTS:
             from argus_detect import detect_video
-            # frame budget 5 for the API path by design (decision #4)
-            v = detect_video(tmp, 5)
+            import argus_detect as _ad
+            # D-039: the form α wins on every sub-route of this call — the
+            # faceless-video image court rebinds from the stacker's meta
+            # (argus_detect.USER_ALPHA state), so arm it for the duration
+            prev_USER_ALPHA = _ad.USER_ALPHA
+            _ad.USER_ALPHA = alpha if alpha is not None else _ad.USER_ALPHA
+            try:
+                # frame budget 5 for the API path by design (decision #4)
+                v = detect_video(tmp, 5)
+            finally:
+                _ad.USER_ALPHA = prev_USER_ALPHA
             kind = "video"
             # honesty fields (Phase 5): trust/risk/route come from detect_video —
             # never hardcoded here (D-035 lesson: hardcoded trust is silent

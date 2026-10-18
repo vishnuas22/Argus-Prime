@@ -122,7 +122,11 @@ def load_bundle(stacker_path: Path) -> dict:
     return {sp.parent.name: {"clf": joblib.load(sp),
                              "module_ids": meta.get("module_ids"),
                              "feature_names": meta.get("feature_names"),
-                             "conflict_p99": meta.get("conflict_p99")}}
+                             "conflict_p99": meta.get("conflict_p99"),
+                             # B3: an A/B-candidate stacker scores at its own
+                             # conformal alpha (binding happens per fuse call
+                             # in run_benchmark.run_image, restore-after)
+                             "alpha": meta.get("conformal_alpha")}}
 
 
 def score_file(path: Path, label: int, slug: str, bundle: dict) -> dict:

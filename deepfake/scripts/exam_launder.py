@@ -115,7 +115,9 @@ def load_court():
         "clf": joblib.load(STACKER),
         "module_ids": meta_d.get("module_ids"),
         "feature_names": meta_d.get("feature_names"),
-        "conflict_p99": meta_d.get("conflict_p99")}}
+        "conflict_p99": meta_d.get("conflict_p99"),
+        # B3: the deployed stacker scores at its own conformal alpha
+        "alpha": meta_d.get("conformal_alpha")}}
     modules, ids = build_modules()
     return modules, DegradationEstimator(), stacker_clfs
 
@@ -125,6 +127,8 @@ def score(modules, estimator, stacker_clfs, pil, fmt, vid):
     from base import ImageContext
     from stacker_judge import StackerJudge
     from fusion import fuse
+    import functools
+    import fusion
     import hashlib
     tmp = Path(tempfile.mkdtemp(prefix="exam_l_"))
     art = Path(tempfile.mkdtemp(prefix="exam_a_"))
@@ -149,7 +153,17 @@ def score(modules, estimator, stacker_clfs, pil, fmt, vid):
         judge = StackerJudge(rec["clf"], d.evidence_capacity, rec["module_ids"],
                              feature_names=rec.get("feature_names"),
                              conflict_p99=rec.get("conflict_p99"))
-        core, *_ = fuse(outputs, d, judge=judge)
+        # B3: this exam scores the stacker at its own conformal alpha; bind
+        # for the fuse call only, restore exactly what was there
+        bind_alpha = rec.get("alpha")
+        prev_conformal = fusion.conformal_set if bind_alpha is not None else None
+        if bind_alpha is not None:
+            fusion.conformal_set = functools.partial(prev_conformal, alpha=bind_alpha)
+        try:
+            core, *_ = fuse(outputs, d, judge=judge)
+        finally:
+            if prev_conformal is not None:
+                fusion.conformal_set = prev_conformal
         return 1.0 - core.probabilities.get("camera_original"), bool(core.abstained)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -34,6 +34,12 @@ STACKER = WS / "artifacts" / "p6v10" / "stacker.joblib"
 VIDEO_STACKER = WS / "artifacts" / "p6vid_v2" / "stacker.joblib"
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
+# B3 conformal-alpha precedence state: an explicitly requested operator alpha
+# for THIS process (CLI --alpha; server form α sets/brackets it around the
+# faceless-video route). When set, the deployed stacker's meta
+# conformal_alpha must never override it (D-028/D-039).
+USER_ALPHA = None
+
 
 def build_modules():
     """Module set derived from the deployed stacker's meta (feature-space
@@ -109,7 +115,11 @@ def _image_stacker_clfs() -> dict:
         "clf": joblib.load(STACKER),
         "module_ids": meta.get("module_ids"),
         "feature_names": meta.get("feature_names"),
-        "conflict_p99": meta.get("conflict_p99")}}
+        "conflict_p99": meta.get("conflict_p99"),
+        # B3: the bundle carries the stacker's own conformal alpha; an
+        # explicit user alpha anywhere in this process wins over it
+        "alpha": None if USER_ALPHA is not None
+                 else meta.get("conformal_alpha")}}
 
 
 def _route_image_court(path: Path, k: int = 4) -> dict:
@@ -401,6 +411,8 @@ def main() -> int:
     ap.add_argument("--frames", type=int, default=5)
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+    global USER_ALPHA
+    USER_ALPHA = args.alpha
 
     path = Path(args.file)
     assert path.exists(), f"no such file: {path}"
@@ -410,15 +422,25 @@ def main() -> int:
         import fusion
         fusion.conformal_set = functools.partial(fusion.conformal_set, alpha=args.alpha)
     stacker_clfs = {}
+    meta_alpha = None
     if STACKER.exists():
         import joblib
         meta_p = STACKER.with_name("stacker_meta.json")
         meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
+        meta_alpha = meta.get("conformal_alpha")
         stacker_clfs[STACKER.parent.name] = {
             "clf": joblib.load(STACKER),
             "module_ids": meta.get("module_ids"),
             "feature_names": meta.get("feature_names"),
             "conflict_p99": meta.get("conflict_p99")}
+    if args.alpha is None and meta_alpha is not None:
+        # B3: the deployed stacker's operating point binds ONCE for the whole
+        # CLI process (no explicit --alpha given; artifacts without the key
+        # leave this a no-op)
+        import functools
+        import fusion
+        fusion.conformal_set = functools.partial(fusion.conformal_set, alpha=meta_alpha)
+        print(f"[court] conformal alpha={meta_alpha} from stacker_meta", flush=True)
 
     result = {"file": path.name}
     if ext in IMAGE_EXTS:

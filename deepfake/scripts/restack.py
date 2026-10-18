@@ -208,16 +208,23 @@ def stage_gate(work, gate_limit, smoke, old_stacker):
         auc_o, n = auc_from_scores(out / "scores.csv", old_tag)
         auc_c, _ = auc_from_scores(out / "scores.csv", cand_tag)
         ok = auc_c >= auc_o + TOL[name]
+        ab_old = _bool_rate(out / "scores.csv", f"abstained_{old_tag}")
+        ab_new = _bool_rate(out / "scores.csv", f"abstained_{cand_tag}")
+        # B4 abstention-parity: the candidate must not stray more than +0.10
+        # above the incumbent's abstention rate on ANY gate (ffpp included —
+        # it was the worst offender; gate-blind-spot law, A3 lesson)
+        parity = ab_new <= ab_old + 0.10 + 1e-9
         results[name] = {"auc_old": round(auc_o, 4), "auc_new": round(auc_c, 4),
                          "delta": round(auc_c - auc_o, 4), "n": n, "pass": bool(ok),
-                         "abstained_rate_old": _bool_rate(out / "scores.csv",
-                                                          f"abstained_{old_tag}"),
-                         "abstained_rate_new": _bool_rate(out / "scores.csv",
-                                                          f"abstained_{cand_tag}"),
+                         "abstained_rate_old": ab_old,
+                         "abstained_rate_new": ab_new,
+                         "pass_parity": bool(parity),
                          "out_of_conflict_rate_new": _bool_rate(
                              out / "scores.csv", f"out_of_conflict_{cand_tag}")}
         print(f"[gate] {name}: old={auc_o:.4f} new={auc_c:.4f} "
-              f"delta={auc_c-auc_o:+.4f} -> {'PASS' if ok else 'FAIL'}", flush=True)
+              f"delta={auc_c-auc_o:+.4f} -> {'PASS' if ok else 'FAIL'}; "
+              f"abstained {ab_old}->{ab_new} parity "
+              f"{'PASS' if parity else 'FAIL'}", flush=True)
     return results
 
 
@@ -286,14 +293,29 @@ def main() -> int:
             if gates is None:
                 raise SystemExit("no gate results — run the gate stage first")
             # verdict over ALL gates (original 5 + Phase 4 intake); ffpp's
-            # TOL -1.0 keeps it non-binding, so this is behavior-preserving
-            # for the pre-Phase-4 configuration
-            promote = all(gates[g]["pass"] for g in gates)
+            # TOL -1.0 keeps its AUC informational, but its B4 parity IS
+            # binding (it was the worst abstention offender). PROMOTE iff all
+            # 13 gates hold AUC TOL AND all 13 hold abstention parity.
+            promote = all(gates[g]["pass"] for g in gates) and \
+                all(bool(gates[g].get("pass_parity")) for g in gates)
             verdict = "PROMOTE" if promote else "HOLD"
             print(f"\nVERDICT: {verdict}  (aigc={gates['aigc']['pass']}, "
                   f"cdf={gates['cdf']['pass']}, mj={gates['mj']['pass']}, "
                   f"flux={gates['flux']['pass']}, ffpp_gain="
                   f"{gates['ffpp']['delta']:+.4f}, mj_gain={gates['mj']['delta']:+.4f})",
+                  flush=True)
+            # B4 parity summary line per gate (legacy gates.json without the
+            # field prints FAIL — fail-closed, never auto-promotes)
+            for g in sorted(gates):
+                gr = gates[g]
+                print(f"[b4] parity {g}: abstained "
+                      f"{gr.get('abstained_rate_old')} -> "
+                      f"{gr.get('abstained_rate_new')} tol=+0.10 -> "
+                      f"{'PASS' if gr.get('pass_parity') else 'FAIL'}",
+                      flush=True)
+            fail_parity = [g for g in gates if not gates[g].get("pass_parity")]
+            print(f"B4 parity: {'ok on all %d gates' % len(gates)}"
+                  if not fail_parity else "B4 parity FAIL: " + ", ".join(fail_parity),
                   flush=True)
             if promote and args.promote:
                 dst = WS / "artifacts" / args.promote_to
