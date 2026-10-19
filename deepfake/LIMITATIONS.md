@@ -80,7 +80,10 @@ exam AUC 0.912 / EER 17.2%). **UNTRUSTED against modern TTS** — held-out probe
 (2026-10-19): Kokoro-82M-class modern TTS passed 0/8 caught with zero
 abstention; vintage `say`-style voices 5/5 caught. No voice-clone-detection
 claim is made (ship-label ruling 2026-10-19). Audio-only verdicts remain
-advisory.
+advisory. **Short uploads are outside the validated regime**: clips under
+~2 s re-enter the low-duration/padding regime where the court may abstain
+or err — in-domain scores are validated at ≥2 s (W2 codec-calibration exam,
+2026-10-19; min-duration guard wired post-ship, ruling (ii)).
 
 ### 3.4 Coverage gap: today's most-used generators
 The four most widely deployed commercial generators of 2026 (GPT-Image-2,
