@@ -56,3 +56,8 @@ Format: `- YYYY-MM-DD [area] pattern`
 - C2PA 2026: first comprehensive security analysis (IACR eprint 2026/804) — revoked certs accepted by validators, timestamps replaceable, "provenance signals, not proof"; adoption real (camera signing, iOS 20, Meta/TikTok) → keep channel presence-neutral; CAP-DOWN the "+0.9 camera+validating-signature authentic" policy (signed fakes documented: Chimera).
 - Governance: NIST AI RMF disaggregated-per-condition accuracy + EU AI Act Art.15 declare-metrics; coverage/abstention-parity gate = unnamed-in-literature gap-fill, NOT over-engineering (nothing else would have caught abstention 4.5%→95.5%). Doc-code drift = AI-Act-relevant (Art.11/12/72 + Recital 74); keep machine-readable metrics sync only, CUT full-PRD prose reconciliation. Retrain-fidelity: bit-exactness defensible ONLY same-env+seeds+threads (sklearn/PyTorch docs), never cross-platform.
 - Conformal-AIGI with coverage guarantees = unclaimed open territory (no paper found); NIST GenAI image round-3 final report not yet retrievable.
+- run_benchmark.py WITHOUT --channels silently builds only the 5 core modules (metadata,
+  compression_history, spectral_probe, real_distribution_probe, perturbation_probe) — the 6
+  learned probes attach ONLY via `--channels all` (bench/channels.py build()). Every
+  stacker-integrated exam run must pass `--channels all` or scores are garbage (NaN-ish probe
+  inputs to the stacker). Discovered live 2026-10-18 on the T1 stage-0 launch; killed+relaunched.

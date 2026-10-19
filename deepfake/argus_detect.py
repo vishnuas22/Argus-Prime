@@ -25,7 +25,16 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg", ".m4a"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
-STACKER = WS / "artifacts" / "p6v10" / "stacker.joblib"
+STACKER = WS / "artifacts" / "p6v11" / "stacker.joblib"
+# p6v11 = P4.7 B2 candidate + B3 train-only conformal recalibration.
+# Promoted 2026-10-18 under user-authorized waiver (artifacts/p6v11/WAIVER.md):
+# HOLD verdict fail-closed (AUC 7/13, B4 parity 8/13) — user accepted measured
+# residuals: mj -0.0169, flux -0.0391, shards -0.0101..-0.0371 (family cost of
+# the 7-shard diet drop), core-domain abstention rise aigc 0.265 / cdf 0.54 /
+# ffpp 0.635 (single global train-only recalibration cannot cross-domain
+# restore parity, D-051). Adopted for the flux2 coverage gain +0.1725
+# (0.7712 -> 0.9436) with parity PASS. Candidate stacker sha256 identical to
+# AB2's candidate (retrain determinism at file level, control AB3 13/13).
 # Video stacker (Phase 5b, promoted p6vid_v2 under a documented user-authorized
 # Face2Face per-method waiver — artifacts/p6vid_v2/WAIVER.md; gates:
 # FF++ 0.9016/LOMO 4-of-4/Celeb-DF 0.9411, F2F 0.8760 vs 0.88 bar). Loaded
