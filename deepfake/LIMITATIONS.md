@@ -1,6 +1,6 @@
 # Argus Deepfake Detection — Limitations & Honest Capabilities
 
-**Status:** Beta (supervised screening). Snapshot date: 2026-10-18 (p6v11 promoted under user waiver — `artifacts/p6v11/WAIVER.md`).
+**Status:** Beta (supervised screening). Snapshot date: 2026-10-19 (p6v11 promoted under user waiver — `artifacts/p6v11/WAIVER.md`; rows repaired to artifact truth 2026-10-19).
 **Stack:** image + video + audio multi-sense fusion with calibrated confidence and abstention.
 
 This document states what the system demonstrably does, where it fails, and
@@ -35,9 +35,9 @@ production model. "AUC" 1.0 = perfect separation; 0.5 = chance.
 | Image (FaceSwap / FF++ faces) | FF++ faces | 0.6479 | weakest gated image domain; lineage + waiver item |
 | Image (FLUX.1 era) | FLUX | 0.9297 | waived family cost (§3.6); incumbent scored 0.9611 |
 | Image (FLUX.2-klein, self-generated) | FLUX2 | 0.9436 | NEW this cycle: +0.1725 coverage gain |
-| Image (2026 commercial gens, measured) | 7 domains | 0.67–0.90 | ideogram3 0.8643 · imagen4 0.6731 · nano-banana 0.8913 · seedream3-0 0.7709 · flux-1-pro 0.7988 · gpt4o 0.7823 · hidream 0.8538 — §3.4/§3.6 |
+| Image (2026 commercial gens, measured) | 7 domains | 0.67–0.89 | ideogram3 0.8643 · imagen4 0.6731 · nano-banana 0.8913 · seedream3-0 0.7709 · flux-1-pro 0.7988 · gpt4o 0.7823 · hidream 0.8538 — §3.4/§3.6 |
 | Video (FF++ official identity-disjoint split) | Gate A | 0.9016 | p6vid_v2 stacker (F2F 0.876 vs 0.88 waived); Celeb-DF 0.9411; §3.2 |
-| Audio (voice conversion, lab-style) | DF-Eval protocol | ~0.97 TPR with abstention-first gate | see §3.3 |
+| Audio (wild audio, DF-Eval 2024 protocol) | D-035 coverage-gated | raw TPR 0.8766 · in-coverage TPR 0.6909 · abstain 83.9% (n=703) — FPR 0.79 raw / 0.60 in-coverage: **UNTRUSTED, fails closed** | artifacts/exam_dfeval/audio_exam_summary.json; §3.3 |
 
 **Important:** these are curated corpora. Real-world traffic always shifts
 distribution; treat these as upper bounds, not guarantees.
@@ -97,7 +97,9 @@ step before production use (see §5).
 The promotion shipped the FLUX.2-klein family coverage (+0.1725 AUC,
 0.7712 → 0.9436, parity PASS) under an explicit user waiver of measured
 residuals: AUC family-cost mj −0.0169 / flux −0.0391 / commercial-gen shards
-−0.0101…−0.0371 (all domains remain 0.77–0.89 AUC), and the calibrated
+−0.0101…−0.0371 (current standing AUCs across the waived domains span
+**0.67–0.97**: mj 0.9737, flux 0.9111, imagen4 0.6731 — the only one below
+0.77; source `artifacts/restack_p47/gates.json`), and the calibrated
 abstention shift on core domains (§3.1). The stranded structural finding:
 a single global train-only recalibration cannot cross-domain restore old
 abstention exactly (D-051); the product absorbs this under the

@@ -235,11 +235,24 @@ async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
         if ext in IMAGE_EXTS:
             from PIL import Image
             from argus_detect import detect_image
-            pil = Image.open(tmp)
-            pil.load()
+            try:
+                pil = Image.open(tmp)
+                pil.load()
+            except Exception as e:
+                # uploaded bytes are not a decodable image (truncated/corrupt):
+                # 400 with clean body — never a raw 500 (release hardening 2026-10-19)
+                raise HTTPException(400, f"unparseable image ({type(e).__name__})")
             v = run_court(pil.convert("RGB"), alpha, original_raw=data)
             kind = "image"
         elif ext in AUDIO_EXTS:
+            # release hardening 2026-10-19: some listed extensions (e.g. .m4a) are
+            # not decodeable by libsndfile — fail closed with a clean 400 instead
+            # of a raw 500 from inside the court (mirrors the Image.open guard).
+            try:
+                import soundfile as _sf
+                _sf.info(tmp)
+            except Exception as e:
+                raise HTTPException(400, f"unparseable audio ({type(e).__name__})")
             from argus_detect import detect_audio
             a = detect_audio(tmp)
             kind = "audio"

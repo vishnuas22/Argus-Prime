@@ -115,17 +115,18 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
 </header>
 </div>
 <div class="wrap hero" id="top">
-  <div class="kicker" data-reveal>NINE-CHANNEL FORENSIC COURT · STACKER v6.5</div>
+  <div class="kicker" data-reveal>ELEVEN-CHANNEL FORENSIC COURT · STACKER p6v11</div>
   <h1 data-reveal><span class="thin">EVERY PIXEL</span><br><span class="gold">PUT ON TRIAL</span></h1>
-  <p class="sub" data-reveal>Argus fuses nine forensic channels — metadata, compression
-  history, spectral fingerprints, distribution realness, learned AIGC, three
-  specialist heads and a calibrated stacking judge — into a single verdict
+  <p class="sub" data-reveal>Argus fuses eleven forensic channels — metadata, compression
+  history, spectral fingerprints, distribution realness, perturbation cues, five
+  learned specialist heads and C2PA provenance verification — with a calibrated
+  stacking judge into a single verdict
   across image, audio and video. All forensics run on this machine.</p>
   <div class="stats" data-reveal>
-    <div class="stat"><div class="v">0.985</div><div class="k">MIDJOURNEY EXAM</div></div>
-    <div class="stat"><div class="v">0.949</div><div class="k">FLUX EXAM</div></div>
-    <div class="stat"><div class="v">0.999</div><div class="k">AIGC IN-DOMAIN</div></div>
-    <div class="stat"><div class="v">9</div><div class="k">EVIDENCE CHANNELS</div></div>
+    <div class="stat"><div class="v" id="statMj">0.9737</div><div class="k">MIDJOURNEY GATE</div></div>
+    <div class="stat"><div class="v" id="statFlux">0.9436</div><div class="k">FLUX·2 GATE</div></div>
+    <div class="stat"><div class="v" id="statVal">0.9877</div><div class="k">VAL AUC · IN-DOMAIN</div></div>
+    <div class="stat"><div class="v" id="statCh">11</div><div class="k">EVIDENCE CHANNELS</div></div>
   </div>
 </div>
 <div class="wrap"><section id="scan">
@@ -141,7 +142,7 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
       <div><button class="btn" id="go" disabled><span>CONVENE THE COURT</span><span>→</span></button></div>
       <div class="row" style="justify-content:center">
         <div class="alpha">
-          <label><span>ABSTENTION POLICY α</span><span id="av">0.10 · conservative</span></label>
+          <label><span>ABSTENTION POLICY α</span><span id="av">court-calibrated 0.209291 · move to override</span></label>
           <input type="range" id="alpha" min="0.10" max="0.50" step="0.05" value="0.10">
         </div>
       </div>
@@ -179,7 +180,7 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
 </section></div>
 <div class="wrap"><section id="evidence">
   <div class="sec-k" data-reveal>// EVIDENCE LEDGER</div>
-  <h2 data-reveal>Nine channels, one judgment</h2>
+  <h2 data-reveal>Eleven channels, one judgment</h2>
   <div class="egrid" id="egrid"></div>
 </section></div>
 <div class="wrap"><section id="history">
@@ -192,7 +193,7 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
 </section></div>
 <div class="wrap"><footer>
   <div>ARGUS PRIME — forensic court · all forensics run on this machine</div>
-  <div class="mono">stacker auto-wired · channels meta-driven · conformal α operator-controlled</div>
+  <div class="mono">stacker auto-wired · channels meta-driven · conformal α court-calibrated · slider = operator override</div>
 </footer></div>
 <div class="scanline" id="scanline"></div>
 <script>
@@ -351,9 +352,11 @@ const IRIS = {state:"idle"};
   function setFile(f){ if(!f) return; file=f; go.disabled=false;
     if(f.type.startsWith("image/")){ pv.src=URL.createObjectURL(f);
       pv.style.display="block"; } else pv.style.display="none"; }
+  let alphaTouched = false;
   $("alpha").addEventListener("input", e=>{
+    alphaTouched = true;
     const v=+e.target.value;
-    $("av").textContent = v.toFixed(2) + (v<=0.1?" · conservative":v<=0.3?" · balanced":" · committed");
+    $("av").textContent = v.toFixed(2) + (v<=0.15?" · conservative":v<=0.25?" · balanced":" · committed");
   });
   go.addEventListener("click", async ()=>{
     if(!file) return;
@@ -361,7 +364,7 @@ const IRIS = {state:"idle"};
     IRIS.scanning(true);
     gsap.to("#scanline",{opacity:.9,duration:.3});
     const fd = new FormData(); fd.append("file", file);
-    fd.append("alpha", $("alpha").value);
+    if (alphaTouched) fd.append("alpha", $("alpha").value); // slide-to-override: untouched ⇒ court-calibrated α (0.209291)
     try{
       const r = await fetch("/api/detect",{method:"POST",body:fd});
       if(!r.ok) throw new Error((await r.text()).slice(0,300));
@@ -392,6 +395,9 @@ const IRIS = {state:"idle"};
     const hasP = recOk ? true : hasP0;
     const pf = recOk ? +rec.verdict.p_fake_fused : (hasP0 ? +v.p_fake_fused : null);
     if(hasP){
+      // Truth-first: the dial's final value is rendered immediately, then the
+      // GSAP count-up animates over it (rAF-frozen/hidden tabs never see 0.00).
+      $("vnum").textContent = pf.toFixed(2);
       gsap.to("#arc",{strokeDashoffset:628*(1-pf),duration:1.6,ease:"power3.inOut"});
       const cnt = {v:0};
       gsap.to(cnt,{v:pf,duration:1.6,ease:"power3.inOut",
@@ -451,7 +457,7 @@ const IRIS = {state:"idle"};
       + (v.stacker ? v.stacker
          : v.route === "image_court" ? "image court (frame-level, no video stacker)"
          : (v.kind==="video" ? "none (naive fallback)" : "deployed"))
-      + " · conformal α: " + (v.alpha ?? "0.10 (default)"));
+      + " · conformal α: " + (v.alpha != null ? v.alpha : "court-calibrated 0.209291"));
     if(rec && rec.outcome === "recovered" && rec.verdict){
       notes.push("Recovery: RECOVERED (penalized) — original P(fake) "
         + (hasP0 ? (+v.p_fake_fused).toFixed(4) : "–")
@@ -537,22 +543,37 @@ const IRIS = {state:"idle"};
       const h = await (await fetch("/api/history?limit=12")).json();
       const tb = $("tbody");
       tb.innerHTML = h.map(r=>{
-        const pf=+r.p_fake;
-        let st = r.abstained?"ABSTAIN":(pf>=0.5?"FAKE":"REAL");
-        let cls = r.abstained?"abs":(pf>=0.5?"fake":"real");
+        const pfRaw = r.p_fake;
+        const pfShow = (pfRaw==null || !isFinite(+pfRaw)) ? "––" : (+pfRaw).toFixed(3);
+        let st = r.abstained?"ABSTAIN":(pfRaw!=null && pfRaw>=0.5?"FAKE":"REAL");
+        let cls = r.abstained?"abs":(pfRaw!=null && pfRaw>=0.5?"fake":"real");
         if(r.recovery && r.recovery.outcome === "recovered"){ st="RECOVERED"; cls="rec"; }
         else if(r.recovery && r.recovery.outcome === "needs_review"){ st="REVIEW"; cls="review"; }
+        // D-047: recovered/review rows carry penalized trust/risk in the
+        // recovery layer — the ledger must show the EFFECTIVE trust, not the
+        // raw court trust the penalty replaced.
+        const tRaw = r.recovery && (r.recovery.outcome === "recovered" || r.recovery.outcome === "needs_review") && r.recovery.trust != null ? r.recovery.trust : r.trust;
         const t = new Date(r.ts*1000).toLocaleTimeString();
         return "<tr><td class='mono'>"+t+"</td><td>"+(r.filename||"—")+"</td><td>"
-          +r.kind+"</td><td class='mono'>"+pf.toFixed(3)+"</td><td><span class='vtag "
+          +r.kind+"</td><td class='mono'>"+pfShow+"</td><td><span class='vtag "
           +cls+"' style='padding:3px 10px;font-size:11px'>"+st+"</span></td><td class='mono'>"
-          +(+r.trust).toFixed(2)+"</td></tr>";
+          +(+tRaw).toFixed(2)+"</td></tr>";
       }).join("") || "<tr><td colspan='6' style='color:var(--dim)'>— no verdicts yet</td></tr>";
     }catch(e){}
   }
   loadHistory();
   fetch("/api/health").then(r=>r.json()).then(h=>{
     $("healthChip").textContent = "court: " + h.status + " · " + h.n_modules + " channels";
+    // live truth for the hero banner (single source: artifacts/benchmarks.json, served by /api/health)
+    try{
+      const bm = h.benchmarks || {}, img = bm.image || {};
+      const ex = (img.scope_external_generators||{}).verified || {};
+      const ind = (img.scope_in_domain||{}).verified || {};
+      if(ex.mj_auc != null)             $("statMj").textContent = (+ex.mj_auc).toFixed(4);
+      if(ex.flux2_klein_4b_auc != null) $("statFlux").textContent = (+ex.flux2_klein_4b_auc).toFixed(4);
+      if(ind.stacker_val_auc != null)   $("statVal").textContent = (+ind.stacker_val_auc).toFixed(4);
+      if(h.n_modules != null)           $("statCh").textContent = h.n_modules;
+    }catch(e){ /* banner keeps sourced static fallback */ }
   }).catch(()=>{ $("healthChip").textContent = "court: offline"; });
 })();
 </script>
