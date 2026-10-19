@@ -6,7 +6,7 @@ Routes any media file through the right senses:
   audio  -> frozen XLS-R voice-clone probe
 
 Usage:
-  .venv/bin/python deepfake/argus_detect.py <file> [--frames 5] [--json]
+  .venv/bin/python deepfake/argus_detect.py <file> [--frames 12] [--json]
 """
 import argparse
 import hashlib
@@ -417,7 +417,7 @@ def main() -> int:
                          "commits at top-prob>=0.90; e.g. 0.3 commits at >=0.70 with "
                          "AUC unchanged on modern exams — see memory D-028)")
     ap.add_argument("file")
-    ap.add_argument("--frames", type=int, default=5)
+    ap.add_argument("--frames", type=int, default=12)
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
     global USER_ALPHA

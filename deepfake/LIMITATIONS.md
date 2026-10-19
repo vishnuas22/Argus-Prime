@@ -75,7 +75,12 @@ abstentions than image; route to image-frame evidence on faceless clips.
 ### 3.3 Audio domain
 Strong on studio-style conversion, but an unresolved **~7% in-domain
 false-alarm residual** exists (0.0697 out-of-calibration rate on in-domain
-audio). Audio-only verdicts should be treated as advisory.
+audio). Valid on the **ASVspoof family only** (2019 LA train; 2021 LA held-out
+exam AUC 0.912 / EER 17.2%). **UNTRUSTED against modern TTS** — held-out probe
+(2026-10-19): Kokoro-82M-class modern TTS passed 0/8 caught with zero
+abstention; vintage `say`-style voices 5/5 caught. No voice-clone-detection
+claim is made (ship-label ruling 2026-10-19). Audio-only verdicts remain
+advisory.
 
 ### 3.4 Coverage gap: today's most-used generators
 The four most widely deployed commercial generators of 2026 (GPT-Image-2,

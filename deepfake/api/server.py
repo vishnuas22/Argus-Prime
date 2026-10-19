@@ -30,9 +30,16 @@ from fastapi.responses import FileResponse
 
 DB = WS / "artifacts" / "verdicts.db"
 STATIC = WS / "web"
+MAX_UPLOAD = 100 * 1024 * 1024  # user ruling 2026-10-19: 413 above 100 MB (courts on faxed slabs; blocks zip-bombs/multi-GB bodies)
 
 app = FastAPI(title="Argus Court", version="1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
+# CORS scoped to local origins by default (user ruling 2026-10-19 — "*" let any web
+# page in the operator's browser POST + read verdicts cross-origin). Allow-list is
+# env-overridable for legitimate cross-origin client integrations:
+#   ARGUS_CORS_ORIGINS="https://client.example" uvicorn deepfake.api.server:app
+_CORS = os.environ.get("ARGUS_CORS_ORIGINS",
+                       "http://127.0.0.1:8420,http://localhost:8420").split(",")
+app.add_middleware(CORSMiddleware, allow_origins=_CORS, allow_methods=["*"],
                    allow_headers=["*"])
 
 _state = {}
@@ -225,6 +232,8 @@ def log_verdict(filename, kind, v, alpha):
 @app.post("/api/detect")
 async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
     ext = Path(file.filename or "").suffix.lower()
+    if getattr(file, "size", None) and file.size > MAX_UPLOAD:
+        raise HTTPException(413, "file too large (100 MB court cap)")
     data = await file.read()
     if not data:
         raise HTTPException(400, "empty file")
@@ -318,6 +327,8 @@ async def explain(file: UploadFile = File(...)):
     ext = Path(file.filename or "").suffix.lower()
     if ext not in IMAGE_EXTS:
         raise HTTPException(400, "explain supports images only")
+    if getattr(file, "size", None) and file.size > MAX_UPLOAD:
+        raise HTTPException(413, "file too large (100 MB cap)")
     data = await file.read()
     if not data:
         raise HTTPException(400, "empty file")
@@ -330,7 +341,11 @@ async def explain(file: UploadFile = File(...)):
         pil.load()
         return explain_image(pil.convert("RGB"), save_path=tmp)
     except Exception as e:
-        raise HTTPException(500, f"explain failed: {e}")
+        # 500 stays, but the detail is server-log only (user ruling 2026-10-19:
+        # raw exception text never leaks to clients); court /api/detect paths
+        # keep full detail by design — only this analyst layer is sanitized.
+        print(f"[explain] {type(e).__name__}: {e}", file=sys.stderr)
+        raise HTTPException(500, "analyst report unavailable (server log holds the detail)")
     finally:
         shutil.rmtree(tmp.parent, ignore_errors=True)
 

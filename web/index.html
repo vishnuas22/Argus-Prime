@@ -143,7 +143,7 @@ footer .mono{font-family:'JetBrains Mono';font-size:11px}
       <div class="row" style="justify-content:center">
         <div class="alpha">
           <label><span>ABSTENTION POLICY α</span><span id="av">court-calibrated 0.209291 · move to override</span></label>
-          <input type="range" id="alpha" min="0.10" max="0.50" step="0.05" value="0.10">
+          <input type="range" id="alpha" min="0.10" max="0.50" step="0.01" value="0.21">
         </div>
       </div>
     </div>
@@ -342,7 +342,7 @@ const IRIS = {state:"idle"};
   let file = null;
   const dz = $("dz"), go = $("go"), pv = $("preview");
   dz.addEventListener("click", ()=>{ const i=document.createElement("input");
-    i.type="file"; i.accept=".jpg,.jpeg,.png,.webp,.bmp,.wav,.flac,.mp3,.ogg,.m4a,.mp4,.mov,.avi,.mkv,.webm";
+    i.type="file"; i.accept=".jpg,.jpeg,.png,.webp,.bmp,.wav,.flac,.mp3,.ogg,.mp4,.mov,.avi,.mkv,.webm";
     i.onchange = ()=> setFile(i.files[0]); i.click(); });
   ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev,e=>{
     e.preventDefault(); dz.classList.add("over"); }));
@@ -424,7 +424,7 @@ const IRIS = {state:"idle"};
       const state = (!hasP || v.abstained) ? "abs" : (pf>=0.5 ? "fake" : "real");
       tag.className = "vtag "+state;
       tag.textContent = (!hasP || v.abstained) ? "COURT ABSTAINS — UNCERTAIN"
-        : state==="fake" ? "VERDICT: SYNTHETIC / MANIPULATED" : "VERDICT: AUTHENTIC";
+        : state==="fake" ? "VERDICT: SYNTHETIC/MANIPULATED" : "VERDICT: AUTHENTIC-LEANING";
       IRIS.setVerdict((!hasP || v.abstained) ? "abstain" : state);
     }
     // recovered/needs_review: TRUST/RISK tiles carry the recovery layer's
@@ -487,6 +487,18 @@ const IRIS = {state:"idle"};
       notes.push("Voice-clone probe: not run (no extractable audio track in this file).");
     if(!v.modules || !v.modules.length)
       notes.push("No per-module notes for this artefact kind.");
+    // Per-kind scope caveats (user ruling 2026-10-19) — honest ceilings ride
+    // with every verdict, exactly matching benchmarks.json / LIMITATIONS.md.
+    if (v.kind === "image")
+      notes.push("Image scope: wild-real issued FPR 0/701 measured; unseen generators land AUC 0.67–0.97 (imagen4 0.6731 lowest).");
+    else if (v.kind === "video")
+      notes.push("Video scope: FF++ in-domain 0.90 / Celeb-DF 0.94 — NOT validated on in-the-wild or text-to-video generators (GenVidBench kling 0.60 / sora 0.68) — treat video verdicts as advisory.");
+    else if (v.kind === "audio")
+      notes.push("Audio scope: ASVspoof-family/in-domain-validated only — UNTRUSTED vs modern TTS; wild audio abstains by design (D-035).");
+    if (v.kind === "video" && (v.route === "image_court" || !hasP0))
+      notes.push("No face in the sampled frames — face forensics contributed nothing; without a face the court issues no video verdict.");
+    if (v.kind === "video" && v.frames_scored != null)
+      notes.push("Frame metadata: " + (v.frames_court ?? "?") + " sampled / " + v.frames_scored + " scored.");
     $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");
     renderModules(v);
     document.getElementById("verdictSec").scrollIntoView({behavior:"smooth"});
