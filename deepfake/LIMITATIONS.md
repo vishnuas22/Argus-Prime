@@ -45,31 +45,25 @@ distribution; treat these as upper bounds, not guarantees.
 ## 3. Known limitations (current, measured)
 
 ### 3.1 False-positive rate on real images — the primary risk
-At the default operating threshold the system flags **~12% of verified-real
-photographs** as suspicious, and **up to ~37%** of real images drawn from
-wild/social-media-like distributions (provider-matched reals). This is the
-single most important limitation for deployment.
-
-**Consequence:** on real-heavy workloads, a non-trivial fraction of innocent
-content will be marked suspicious. Outputs must never be treated as
-authoritative accusations.
-
-Under the deployed p6v11 operating point the court **abstains first** —
-"not confident" replaces a suspicious call whenever top probability mass
-falls inside the calibrated band (per-candidate alpha 0.209291, D-051):
-measured abstention aigc 26.5% / cdf 54% / ffpp-face images 63.5% (vs
-7.5%/4.5%/26% under p6v10).
-
 **Measured on wild reals (T1 stage-0, 2026-10-19, n=2000, sha-asserted):**
 score-level FPR@0.5 = **0.25%** (bootstrap CI 0.05–0.50%); among ISSUED
 verdicts **0.00%** (0/701) — every score-level FP abstains instead. Operating
-point TPR@FAR=5% = 77.1% raw / 90.7% among issued calls. The earlier
-~12%/~37% figures were score-level estimates under the pre-recalibration
-regime; with the deployed calibrated band the wild-real FP surface is now
-concentrated on 5 fully-abstained rows (attribution: face-forensics channels;
-see `artifacts/exam_wild_real/EXAM_REPORT.md`). Provider-matched reals retain
-a recorded 0.37 score-level FPR residue from the intake design history (T1
-readouts extend to them before client claims widen).
+point TPR@FAR=5% = 77.1% raw / 90.7% among issued calls. FP attribution
+(face-forensics channels): `artifacts/exam_wild_real/EXAM_REPORT.md`.
+
+Historical framing: pre-recalibration regimes were estimated at **~12% FPR on
+verified-real photographs** and **up to ~37%** on wild/social-media-like
+(provider-matched) reals; provider-matched reals still carry a recorded
+0.37 score-level FPR residue from the intake-design history (T1 readouts
+extend to them before client claims widen). The single most important
+deployment rule is unchanged: never treat outputs as authoritative
+accusations.
+
+**Why the issued-FPR collapses to zero:** the court **abstains first** under
+the deployed p6v11 operating point — "not confident" replaces a suspicious
+call whenever top probability mass falls inside the calibrated band
+(per-candidate alpha 0.209291, D-051): measured abstention aigc 26.5% /
+cdf 54% / ffpp-face images 63.5% (vs 7.5%/4.5%/26% under p6v10).
 
 ### 3.2 Video domain
 Deployed p6vid_v2 (identity-aware stacker, D-044): FF++ official split Gate A
@@ -87,7 +81,8 @@ audio). Audio-only verdicts should be treated as advisory.
 The four most widely deployed commercial generators of 2026 (GPT-Image-2,
 Nano Banana 2, Seedream 4.5, Grok) are **not yet covered by trained models**
 (no open weights, no funded API access — unreachable on record). The 2026
-generators measured this cycle: 10 exams, AUC 0.68–0.90 — **above published
+generators measured this cycle: 10 exams, AUC **0.67–0.94** (flux2-klein 0.9436
+added this cycle) — **above published
 ecosystem parity** (external benchmark: state-of-the-art detectors score
 18–31% accuracy zero-shot on unseen frontier generators), so the residual gap
 is a *coverage* problem (training-data diversity), not an architecture one.
@@ -145,9 +140,9 @@ waiver timestamp is authoritative.
   issued-verdict; face-forensics channels carry the residual FP surface —
   `artifacts/exam_wild_real/EXAM_REPORT.md`. r10 fix-candidate design stays
   pre-registered; upside-parity of TPR@FAR5 remains open, user-gated).
-- Scoreboard vs the Sep-2026 golden: the two flagged cells (ffpp, flux) decom-
-  pose exactly into pre-existing lineage + the p6v11 waiver on record; whether
-  to re-baseline the golden file remains an explicit user decision (Phase R).
+- **Golden re-baselined (Phase R, user-ruled 2026-10-19)** to the measured p6v11
+  cells; future candidates fail-closed against them. Historical trace of the
+  waived decomposition (ffpp/flux) stays in the B.6 record and WAIVER.md.
 - Per-domain abstention-calibration followup (design-B / domain-aware
   recalibration) — open, user-gated (D-051).
 - Residual audio false-alarm investigation.
@@ -159,5 +154,5 @@ issued after the above land. Clients receive the revision at each delivery.
 
 ---
 
-*Snapshot generated 2026-10-18 (p6v11 waiver-wave). Questions on any number in this document can be
+*Snapshot generated 2026-10-19 (p6v11 waiver-wave + T1 wild measurement). Questions on any number in this document can be
 traced to the corresponding exam artifacts in `artifacts/`.*

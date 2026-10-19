@@ -61,3 +61,10 @@ Format: `- YYYY-MM-DD [area] pattern`
   learned probes attach ONLY via `--channels all` (bench/channels.py build()). Every
   stacker-integrated exam run must pass `--channels all` or scores are garbage (NaN-ish probe
   inputs to the stacker). Discovered live 2026-10-18 on the T1 stage-0 launch; killed+relaunched.
+- stdout of long nohup benches is block-buffered: progress prints (e.g. "[25/4000]") flush only when the 4KB pipe buffer fills or the process exits — a stale tail does NOT mean a stalled run; verify via CPU% + lsof on temp files instead (2026-10-18, T1/T11 launches).
+- caffeinate -i prevents idle sleep but NOT lid-close sleep; laptop-close during a long chain silently costs hours (T1 lost ~5h overnight). For critical overnights use caffeinate -s (system-wide) or verify lid-open.
+- c2pa-python 0.37 signer profile: homemade ES256 self-signed certs (even with EKU 2.23.140.1.6) are rejected at sign time ("the certificate is invalid") — use the upstream shipped test chain (tests/fixtures/es256_certs.pem + es256_private.key, contentauth/c2pa-python, MIT/Apache) with Signer.from_callback; manifests: claim_generator_info must be a LIST; legacy label "c2pa.actions" works; validation_state Valid under default trust context. Recipe in artifacts/mbeta/fixtures/certs/ + M_BETA_DELIVERY doc.
+- run_benchmark silently degrades probe set without --channels all (see 2026-10-18 entry).
+- diffusers SDXL weights were NOT in the HF cache pre-T11 (first-use ~7GB fetch, ~7min at ~18-25s/file); HF cache stands ~100GB on ~/.cache — project-download cap accounting is unaffected (cache is outside the repo), but HF applies as a prune candidate (user list already has gen_intake 54G etc).
+- exam_launder.py is the launder machinery library now (EL views + B3-alpha court loader + score returning (p_fake, abstained)); t11_t9_launder.py extends it (recapture sim + regen views + provenance claim-ladder pass) — reuse, don't fork.
+- chained `python X | tail` exits with tail's rc — a crashed stage "succeeds" and the next stage runs on missing artifacts. Use `set -o pipefail` in watchers/chains (bit T11's score→report chain 2026-10-19).
