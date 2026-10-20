@@ -88,3 +88,8 @@ Format: `- YYYY-MM-DD [area] pattern`
 - **Hedge**: `browser.files.drop/upload` has a 5-MiB harness cap (tooling-only; app cap = 100 MB). For bigger rehearsal files: `ffmpeg -t 10 -c copy` trim stand-in + disclose in the runbook that the full file was not harness-flyable.
 - **Runbook wording must be copy of RENDERED strings, not paraphrase**: the T2V beat's "no face in the sampled frames… issues no video verdict" line existed ONLY in the runbook (single grep hit); the live panel instead renders `ROUTE: IMAGE COURT (no face in frame) — DEGRADED CONFIDENCE — RECOVERED (PENALIZED)`. Old pin OpenSoraL_100538 ledger row 105 shows ISSUED pf 0.8277 (no abstain) — the promised wording was never string-true. Fixed under freeze §5 (docs, verified-wording equality).
 - `file.drop` on `#dz` works after arming (role=button + aria-label + tabindex via evaluate), refs shift after every snapshot/reload — re-snapshot each time.
+
+## 2026-10-20 — freeze-era discoveries
+- **frame_budget sampling makes routing duration-dependent**: same T2V source, 10.1s trim → per-frame abstention → V2 retrack recovered-penalized lane (row 114); full 20s → a face in the 5 API-budget frames → video_face issued 0.0386 advisory class (row 124). Neither is a defect: different frame evidence, both honest. Document dual-lane, never patch mid-freeze.
+- **/api/detect JSON does NOT carry the per-kind scope note** ("treat video verdicts as advisory" lives in web/index.html). API consumers see bare numbers; the UI is the honesty surface. Post-ship: emit constraint strings server-side.
+- Full-file video beats are harness-flyable via `curl -F file=@... :8420/api/detect` (the 5-MiB cap is browser-tooling only). Ledger rows appear for curl POSTs the same as UI drops.
