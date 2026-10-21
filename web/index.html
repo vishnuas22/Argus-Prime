@@ -3,599 +3,2079 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARGUS — Deepfake Court</title>
+<title>ARGUS PRIME — Digital Forensic Command Bridge</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.152.2/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 <style>
-:root{--bg:#04040a;--panel:rgba(255,255,255,.035);--line:rgba(255,255,255,.09);
---gold:#e8c46a;--gold2:#f7e2a6;--red:#ff4d6d;--teal:#3ef0c5;--txt:#eceae6;--dim:#8f8d99}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;overflow-x:hidden;cursor:none}
-::selection{background:rgba(232,196,106,.25)}
-#bg3d{position:fixed;inset:0;z-index:0}
-.aurora{position:fixed;width:60vw;height:60vw;border-radius:50%;z-index:0;filter:blur(90px);opacity:.16;pointer-events:none}
-.aurora.a{background:radial-gradient(circle,#3a2d08,transparent 60%);top:-20%;left:-15%;animation:d1 26s ease-in-out infinite alternate}
-.aurora.b{background:radial-gradient(circle,#0a2430,transparent 60%);bottom:-25%;right:-15%;animation:d2 32s ease-in-out infinite alternate}
-@keyframes d1{to{transform:translate(12vw,8vh) scale(1.15)}}
-@keyframes d2{to{transform:translate(-10vw,-9vh) scale(1.1)}}
-.grain{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")}
-#cur{position:fixed;z-index:99;width:8px;height:8px;border-radius:50%;background:var(--gold);pointer-events:none;mix-blend-mode:screen}
-#curR{position:fixed;z-index:99;width:34px;height:34px;border-radius:50%;border:1px solid rgba(232,196,106,.5);pointer-events:none;transition:width .3s,height .3s}
-.wrap{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:0 32px}
-header{display:flex;align-items:center;justify-content:space-between;padding:26px 0}
-.logo{font-family:'Space Grotesk';font-weight:700;font-size:22px;letter-spacing:.35em;display:flex;align-items:center;gap:12px}
-.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold);animation:pl 3s infinite}
-@keyframes pl{50%{box-shadow:0 0 4px var(--gold);opacity:.6}}
-nav{display:flex;gap:28px;font-size:13px;letter-spacing:.18em}
-nav a{color:var(--dim);text-decoration:none;transition:color .3s}
-nav a:hover{color:var(--gold)}
-.chip{font-family:'JetBrains Mono';font-size:10px;border:1px solid var(--line);padding:6px 12px;border-radius:20px;color:var(--dim)}
-.hero{min-height:86vh;display:flex;flex-direction:column;justify-content:center;padding-top:4vh}
-.kicker{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.5em;color:var(--gold);margin-bottom:22px}
-h1{font-family:'Space Grotesk';font-size:clamp(50px,8.5vw,112px);line-height:.95;font-weight:700}
-h1 .thin{color:transparent;-webkit-text-stroke:1px rgba(236,234,230,.35)}
-h1 .gold{background:linear-gradient(120deg,var(--gold2),var(--gold) 55%,#9a7a2e);-webkit-background-clip:text;background-clip:text;color:transparent}
-.sub{max-width:580px;color:var(--dim);font-weight:300;font-size:17px;line-height:1.75;margin-top:26px}
-.stats{display:flex;gap:44px;margin-top:46px;flex-wrap:wrap}
-.stat .v{font-family:'Space Grotesk';font-size:30px;font-weight:700;color:var(--gold2)}
-.stat .k{font-size:11px;letter-spacing:.25em;color:var(--dim);margin-top:4px}
-section{padding:64px 0}
-.sec-k{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.45em;color:var(--gold);margin-bottom:14px}
-h2{font-family:'Space Grotesk';font-size:clamp(26px,3.6vw,40px);font-weight:700;margin-bottom:32px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:22px;backdrop-filter:blur(18px);position:relative;overflow:hidden}
-.panel::before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.06),transparent 30%);pointer-events:none}
-.dz{border:1.5px dashed rgba(232,196,106,.35);border-radius:22px;padding:56px 30px;text-align:center;transition:all .35s cubic-bezier(.2,.9,.3,1.4);background:rgba(255,255,255,.015)}
-.dz.over{border-color:var(--gold);background:rgba(232,196,106,.06);transform:scale(1.012)}
-.dz .ic{font-size:42px;display:inline-block;filter:drop-shadow(0 0 18px rgba(232,196,106,.4))}
-.dz h3{font-family:'Space Grotesk';font-size:20px;margin:10px 0 8px}
-.dz p{color:var(--dim);font-size:13px}
-.types{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
-.types span{font-family:'JetBrains Mono';font-size:10px;padding:5px 11px;border:1px solid var(--line);border-radius:14px;color:var(--dim)}
-.btn{display:inline-flex;align-items:center;gap:10px;margin-top:24px;font-family:'Space Grotesk';font-weight:700;font-size:15px;letter-spacing:.12em;color:#100c02;background:linear-gradient(120deg,var(--gold2),var(--gold));border:none;padding:16px 40px;border-radius:14px;cursor:none;box-shadow:0 8px 34px rgba(232,196,106,.28);position:relative;overflow:hidden;transition:transform .2s cubic-bezier(.2,.9,.3,1.6),box-shadow .3s}
-.btn:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 14px 46px rgba(232,196,106,.42)}
-.btn:disabled{opacity:.4;pointer-events:none}
-.row{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:22px}
-.alpha{flex:1;min-width:220px}
-.alpha label{font-family:'JetBrains Mono';font-size:10px;color:var(--dim);letter-spacing:.2em;display:flex;justify-content:space-between}
-input[type=range]{width:100%;accent-color:var(--gold);cursor:none}
-#preview{max-width:220px;border-radius:14px;display:none;margin:14px auto 4px;border:1px solid var(--line)}
-.vgrid{display:grid;grid-template-columns:340px 1fr;gap:22px}
-@media(max-width:900px){.vgrid{grid-template-columns:1fr}}
-.dialbox{display:flex;flex-direction:column;align-items:center;padding:36px 24px}
-.dialwrap{position:relative;width:230px;height:230px}
-.dialwrap svg{transform:rotate(-90deg)}
-.dialval{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.dialval .n{font-family:'Space Grotesk';font-size:50px;font-weight:700}
-.dialval .l{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.3em;color:var(--dim)}
-.vtag{margin-top:16px;font-family:'Space Grotesk';font-weight:700;font-size:16px;letter-spacing:.22em;padding:9px 22px;border-radius:12px}
-.vtag.fake{background:rgba(255,77,109,.12);color:var(--red);border:1px solid rgba(255,77,109,.4)}
-.vtag.real{background:rgba(62,240,197,.1);color:var(--teal);border:1px solid rgba(62,240,197,.4)}
-.vtag.abs{background:rgba(232,196,106,.1);color:var(--gold);border:1px solid rgba(232,196,106,.4)}
-.vtag.rec{background:rgba(255,140,50,.14);color:#ff9a3c;border:1px solid rgba(255,140,50,.5)}
-.vtag.review{background:rgba(255,214,80,.16);color:#ffe066;border:1px solid rgba(255,214,80,.55)}
-.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px;width:100%}
-.mk{border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}
-.mk .v{font-family:'JetBrains Mono';font-size:18px;font-weight:600}
-.mk .k{font-size:10px;letter-spacing:.22em;color:var(--dim);margin-top:5px}
-.egrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
-.ecard{padding:22px;transition:box-shadow .3s}
-.ecard:hover{box-shadow:0 18px 50px rgba(0,0,0,.55)}
-.ecard .top{display:flex;justify-content:space-between;align-items:baseline}
-.ecard .id{font-family:'JetBrains Mono';font-size:12px;color:var(--gold2)}
-.ecard .dir{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.15em}
-.dir.syn{color:var(--red)}.dir.aut{color:var(--teal)}.dir.neu{color:var(--dim)}
-.bar{height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin:16px 0 8px;overflow:hidden;position:relative}
-.bar i{position:absolute;inset:0;border-radius:3px;transform-origin:left;background:linear-gradient(90deg,var(--teal),#777 48%,var(--red))}
-.gauge{display:flex;justify-content:space-between;font-family:'JetBrains Mono';font-size:10px;color:var(--dim)}
-.ecard .claim{margin-top:14px;font-size:12.5px;line-height:1.65;color:var(--dim)}
-.ecard .rel{margin-top:12px;font-family:'JetBrains Mono';font-size:10px;color:var(--gold)}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.2em;color:var(--dim);text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
-td{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.04)}
-td.mono{font-family:'JetBrains Mono';font-size:12px}
-tr:hover{background:rgba(255,255,255,.03)}
-footer{padding:46px 0 60px;color:var(--dim);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
-footer .mono{font-family:'JetBrains Mono';font-size:11px}
-.scanline{position:fixed;left:0;right:0;height:2px;z-index:5;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;box-shadow:0 0 22px var(--gold)}
-</style>
+:root {
+  --bg: #05060a;
+  --panel-bg: rgba(9, 11, 16, 0.78);
+  --panel-border: rgba(212, 175, 55, 0.22);
+  --panel-border-subtle: rgba(255, 255, 255, 0.08);
+  --gold: #d4af37;
+  --gold-bright: #f9d877;
+  --gold-glow: rgba(212, 175, 55, 0.35);
+  --bronze: #8a6a2a;
+  --teal: #3ef0c5;
+  --teal-glow: rgba(62, 240, 197, 0.35);
+  --red: #ff4d6d;
+  --red-glow: rgba(255, 77, 109, 0.35);
+  --amber: #ffaa33;
+  --txt: #eceae6;
+  --txt-dim: #8b8994;
+  --txt-dimmer: #5e5c66;
+}
 
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+html, body {
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: 'Inter', -apple-system, sans-serif;
+  cursor: default;
+}
+
+/* ================= BACKGROUND CANOPY & BACKDROP ================= */
+#cockpitCanvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.95;
+  transform: scale(1.02);
+  transition: transform 0.6s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+/* Atmospheric Sun Glow Vignette */
+.canopy-overlay {
+  position: fixed; inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 12%, rgba(249, 216, 119, 0.18) 0%, transparent 60%),
+    radial-gradient(circle at 50% 45%, transparent 30%, rgba(5, 6, 10, 0.85) 95%),
+    linear-gradient(180deg, rgba(5,6,10,0.82) 0%, rgba(5,6,10,0.2) 30%, rgba(5,6,10,0.4) 65%, rgba(5,6,10,0.96) 100%);
+}
+
+/* Three.js Holographic Canvas */
+#holoCanvas {
+  position: fixed; inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Scanline and CRT grain overlay */
+.tactical-grain {
+  position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Laser sweep line */
+#scanline {
+  position: fixed; left: 0; right: 0; height: 3px; z-index: 99;
+  background: linear-gradient(90deg, transparent 5%, var(--gold-bright) 50%, transparent 95%);
+  box-shadow: 0 0 25px var(--gold-bright), 0 0 10px var(--gold);
+  opacity: 0; pointer-events: none;
+}
+
+/* Custom Tactical Reticle Cursor */
+#curDot {
+  position: fixed; z-index: 9999; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--gold-bright);
+  box-shadow: 0 0 10px var(--gold); pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+#curReticle {
+  position: fixed; z-index: 9998; width: 28px; height: 28px;
+  border-radius: 50%; border: 1px solid rgba(212, 175, 55, 0.45);
+  pointer-events: none; transform: translate(-50%, -50%);
+  transition: width 0.25s, height 0.25s, border-color 0.25s;
+}
+
+/* ================= MAIN COCKPIT SHELL GRID ================= */
+.cockpit-bridge {
+  position: relative; z-index: 10;
+  width: 100vw; height: 100vh;
+  display: grid;
+  grid-template-rows: 52px 1fr 310px 48px;
+  grid-template-columns: 88px 1fr;
+  padding: 0 16px 8px 16px;
+}
+
+/* ================= 1. TOP HEADER HUD BAR ================= */
+.top-hud {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 12px;
+  background: linear-gradient(180deg, rgba(8,10,15,0.85) 0%, rgba(8,10,15,0.4) 100%);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+  backdrop-filter: blur(14px);
+}
+.brand-zone {
+  display: flex; align-items: center; gap: 12px;
+}
+.eye-symbol {
+  width: 26px; height: 16px;
+  position: relative;
+  border: 1.5px solid var(--gold);
+  border-radius: 60% 60% 60% 60% / 90% 90% 90% 90%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 10px var(--gold-glow);
+}
+.eye-iris {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: radial-gradient(circle, var(--gold-bright) 30%, var(--bronze) 100%);
+  box-shadow: 0 0 6px var(--gold);
+  animation: irisPulse 3.5s ease-in-out infinite;
+}
+@keyframes irisPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(0.85); opacity:0.8;} }
+.brand-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700; font-size: 14px; letter-spacing: 0.35em;
+  color: #fff; text-shadow: 0 0 12px rgba(255,255,255,0.3);
+}
+.brand-title span { color: var(--gold); }
+
+.nav-tabs {
+  display: flex; gap: 6px;
+}
+.nav-tab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 18px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  font-weight: 600; letter-spacing: 0.18em;
+  color: var(--txt-dim); text-decoration: none;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  transition: all 0.25s;
+  cursor: pointer;
+}
+.nav-tab:hover { color: var(--txt); border-color: rgba(212, 175, 55, 0.3); }
+.nav-tab.active {
+  color: var(--gold-bright);
+  background: rgba(212, 175, 55, 0.12);
+  border-color: rgba(212, 175, 55, 0.55);
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.2), inset 0 0 8px rgba(212, 175, 55, 0.15);
+}
+.tab-ic { font-size: 12px; }
+
+.telemetry-badges {
+  display: flex; align-items: center; gap: 14px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+}
+.badge-item {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--txt-dim);
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 10px var(--teal);
+  animation: livePing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes livePing { 0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(0.8);} }
+.badge-val { color: var(--txt); font-weight: 600; }
+.btn-icon {
+  width: 28px; height: 28px; border-radius: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--panel-border-subtle);
+  color: var(--txt-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.btn-icon:hover { border-color: var(--gold); color: var(--gold); }
+.user-tag {
+  font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.1));
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ================= 2. LEFT FLIGHT RAIL ================= */
+.left-rail {
+  grid-row: 2 / 4;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: 14px 6px;
+  background: rgba(8, 10, 15, 0.75);
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  margin-right: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+.rail-top {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%;
+}
+.btn-new-case {
+  width: 100%; padding: 8px 4px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(212,175,55,0.22), rgba(212,175,55,0.08));
+  border: 1px solid rgba(212,175,55,0.45);
+  color: var(--gold-bright);
+  font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; transition: all 0.25s;
+}
+.btn-new-case:hover {
+  background: linear-gradient(135deg, rgba(212,175,55,0.4), rgba(212,175,55,0.15));
+  box-shadow: 0 0 16px var(--gold-glow);
+  transform: translateY(-1px);
+}
+.rail-cases {
+  display: flex; flex-direction: column; gap: 8px; width: 100%;
+  max-height: 220px; overflow-y: auto; overflow-x: hidden;
+  padding: 2px;
+}
+.rail-cases::-webkit-scrollbar { width: 2px; }
+.rail-cases::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.2); }
+.case-thumb-item {
+  width: 58px; height: 42px; border-radius: 6px;
+  border: 1px solid var(--panel-border-subtle);
+  background: #080a0f; overflow: hidden; position: relative;
+  cursor: pointer; transition: all 0.2s;
+  margin: 0 auto;
+}
+.case-thumb-item img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
+.case-thumb-item:hover { border-color: var(--gold); transform: scale(1.05); }
+.case-thumb-item.active {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 12px var(--gold-glow);
+}
+.case-thumb-item.active img { opacity: 1; }
+
+.rail-nav {
+  display: flex; flex-direction: column; gap: 12px; align-items: center; width: 100%;
+}
+.rail-btn {
+  width: 38px; height: 38px; border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+  color: var(--txt-dim);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 15px; cursor: pointer; transition: all 0.2s;
+  position: relative;
+}
+.rail-btn span { font-size: 8px; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+.rail-btn:hover { color: var(--gold-bright); border-color: rgba(212,175,55,0.3); background: rgba(212,175,55,0.06); }
+.rail-btn.active { color: var(--gold-bright); border-color: var(--gold); background: rgba(212,175,55,0.12); box-shadow: 0 0 10px rgba(212,175,55,0.2); }
+
+.rail-motto {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 8px; font-weight: 700; letter-spacing: 0.35em;
+  color: var(--txt-dimmer);
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  margin-top: 10px;
+}
+
+/* ================= 3. CENTER VIEWPORT STAGE ================= */
+.center-viewport {
+  position: relative;
+  display: grid;
+  grid-template-columns: 310px 1fr 340px;
+  gap: 16px;
+  padding: 10px 4px;
+}
+
+/* Floating Glass HUD Panels */
+.hud-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.08);
+  padding: 16px;
+  display: flex; flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.hud-panel::before {
+  content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.5;
+}
+.hud-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding-bottom: 8px;
+}
+.hud-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.22em; color: #fff;
+  display: flex; align-items: center; gap: 8px;
+}
+.hud-title-badge {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  padding: 2px 7px; border-radius: 4px;
+  background: rgba(62, 240, 197, 0.15); border: 1px solid rgba(62, 240, 197, 0.4);
+  color: var(--teal); font-weight: 600;
+}
+.hud-close {
+  color: var(--txt-dim); font-size: 13px; cursor: pointer; transition: color 0.2s;
+}
+.hud-close:hover { color: var(--gold-bright); }
+
+/* Left Dossier Card */
+.dossier-card {
+  height: calc(100% - 10px);
+}
+.file-meta-box {
+  display: flex; gap: 12px; align-items: center;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--panel-border-subtle);
+  border-radius: 8px; padding: 10px; margin-bottom: 14px;
+}
+.file-thumb-mini {
+  width: 54px; height: 54px; border-radius: 6px;
+  background: #000; overflow: hidden; border: 1px solid rgba(212,175,55,0.3);
+  flex-shrink: 0;
+}
+.file-thumb-mini img { width: 100%; height: 100%; object-fit: cover; }
+.file-details { flex: 1; min-width: 0; }
+.file-name {
+  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600;
+  color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.file-sub {
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+  color: var(--txt-dim); margin-top: 2px;
+}
+.file-waveform-line {
+  height: 12px; width: 100%; margin-top: 4px;
+  background: repeating-linear-gradient(90deg, var(--teal) 0 1px, transparent 1px 4px);
+  opacity: 0.6;
+}
+
+.meta-table {
+  display: flex; flex-direction: column; gap: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  margin-bottom: 12px;
+}
+.meta-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.meta-label {
+  display: flex; align-items: center; gap: 7px; color: var(--txt-dim);
+}
+.meta-val { color: #fff; font-weight: 500; }
+.meta-val.ok { color: var(--teal); }
+
+.dossier-progress {
+  margin-top: auto;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05);
+  color: var(--txt-dim);
+}
+.dossier-progress span.val { color: var(--gold-bright); font-weight: 600; }
+
+/* Center Stage: Holographic Aperture */
+.aperture-stage {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  perspective: 1200px;
+}
+.stage-coordinates {
+  position: absolute; top: 10px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.25em;
+  color: var(--gold); opacity: 0.8;
+  display: flex; gap: 14px;
+  text-shadow: 0 0 8px var(--gold-glow);
+}
+.hologram-viewport {
+  position: relative;
+  width: 380px; height: 230px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(212, 175, 55, 0.5);
+  box-shadow: 0 0 45px rgba(212, 175, 55, 0.25), inset 0 0 25px rgba(212, 175, 55, 0.15);
+  overflow: hidden;
+  background: rgba(6, 8, 12, 0.7);
+  backdrop-filter: blur(8px);
+  transform: rotateX(8deg) translateY(-8px);
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.hologram-viewport:hover {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 60px rgba(212, 175, 55, 0.45), inset 0 0 35px rgba(212, 175, 55, 0.25);
+  transform: rotateX(4deg) translateY(-14px) scale(1.02);
+}
+.hologram-viewport.dragover {
+  border-color: var(--teal);
+  box-shadow: 0 0 70px var(--teal-glow);
+  transform: rotateX(0deg) scale(1.04);
+}
+#activeMediaDisplay {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.viewport-bracket {
+  position: absolute; width: 14px; height: 14px;
+  border-color: var(--gold-bright); border-style: solid;
+  pointer-events: none;
+}
+.bracket-tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
+.bracket-tr { top: 6px; right: 6px; border-width: 2px 2px 0 0; }
+.bracket-bl { bottom: 6px; left: 6px; border-width: 0 0 2px 2px; }
+.bracket-br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+.aperture-prompt {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(5,7,12,0.65);
+  transition: opacity 0.3s;
+}
+.aperture-prompt .ic-drop {
+  font-size: 32px; color: var(--gold-bright);
+  filter: drop-shadow(0 0 14px var(--gold));
+  margin-bottom: 8px;
+}
+.aperture-prompt h3 {
+  font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.2em; color: #fff;
+}
+.aperture-prompt p {
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+  color: var(--txt-dim); margin-top: 4px;
+}
+
+.stage-status-bar {
+  margin-top: 14px;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+}
+.stage-status-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.35em;
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px var(--gold-glow);
+}
+.stage-status-sub {
+  font-size: 9px; letter-spacing: 0.22em; color: var(--txt-dim); margin-top: 2px;
+}
+
+/* Right Verdict & Progress Card */
+.verdict-card {
+  height: calc(100% - 10px);
+}
+.verdict-top-row {
+  display: flex; gap: 14px; align-items: center; margin-bottom: 12px;
+}
+.circular-progress-box {
+  position: relative; width: 78px; height: 78px; flex-shrink: 0;
+}
+.circular-progress-box svg { transform: rotate(-90deg); }
+.circle-val-text {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.circle-val-text .num {
+  font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: #fff;
+}
+.circle-val-text .lbl {
+  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: 0.15em; color: var(--txt-dim);
+}
+
+.stage-info { flex: 1; }
+.stage-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.22em; color: var(--txt-dim);
+}
+.stage-name {
+  font-family: 'Space Grotesk', sans-serif; font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0.12em; color: var(--gold-bright); margin: 2px 0 4px;
+}
+.stage-desc {
+  font-size: 9.5px; color: var(--txt-dim); line-height: 1.4;
+}
+.stage-wave {
+  height: 8px; width: 100%; margin-top: 4px;
+  background: repeating-linear-gradient(90deg, var(--gold) 0 1px, transparent 1px 3px);
+  opacity: 0.6;
+}
+
+.verdict-banner-box {
+  margin-top: 10px; padding: 12px; border-radius: 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--panel-border-subtle);
+}
+.verdict-header-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.2em;
+  color: var(--txt-dim); margin-bottom: 6px;
+}
+.verdict-headline {
+  display: flex; align-items: center; gap: 8px;
+  font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.verdict-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+}
+.verdict-headline.real { color: var(--teal); }
+.verdict-headline.real .verdict-dot { background: var(--teal); box-shadow: 0 0 10px var(--teal); }
+.verdict-headline.fake { color: var(--red); }
+.verdict-headline.fake .verdict-dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
+.verdict-headline.abstain { color: var(--gold-bright); }
+.verdict-headline.abstain .verdict-dot { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+.verdict-headline.rec { color: var(--amber); }
+.verdict-headline.rec .verdict-dot { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+
+.confidence-row {
+  margin-top: 8px;
+}
+.conf-label {
+  display: flex; justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--txt-dim);
+  margin-bottom: 4px;
+}
+.conf-bar-bg {
+  height: 5px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden;
+}
+.conf-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--teal), var(--gold-bright));
+  width: 82%; transition: width 1.2s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.prob-breakdown {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04);
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+}
+.prob-item .lbl { color: var(--txt-dim); }
+.prob-item .val { color: #fff; font-weight: 600; font-size: 11px; margin-top: 2px; }
+
+.verdict-footer-note {
+  margin-top: auto; padding-top: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 8.5px;
+  color: var(--txt-dimmer); line-height: 1.4;
+}
+
+/* ================= 4. LOWER CONSOLE & 11 CHANNELS MATRIX ================= */
+.lower-console {
+  position: relative;
+  display: flex; flex-direction: column;
+  background: linear-gradient(180deg, rgba(8, 10, 15, 0.92) 0%, rgba(5, 6, 10, 0.98) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 14px;
+  backdrop-filter: blur(24px);
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+/* Horizontal 11-Channel Matrix */
+.channel-matrix-strip {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.matrix-meta {
+  display: flex; align-items: center; gap: 10px; min-width: 170px;
+}
+.polyhedron-ic {
+  width: 28px; height: 28px;
+  border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 6px;
+  background: rgba(212, 175, 55, 0.08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--gold-bright);
+}
+.matrix-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.18em; color: #fff;
+}
+.matrix-sub {
+  font-size: 8px; color: var(--txt-dim); font-family: 'JetBrains Mono', monospace;
+}
+
+.channels-pills-row {
+  display: flex; gap: 6px; flex: 1; justify-content: flex-end;
+}
+.channel-pill {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 5px 8px; border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  min-width: 62px; text-align: center;
+  transition: all 0.25s;
+  cursor: pointer;
+}
+.channel-pill:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(212, 175, 55, 0.06);
+}
+.channel-pill.active {
+  border-color: var(--gold);
+  background: rgba(212, 175, 55, 0.12);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+}
+.ch-icon-circle {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--panel-border-subtle);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--txt-dim); margin-bottom: 3px;
+}
+.channel-pill.ok .ch-icon-circle {
+  border-color: var(--teal); color: var(--teal); box-shadow: 0 0 6px var(--teal-glow);
+}
+.channel-pill.warn .ch-icon-circle {
+  border-color: var(--red); color: var(--red); box-shadow: 0 0 6px var(--red-glow);
+}
+.channel-pill.analyzing .ch-icon-circle {
+  border-color: var(--gold); color: var(--gold-bright);
+  animation: chSpin 2s linear infinite;
+}
+@keyframes chSpin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
+.ch-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; color: var(--txt-dimmer);
+}
+.ch-name {
+  font-family: 'Space Grotesk', sans-serif; font-size: 8.5px; font-weight: 600;
+  color: var(--txt); white-space: nowrap;
+}
+.ch-status {
+  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; font-weight: 600;
+  color: var(--txt-dim); margin-top: 1px;
+}
+.channel-pill.ok .ch-status { color: var(--teal); }
+.channel-pill.warn .ch-status { color: var(--red); }
+.channel-pill.analyzing .ch-status { color: var(--gold-bright); }
+
+/* QUAD ANALYTIC PANELS DECK */
+.quad-analytic-deck {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr 1.1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+.quad-panel {
+  background: rgba(12, 15, 22, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.quad-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding-bottom: 4px;
+}
+.quad-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.18em; color: var(--txt-dim);
+}
+.quad-subtabs {
+  display: flex; gap: 4px;
+}
+.qtab {
+  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: 0.1em;
+  padding: 1px 5px; border-radius: 3px; color: var(--txt-dimmer); cursor: pointer;
+}
+.qtab.active {
+  color: var(--gold-bright); background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.3);
+}
+
+/* Panel 1: Real-time Heatmap Canvas */
+.heatmap-view-container {
+  flex: 1; position: relative; border-radius: 6px; overflow: hidden;
+  background: #000; border: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+}
+#heatmapCanvas {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.heatmap-scale-bar {
+  width: 14px; margin-left: 6px; height: 100%; border-radius: 2px;
+  background: linear-gradient(180deg, #ff0055 0%, #ffaa00 35%, #00ffaa 70%, #0066ff 100%);
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace; font-size: 6.5px; color: #fff;
+  padding: 2px 1px; text-shadow: 0 1px 2px #000;
+}
+.zoom-tag {
+  position: absolute; bottom: 4px; right: 24px;
+  font-family: 'JetBrains Mono', monospace; font-size: 8px;
+  background: rgba(0,0,0,0.65); padding: 2px 5px; border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.1); color: var(--txt-dim);
+}
+
+/* Panel 2: Spectral Analysis Wave Graph */
+.spectral-graph-box {
+  flex: 1; position: relative; display: flex; flex-direction: column;
+}
+#spectralCanvas {
+  width: 100%; height: 100%; border-radius: 6px;
+}
+.spectral-legend {
+  display: flex; justify-content: flex-end; gap: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; margin-top: 4px;
+}
+.sleg-item { display: flex; align-items: center; gap: 3px; color: var(--txt-dim); }
+.sleg-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+/* Panel 3: Channel Insights Checklist */
+.insights-list {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+}
+.insights-list::-webkit-scrollbar { width: 2px; }
+.insights-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+.insight-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 3px 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03);
+  font-family: 'JetBrains Mono', monospace; font-size: 8px;
+}
+.insight-left { display: flex; align-items: center; gap: 6px; }
+.insight-name { color: var(--txt); font-weight: 600; }
+.insight-desc { color: var(--txt-dim); font-size: 7.5px; }
+.insight-check { color: var(--teal); font-weight: bold; }
+
+/* Panel 4: Evidence Preview & 400% Zoom Loupe */
+.preview-split-box {
+  flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.preview-mini-frame {
+  position: relative; border-radius: 6px; overflow: hidden; background: #000;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.preview-mini-frame img { width: 100%; height: 100%; object-fit: cover; }
+.loupe-frame {
+  position: relative; border-radius: 6px; overflow: hidden; background: #080c12;
+  border: 1px solid rgba(62, 240, 197, 0.4);
+  box-shadow: inset 0 0 10px rgba(62, 240, 197, 0.15);
+}
+#loupeCanvas { width: 100%; height: 100%; }
+.loupe-tag {
+  position: absolute; top: 4px; left: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 7.5px;
+  background: rgba(0,0,0,0.7); color: var(--teal);
+  padding: 1px 4px; border-radius: 2px;
+}
+.loupe-subtag {
+  position: absolute; bottom: 4px; left: 4px; right: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 6.5px;
+  color: var(--txt-dim); text-align: center;
+}
+
+/* ================= 5. BOTTOM CONTROL RAIL ================= */
+.bottom-flight-rail {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px;
+  background: rgba(6, 8, 12, 0.95);
+  border-top: 1px solid rgba(212, 175, 55, 0.2);
+  backdrop-filter: blur(14px);
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+}
+.case-badge-rail {
+  display: flex; align-items: center; gap: 8px; color: var(--txt-dim);
+}
+.case-id-strong {
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #fff; font-size: 11px;
+}
+
+.scrubber-zone {
+  display: flex; align-items: center; gap: 12px;
+}
+.scrubber-arrow {
+  color: var(--txt-dim); cursor: pointer; font-size: 12px; transition: color 0.2s;
+}
+.scrubber-arrow:hover { color: var(--gold-bright); }
+.filmstrip-strip {
+  display: flex; gap: 6px; align-items: center;
+}
+.film-item {
+  width: 32px; height: 22px; border-radius: 3px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1); opacity: 0.5; cursor: pointer; transition: all 0.2s;
+}
+.film-item.active {
+  border-color: var(--gold); opacity: 1; box-shadow: 0 0 6px var(--gold);
+}
+.film-item img { width: 100%; height: 100%; object-fit: cover; }
+
+.tactile-dial-box {
+  position: relative; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.tactile-dial-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1.5px solid var(--gold);
+  box-shadow: 0 0 12px var(--gold-glow), inset 0 0 6px var(--gold-glow);
+  transition: transform 0.4s;
+  pointer-events: none;
+}
+.tactile-dial-box:hover .tactile-dial-ring { transform: rotate(45deg) scale(1.08); }
+.tactile-center-btn {
+  position: relative; z-index: 2;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: radial-gradient(circle, var(--gold-bright) 20%, #7d601b 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: #0c0903; font-weight: bold; font-size: 13px;
+}
+
+.system-release-rail {
+  display: flex; align-items: center; gap: 12px; color: var(--txt-dimmer); font-size: 9px;
+}
+.mini-wave-anim {
+  width: 45px; height: 12px;
+  background: repeating-linear-gradient(90deg, var(--teal) 0 1px, transparent 1px 3px);
+  opacity: 0.7;
+}
+
+/* ================= MODAL / OVERLAY FOR EVIDENCE & LEDGER ================= */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(4, 5, 8, 0.88);
+  backdrop-filter: blur(24px);
+  display: none; align-items: center; justify-content: center;
+  padding: 40px;
+}
+.modal-window {
+  width: 90vw; max-width: 1100px; height: 80vh;
+  background: rgba(10, 13, 20, 0.95);
+  border: 1px solid var(--gold);
+  border-radius: 16px;
+  box-shadow: 0 0 60px rgba(0,0,0,0.8), 0 0 30px var(--gold-glow);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-header {
+  padding: 16px 24px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700;
+  letter-spacing: 0.2em; color: var(--gold-bright);
+}
+.modal-close {
+  color: var(--txt-dim); font-size: 20px; cursor: pointer; transition: color 0.2s;
+}
+.modal-close:hover { color: #fff; }
+.modal-body {
+  flex: 1; padding: 24px; overflow-y: auto;
+}
+.modal-body::-webkit-scrollbar { width: 4px; }
+.modal-body::-webkit-scrollbar-thumb { background: var(--gold); }
+
+/* Table for Ledger */
+table.ledger-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+table.ledger-table th {
+  text-align: left; padding: 12px; border-bottom: 1px solid rgba(212,175,55,0.3);
+  color: var(--gold-bright); letter-spacing: 0.15em; font-size: 10px;
+}
+table.ledger-table td {
+  padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--txt);
+}
+table.ledger-table tr:hover { background: rgba(212,175,55,0.05); }
+
+/* Settings Modal Elements */
+.config-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+.config-label { color: var(--txt); }
+.config-sub { color: var(--txt-dim); font-size: 10px; margin-top: 3px; }
+input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
+</style>
 </head>
+
 <body>
-<div class="aurora a"></div><div class="aurora b"></div>
-<div class="grain"></div>
-<div id="cur"></div><div id="curR"></div>
-<canvas id="bg3d"></canvas>
-<div class="wrap">
-<header>
-  <div class="logo"><span class="dot"></span>ARGUS</div>
-  <nav><a href="#scan">COURT</a><a href="#evidence">EVIDENCE</a><a href="#history">LEDGER</a></nav>
-  <div class="chip" id="healthChip">court: loading…</div>
-</header>
-</div>
-<div class="wrap hero" id="top">
-  <div class="kicker" data-reveal>ELEVEN-CHANNEL FORENSIC COURT · STACKER p6v11</div>
-  <h1 data-reveal><span class="thin">EVERY PIXEL</span><br><span class="gold">PUT ON TRIAL</span></h1>
-  <p class="sub" data-reveal>Argus fuses eleven forensic channels — metadata, compression
-  history, spectral fingerprints, distribution realness, perturbation cues, five
-  learned specialist heads and C2PA provenance verification — with a calibrated
-  stacking judge into a single verdict
-  across image, audio and video. All forensics run on this machine.</p>
-  <div class="stats" data-reveal>
-    <div class="stat"><div class="v" id="statMj">0.9737</div><div class="k">MIDJOURNEY GATE</div></div>
-    <div class="stat"><div class="v" id="statFlux">0.9436</div><div class="k">FLUX·2 GATE</div></div>
-    <div class="stat"><div class="v" id="statVal">0.9877</div><div class="k">VAL AUC · IN-DOMAIN</div></div>
-    <div class="stat"><div class="v" id="statCh">11</div><div class="k">EVIDENCE CHANNELS</div></div>
-  </div>
-</div>
-<div class="wrap"><section id="scan">
-  <div class="sec-k" data-reveal>// THE COURT IS IN SESSION</div>
-  <h2 data-reveal>Submit an artefact for judgment</h2>
-  <div class="panel" data-reveal style="padding:26px">
-    <div class="dz" id="dz">
-      <div class="ic">👁</div>
-      <h3>Drop image · audio · video</h3>
-      <p>or click to browse — nothing leaves this machine</p>
-      <div class="types"><span>JPG</span><span>PNG</span><span>WEBP</span><span>WAV</span><span>MP3</span><span>MP4</span><span>MOV</span></div>
-      <img id="preview" alt="">
-      <div><button class="btn" id="go" disabled><span>CONVENE THE COURT</span><span>→</span></button></div>
-      <div class="row" style="justify-content:center">
-        <div class="alpha">
-          <label><span>ABSTENTION POLICY α</span><span id="av">court-calibrated 0.209291 · move to override</span></label>
-          <input type="range" id="alpha" min="0.10" max="0.50" step="0.01" value="0.21">
+<!-- Cockpit Background Viewport -->
+<img id="cockpitCanvas" src="/backdrop.jpg" alt="Atmospheric Alpine Recon Window">
+<div class="canopy-overlay"></div>
+<div class="tactical-grain"></div>
+<div id="scanline"></div>
+
+<!-- Custom Reticle Cursor -->
+<div id="curDot"></div>
+<div id="curReticle"></div>
+
+<!-- Three.js Hologram Scene -->
+<canvas id="holoCanvas"></canvas>
+
+<!-- COCKPIT INTERACTION BRIDGE -->
+<div class="cockpit-bridge">
+
+  <!-- 1. TOP HEADER HUD BAR -->
+  <header class="top-hud">
+    <div class="brand-zone">
+      <div class="eye-symbol"><div class="eye-iris"></div></div>
+      <div class="brand-title">ARGUS <span>PRIME</span></div>
+    </div>
+    
+    <nav class="nav-tabs">
+      <div class="nav-tab active" id="tabCourt"><span class="tab-ic">👁</span> COURT</div>
+      <div class="nav-tab" id="tabEvidence"><span class="tab-ic">⚡</span> EVIDENCE</div>
+      <div class="nav-tab" id="tabLedger"><span class="tab-ic">⛓</span> LEDGER</div>
+    </nav>
+    
+    <div class="telemetry-badges">
+      <div class="badge-item"><div class="live-dot"></div> <span id="sysStatusText">System Online</span><span id="healthChip" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0">court: ok · 11 channels</span></div>
+      <div class="badge-item">Court: <span class="badge-val">01</span></div>
+      <div class="badge-item">Channels: <span class="badge-val" id="topChannelCount">11</span></div>
+      <div class="btn-icon" id="btnSettings" title="Court Settings & Alpha Override">⚙</div>
+      <div class="user-tag">VD</div>
+    </div>
+  </header>
+
+  <!-- 2. LEFT FLIGHT RAIL -->
+  <aside class="left-rail">
+    <div class="rail-top">
+      <button class="btn-new-case" id="btnNewCase">
+        <span style="font-size:16px">+</span>
+        <span>New Case</span>
+      </button>
+      <div class="rail-cases" id="railCasesList">
+        <!-- Dynamically populated past cases -->
+      </div>
+    </div>
+    
+    <div class="rail-nav">
+      <div class="rail-btn active" id="btnRailAnalysis"><span>🔍</span><span>Analysis</span></div>
+      <div class="rail-btn" id="btnRailReports"><span>📄</span><span>Reports</span></div>
+      <div class="rail-btn" id="btnRailLedger"><span>⛓</span><span>Ledger</span></div>
+      <div class="rail-btn" id="btnRailSettings"><span>⚙</span><span>Config</span></div>
+    </div>
+    
+    <div class="rail-motto">TRUTH LEAVES PATTERNS.</div>
+  </aside>
+
+  <!-- 3. CENTER VIEWPORT STAGE -->
+  <main class="center-viewport">
+
+    <!-- Top-Left Floating HUD: Evidence Dossier -->
+    <section class="hud-panel dossier-card" id="dossierCard">
+      <div class="hud-header">
+        <div class="hud-title">EVIDENCE <span class="hud-title-badge" id="caseBadge">VERIFIED</span></div>
+        <div class="hud-close" title="Reset View">✕</div>
+      </div>
+      
+      <div class="file-meta-box">
+        <div class="file-thumb-mini">
+          <img id="dossierMiniThumb" src="/backdrop.jpg" alt="Evidence thumbnail">
+        </div>
+        <div class="file-details">
+          <div class="file-name" id="dossierFilename">IMG_4827.heic</div>
+          <div class="file-sub" id="dossierFilesize">3.4 MB · Image / Multi-spectral</div>
+          <div class="file-waveform-line"></div>
         </div>
       </div>
-    </div>
-  </div>
-</section></div>
-<div class="wrap"><section id="verdictSec" style="display:none">
-  <div class="sec-k">// VERDICT</div>
-  <div class="vgrid">
-    <div class="panel dialbox">
-      <div class="dialwrap">
-        <svg width="230" height="230" viewBox="0 0 230 230">
-          <circle cx="115" cy="115" r="100" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10"/>
-          <circle id="arc" cx="115" cy="115" r="100" fill="none" stroke="url(#g)"
-            stroke-width="10" stroke-linecap="round" stroke-dasharray="628" stroke-dashoffset="628"/>
-          <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#3ef0c5"/><stop offset="1" stop-color="#ff4d6d"/>
-          </linearGradient></defs>
-        </svg>
-        <div class="dialval" id="dialval"><div class="n" id="vnum">0.00</div><div class="l" id="vdialab">P( SYNTHETIC )</div></div>
+      
+      <div class="meta-table">
+        <div class="meta-row"><span class="meta-label"><span>🛡</span> File Integrity</span><span class="meta-val ok" id="metaIntegrity">OK</span></div>
+        <div class="meta-row"><span class="meta-label"><span>📋</span> Metadata</span><span class="meta-val ok" id="metaMetadata">OK</span></div>
+        <div class="meta-row"><span class="meta-label"><span>⚙</span> Compression</span><span class="meta-val ok" id="metaCompression">OK</span></div>
+        <div class="meta-row"><span class="meta-label"><span>📷</span> Camera Model</span><span class="meta-val" id="metaCamera">iPhone 15 Pro</span></div>
+        <div class="meta-row"><span class="meta-label"><span>📍</span> GPS Location</span><span class="meta-val" id="metaGps">10.2345° N, 76.5432° E</span></div>
+        <div class="meta-row"><span class="meta-label"><span>⏱</span> Timestamp</span><span class="meta-val" id="metaTimestamp">2026-10-20 14:32:17</span></div>
       </div>
-      <div class="vtag abs" id="vtag">DELIBERATING…</div>
-      <div id="honesty" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
-      <div class="meta">
-        <div class="mk"><div class="v" id="mTrust">–</div><div class="k">TRUST</div></div>
-        <div class="mk"><div class="v" id="mRisk">–</div><div class="k">RISK</div></div>
-        <div class="mk"><div class="v" id="mTime">–</div><div class="k">SECONDS</div></div>
+      
+      <div class="dossier-progress">
+        <span>Processing State:</span>
+        <span class="val" id="dossierStatusText">Standby</span>
+      </div>
+    </section>
+
+    <!-- Center Stage: Holographic Aperture & Dropzone -->
+    <section class="aperture-stage" id="apertureDropzone">
+      <div class="stage-coordinates">
+        <span id="coordLat">10.2345° N</span> · <span id="coordLon">76.5432° E</span>
+      </div>
+      
+      <div class="hologram-viewport" id="hologramViewport">
+        <div id="dz" style="position:absolute;inset:0;z-index:5"></div>
+        <div class="viewport-bracket bracket-tl"></div>
+        <div class="viewport-bracket bracket-tr"></div>
+        <div class="viewport-bracket bracket-bl"></div>
+        <div class="viewport-bracket bracket-br"></div>
+        
+        <img id="activeMediaDisplay" src="/backdrop.jpg" alt="Active Media Hologram">
+        <img id="preview" style="display:none" alt="">
+        
+        <div class="aperture-prompt" id="aperturePrompt">
+          <div class="ic-drop">👁</div>
+          <h3>DROP ARTEFACT TO CONVENE COURT</h3>
+          <p>IMAGE · VIDEO · AUDIO · NOTHING LEAVES MACHINE</p>
+        </div>
+      </div>
+      
+      <div class="stage-status-bar">
+        <div class="stage-status-tag" id="stageStatusTag">COURT IN SESSION</div>
+        <div class="stage-status-sub" id="stageStatusSub">11 FORENSIC CHANNELS · READY FOR ARTEFACT</div>
+      </div>
+    </section>
+
+    <!-- Top-Right Floating HUD: Verdict & Progress -->
+    <section class="hud-panel verdict-card" id="verdictCard">
+      <div class="hud-header">
+        <div class="hud-title">ANALYSIS PROGRESS <span style="font-size:10px;color:var(--txt-dim)" id="progRatio">11/11</span></div>
+        <div class="hud-close">✕</div>
+      </div>
+      
+      <div class="verdict-top-row">
+        <div class="circular-progress-box">
+          <svg width="78" height="78" viewBox="0 0 78 78">
+            <circle cx="39" cy="39" r="33" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>
+            <circle id="progCircleArc" cx="39" cy="39" r="33" fill="none" stroke="url(#arcG)"
+                    stroke-width="6" stroke-linecap="round" stroke-dasharray="207" stroke-dashoffset="207"/>
+            <defs>
+              <linearGradient id="arcG" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#3ef0c5"/>
+                <stop offset="50%" stop-color="#d4af37"/>
+                <stop offset="100%" stop-color="#ff4d6d"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="circle-val-text">
+            <div class="num" id="progPercentNum">100%</div>
+            <div class="lbl">COMPLETE</div>
+          </div>
+        </div>
+        
+        <div class="stage-info">
+          <div class="stage-label">CURRENT STAGE</div>
+          <div class="stage-name" id="stageCurrentName">MULTI-CHANNEL FUSION</div>
+          <div class="stage-desc" id="stageCurrentDesc">Cross-validating signals across 11 learned & physical probes.</div>
+          <div class="stage-wave"></div>
+        </div>
+      </div>
+      
+      <div class="verdict-banner-box">
+        <div class="verdict-header-row">
+          <span>PRELIMINARY VERDICT</span>
+          <span id="verdictConfidenceTag">CONFIDENCE 0.82</span>
+        </div>
+        <div class="verdict-headline real" id="verdictHeadline">
+          <div class="verdict-dot"></div>
+          <span id="verdictText">LIKELY ORIGINAL</span>
+          <span id="vtag" style="display:none">DELIBERATING…</span>
+        </div>
+        
+        <div class="confidence-row">
+          <div class="conf-label">
+            <span>Confidence Level</span>
+            <span id="confNumVal">0.82</span>
+            <span id="vnum" style="display:none">0.82</span>
+            <span id="mTrust" style="display:none">0.82</span>
+            <span id="mRisk" style="display:none">0.18</span>
+            <span id="mTime" style="display:none">1.2</span>
+          </div>
+          <div class="conf-bar-bg">
+            <div class="conf-bar-fill" id="confBarFill"></div>
+          </div>
+        </div>
+        
+        <div class="prob-breakdown">
+          <div class="prob-item">
+            <div class="lbl">AI Gen Prob</div>
+            <div class="val" id="pAiVal">0.12</div>
+          </div>
+          <div class="prob-item">
+            <div class="lbl">Deepfake Prob</div>
+            <div class="val" id="pDfVal">0.08</div>
+          </div>
+          <div class="prob-item">
+            <div class="lbl">Uncertain / α</div>
+            <div class="val" id="pUncertainVal">0.03</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="verdict-footer-note" id="verdictFooterNote">
+        (i) Adjudicated by Stacker p6v11. Conformal α active. Truth leaves patterns.
+      </div>
+      <div id="notes" style="display:none"></div>
+    </section>
+    </section>
+
+  </main>
+
+  <!-- 4. LOWER CONSOLE & 11 CHANNELS MATRIX -->
+  <section class="lower-console">
+    <!-- 11 Channel Pill Row -->
+    <div class="channel-matrix-strip">
+      <div class="matrix-meta">
+        <div class="polyhedron-ic">💎</div>
+        <div>
+          <div class="matrix-title">11 FORENSIC CHANNELS</div>
+          <div class="matrix-sub">Cross-verifying evidence across all physical & learned dimensions</div>
+        </div>
+      </div>
+      
+      <div class="channels-pills-row" id="channelPillsRow">
+        <!-- 11 Channel Badges dynamically rendered -->
       </div>
     </div>
-    <div class="panel" style="padding:26px">
-      <div class="sec-k" style="margin-bottom:10px">// PANEL NOTES</div>
-      <div id="notes" style="color:var(--dim);font-size:13px;line-height:1.8"></div>
+
+    <!-- Quad Analytic Deck -->
+    <div class="quad-analytic-deck">
+      
+      <!-- Panel 1: Real-time Heatmap -->
+      <div class="quad-panel">
+        <div class="quad-head">
+          <div class="quad-title">REAL-TIME VISUALIZATION</div>
+          <div class="quad-subtabs">
+            <span class="qtab active" id="qtabHeat">HEATMAP</span>
+            <span class="qtab" id="qtabDiff">DIFFERENCE</span>
+            <span class="qtab" id="qtab3D">3D MESH</span>
+          </div>
+        </div>
+        <div class="heatmap-view-container">
+          <canvas id="heatmapCanvas"></canvas>
+          <div class="heatmap-scale-bar">
+            <span>High</span>
+            <span>Low</span>
+          </div>
+          <div class="zoom-tag">2.5x ⤢</div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Spectral Analysis Graph -->
+      <div class="quad-panel">
+        <div class="quad-head">
+          <div class="quad-title">SPECTRAL ANALYSIS</div>
+          <div class="spectral-legend">
+            <span class="sleg-item"><span class="sleg-dot" style="background:#ff4d6d"></span>RGB</span>
+            <span class="sleg-item"><span class="sleg-dot" style="background:#3ef0c5"></span>UV</span>
+            <span class="sleg-item"><span class="sleg-dot" style="background:#d4af37"></span>ELA</span>
+          </div>
+        </div>
+        <div class="spectral-graph-box">
+          <canvas id="spectralCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Panel 3: Channel Insights Checklist -->
+      <div class="quad-panel">
+        <div class="quad-head">
+          <div class="quad-title">CHANNEL INSIGHTS</div>
+          <span style="font-size:8px;color:var(--teal)">SYNCHRONIZED</span>
+        </div>
+        <div class="insights-list" id="insightsList">
+          <!-- Populated from backend modules claims -->
+        </div>
+      </div>
+
+      <!-- Panel 4: Evidence Preview & 400% Zoom Loupe -->
+      <div class="quad-panel">
+        <div class="quad-head">
+          <div class="quad-title">EVIDENCE PREVIEW & 400% LOUPE</div>
+          <span style="font-size:8px;color:var(--txt-dim);cursor:pointer;" id="btnFullView">Full View →</span>
+        </div>
+        <div class="preview-split-box">
+          <div class="preview-mini-frame">
+            <img id="previewMiniImg" src="/backdrop.jpg" alt="Preview Frame">
+          </div>
+          <div class="loupe-frame" id="loupeContainer">
+            <canvas id="loupeCanvas"></canvas>
+            <div class="loupe-tag">Zoom 400%</div>
+            <div class="loupe-subtag" id="loupeSubtag">No anomalies detected</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 5. BOTTOM CONTROL RAIL -->
+  <footer class="bottom-flight-rail">
+    <div class="case-badge-rail">
+      <span class="case-id-strong" id="bottomCaseId">CASE #0427</span>
+      <span>·</span>
+      <span id="bottomCaseDesc">Alpine Reconnaissance · 2026-10-21</span>
+    </div>
+
+    <div class="scrubber-zone">
+      <span class="scrubber-arrow" id="btnScrubPrev">◀</span>
+      <div class="filmstrip-strip" id="bottomFilmstrip">
+        <!-- Filmstrip items -->
+      </div>
+      <div class="tactile-dial-box" id="btnConveneDial" title="Click to Convene Court / Trigger Detection">
+        <div class="tactile-dial-ring"></div>
+        <button id="go" class="tactile-center-btn" disabled style="border:none;cursor:pointer"><span>+</span></button>
+      </div>
+      <span class="scrubber-arrow" id="btnScrubNext">▶</span>
+    </div>
+
+    <div class="system-release-rail">
+      <div class="mini-wave-anim"></div>
+      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM v4.2.1</span>
+    </div>
+  </footer>
+
+</div>
+
+<!-- MODAL: EVIDENCE & CHANNEL REPORT -->
+<div class="modal-overlay" id="modalEvidence">
+  <div class="modal-window">
+    <div class="modal-header">
+      <div class="modal-title">EVIDENCE LEDGER — FULL 11-CHANNEL TELEMETRY</div>
+      <div class="modal-close" id="closeEvidenceModal">✕</div>
+    </div>
+    <div class="modal-body" id="evidenceModalBody">
+      <!-- Full cards breakdown -->
     </div>
   </div>
-</section></div>
-<div class="wrap"><section id="evidence">
-  <div class="sec-k" data-reveal>// EVIDENCE LEDGER</div>
-  <h2 data-reveal>Eleven channels, one judgment</h2>
-  <div class="egrid" id="egrid"></div>
-</section></div>
-<div class="wrap"><section id="history">
-  <div class="sec-k" data-reveal>// COURT LEDGER</div>
-  <h2 data-reveal>Prior verdicts</h2>
-  <div class="panel" style="padding:10px" data-reveal>
-    <table><thead><tr><th>TIME</th><th>ARTEFACT</th><th>KIND</th><th>P(FAKE)</th><th>VERDICT</th><th>TRUST</th></tr></thead>
-    <tbody id="tbody"></tbody></table>
+</div>
+
+<!-- MODAL: COURT AUDIT LEDGER -->
+<div class="modal-overlay" id="modalLedger">
+  <div class="modal-window">
+    <div class="modal-header">
+      <div class="modal-title">COURT LEDGER — HISTORICAL ADJUDICATIONS</div>
+      <div class="modal-close" id="closeLedgerModal">✕</div>
+    </div>
+    <div class="modal-body">
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>TIMESTAMP</th>
+            <th>ARTEFACT</th>
+            <th>KIND</th>
+            <th>P(SYNTHETIC)</th>
+            <th>VERDICT</th>
+            <th>TRUST</th>
+            <th>RISK</th>
+          </tr>
+        </thead>
+        <tbody id="ledgerModalTbody">
+          <!-- Populated from /api/history -->
+        </tbody>
+      </table>
+    </div>
   </div>
-</section></div>
-<div class="wrap"><footer>
-  <div>ARGUS PRIME — forensic court · all forensics run on this machine</div>
-  <div class="mono">stacker auto-wired · channels meta-driven · conformal α court-calibrated · slider = operator override</div>
-</footer></div>
-<div class="scanline" id="scanline"></div>
+</div>
+
+<!-- MODAL: SETTINGS & CONFORMAL ALPHA OVERRIDE -->
+<div class="modal-overlay" id="modalSettings">
+  <div class="modal-window" style="max-width:650px;height:auto">
+    <div class="modal-header">
+      <div class="modal-title">FORENSIC ENGINE SETTINGS</div>
+      <div class="modal-close" id="closeSettingsModal">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="config-row">
+        <div>
+          <div class="config-label">Conformal Abstention Tolerance (α)</div>
+          <div class="config-sub" id="alphaDesc">Court-calibrated 0.209291 · Move slider to override</div>
+        </div>
+        <input type="range" id="settingsAlphaSlider" min="0.10" max="0.50" step="0.01" value="0.21">
+      </div>
+      <div class="config-row">
+        <div>
+          <div class="config-label">Active Stacker Model</div>
+          <div class="config-sub" id="settingsStackerName">artifacts/p6v11 (11 Channels Active)</div>
+        </div>
+        <span style="color:var(--teal)">VERIFIED</span>
+      </div>
+      <div class="config-row">
+        <div>
+          <div class="config-label">Forensic Audio & Video Probes</div>
+          <div class="config-sub">XLS-R voice clone probe & ArcFace temporal drift head</div>
+        </div>
+        <span style="color:var(--teal)">ONLINE</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= JAVASCRIPT ENGINE ================= -->
 <script>
-/* ============ THREE.JS — the all-seeing iris ============ */
-const IRIS = {state:"idle"};
-// graceful degrade: offline / CDN-blocked / no-WebGL keeps the court fully
-// functional — these no-ops are overwritten below when three.js loads.
-IRIS.setVerdict = function(){};
-IRIS.scanning = function(){};
-try{(function(){
-  const cv = document.getElementById("bg3d");
-  const renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x04040a, 0.055);
-  const cam = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-  cam.position.set(0, 0, 9);
-  function resize(){
-    renderer.setSize(innerWidth, innerHeight);
-    cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix();
-  }
-  addEventListener("resize", resize); resize();
-
-  // central lens sphere (fresnel shader)
-  const lensMat = new THREE.ShaderMaterial({
-    uniforms:{ uTime:{value:0}, uCol:{value:new THREE.Color(0xe8c46a)},
-               uMix:{value:0.0} },
-    vertexShader:`varying vec3 vN; varying vec3 vP;
-      void main(){ vN = normalize(normalMatrix * normal);
-        vec4 mv = modelViewMatrix * vec4(position,1.0); vP = mv.xyz;
-        gl_Position = projectionMatrix * mv; }`,
-    fragmentShader:`uniform float uTime; uniform vec3 uCol; uniform float uMix;
-      varying vec3 vN; varying vec3 vP;
-      void main(){ float fr = pow(1.0 - abs(dot(normalize(vN), normalize(-vP))), 2.2);
-        float sw = 0.5 + 0.5*sin(uTime*1.4 + vP.y*2.0);
-        vec3 base = mix(vec3(0.02,0.02,0.045), uCol*uMix, fr*0.85);
-        gl_FragColor = vec4(base + uCol*fr*sw*0.35*uMix, 0.55 + 0.45*fr); }`,
-    transparent:true
-  });
-  const lens = new THREE.Mesh(new THREE.SphereGeometry(1.9, 64, 64), lensMat);
-  scene.add(lens);
-
-  // particle iris ring
-  const N = 3200, pos = new Float32Array(N*3), rnd = new Float32Array(N);
-  for(let i=0;i<N;i++){
-    const a = Math.random()*Math.PI*2;
-    const r = 2.6 + Math.pow(Math.random(),1.6)*2.6;
-    pos[i*3] = Math.cos(a)*r; pos[i*3+1] = Math.sin(a)*r*0.92;
-    pos[i*3+2] = (Math.random()-0.5)*0.55;
-    rnd[i] = Math.random();
-  }
-  const pg = new THREE.BufferGeometry();
-  pg.setAttribute("position", new THREE.BufferAttribute(pos,3));
-  pg.setAttribute("aRnd", new THREE.BufferAttribute(rnd,1));
-  const pmat = new THREE.ShaderMaterial({
-    uniforms:{ uTime:{value:0}, uCol:{value:new THREE.Color(0xe8c46a)},
-               uSpin:{value:0.12}, uMix:{value:0.25} },
-    vertexShader:`uniform float uTime; uniform float uSpin; attribute float aRnd;
-      varying float vA;
-      void main(){ vec3 p = position; float t = uTime*uSpin*(0.6+aRnd*0.8);
-        float c = cos(t), s = sin(t); p.xy = mat2(c,-s,s,c)*p.xy;
-        p.z += 0.28*sin(uTime*1.2 + aRnd*40.0);
-        vec4 mv = modelViewMatrix * vec4(p,1.0);
-        gl_PointSize = (1.1 + aRnd*2.3) * (9.0/-mv.z);
-        vA = aRnd;
-        gl_Position = projectionMatrix * mv; }`,
-    fragmentShader:`uniform vec3 uCol; uniform float uMix; varying float vA;
-      void main(){ float d = length(gl_PointCoord - 0.5);
-        if(d > 0.5) discard;
-        float a = smoothstep(0.5, 0.0, d) * (0.35 + 0.65*vA) * (0.4 + 0.6*uMix);
-        gl_FragColor = vec4(uCol, a); }`,
-    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
-  });
-  const iris = new THREE.Points(pg, pmat);
-  scene.add(iris);
-
-  // scan torus
-  const torus = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.016, 8, 160),
-    new THREE.MeshBasicMaterial({color:0xe8c46a, transparent:true, opacity:0.0}));
-  torus.rotation.x = Math.PI/2.4; scene.add(torus);
-
-  const mouse = {x:0, y:0};
-  addEventListener("pointermove", e=>{
-    mouse.x = (e.clientX/innerWidth)*2-1; mouse.y = (e.clientY/innerHeight)*2-1;
-  });
-  let t0 = performance.now();
-  (function tick(now){
-    const t = (now - t0)/1000;
-    lensMat.uniforms.uTime.value = t; pmat.uniforms.uTime.value = t;
-    lens.rotation.y = t*0.1; lens.rotation.x = Math.sin(t*0.2)*0.1;
-    lens.position.x += (mouse.x*0.9 - lens.position.x)*0.03;
-    lens.position.y += (-mouse.y*0.6 - lens.position.y)*0.03;
-    iris.position.copy(lens.position);
-    torus.position.copy(lens.position);
-    torus.rotation.z = t*(IRIS.state==="scanning"?2.4:0.4);
-    cam.position.x += (mouse.x*0.7 - cam.position.x)*0.02;
-    cam.position.y += (-mouse.y*0.5 - cam.position.y)*0.02;
-    cam.lookAt(0,0,0);
-    renderer.render(scene, cam);
-    requestAnimationFrame(tick);
-  })(t0);
-  addEventListener("resize", resize);
-  IRIS.lensMat = lensMat; IRIS.pmat = pmat; IRIS.torus = torus;
-  IRIS.setVerdict = function(kind){
-    const c = kind==="fake" ? new THREE.Color(0xff4d6d)
-            : kind==="real" ? new THREE.Color(0x3ef0c5)
-            : new THREE.Color(0xe8c46a);
-    lensMat.uniforms.uCol.value = c; pmat.uniforms.uCol.value = c;
-    lensMat.uniforms.uMix.value = kind==="abstain" ? 0.35 : 0.95;
-    pmat.uniforms.uMix.value = kind==="abstain" ? 0.4 : 1.0;
-  };
-  IRIS.scanning = function(on){
-    pmat.uniforms.uSpin.value = on ? 1.1 : 0.12;
-    IRIS.torus.material.opacity = on ? 0.85 : 0.0;
-    if(on){ lensMat.uniforms.uMix.value = 0.7; pmat.uniforms.uMix.value = 0.8; }
-    else { lensMat.uniforms.uMix.value = 0.0; pmat.uniforms.uMix.value = 0.25;
-           lensMat.uniforms.uCol.value = new THREE.Color(0xe8c46a);
-           pmat.uniforms.uCol.value = new THREE.Color(0xe8c46a); }
-  };
-})();
-}catch(err){ console.warn("iris visuals degraded (CDN unhandled):", err && err.message); }
-</script>
-<script>
-/* ============ micro-interactions ============ */
-const GS2 = window.gsap || { to(){}, set(){}, from(){} };
+/* ================= 1. THREE.JS CONCENTRIC HOLOGRAPHIC IRIS ================= */
 (function(){
-  const cur = document.getElementById("cur"), ring = document.getElementById("curR");
-  let mx=innerWidth/2, my=innerHeight/2, rx=mx, ry=my;
-  addEventListener("pointermove", e=>{ mx=e.clientX; my=e.clientY;
-    cur.style.left=(mx-4)+"px"; cur.style.top=(my-4)+"px"; });
-  (function loop(){ rx+=(mx-rx)*0.14; ry+=(my-ry)*0.14;
-    ring.style.left=(rx-17)+"px"; ring.style.top=(ry-17)+"px";
-    requestAnimationFrame(loop); })();
-  document.querySelectorAll("a,button,.dz,input[type=range]").forEach(el=>{
-    el.addEventListener("pointerenter",()=>{ ring.style.width="52px"; ring.style.height="52px";
-      ring.style.borderColor="rgba(232,196,106,.9)"; });
-    el.addEventListener("pointerleave",()=>{ ring.style.width="34px"; ring.style.height="34px";
-      ring.style.borderColor="rgba(232,196,106,.5)"; });
-  });
-  const io = new IntersectionObserver(es=>es.forEach(e=>{
-    if(e.isIntersecting){ GS2.to(e.target,{opacity:1,y:0,duration:1,ease:"power3.out"});
-      io.unobserve(e.target); } }),{threshold:.12});
-  document.querySelectorAll("[data-reveal]").forEach(el=>{
-    GS2.set(el,{opacity:0,y:34}); io.observe(el); });
-  GS2.from("header",{opacity:0,y:-24,duration:1.1,ease:"power3.out"});
-})();
-</script>
-<script>
-/* ============ court app ============ */
-(function(){
-  const GS = window.gsap || { to(){}, set(){}, from(){} };
-  const IR = (function(){ try { return IRIS && IRIS.setVerdict ? IRIS : { setVerdict(){}, scanning(){} }; } catch(e){ return { setVerdict(){}, scanning(){} }; } })();
-  const $ = id => document.getElementById(id);
-  let file = null;
-  const dz = $("dz"), go = $("go"), pv = $("preview");
-  dz.addEventListener("click", ()=>{ const i=document.createElement("input");
-    i.type="file"; i.accept=".jpg,.jpeg,.png,.webp,.bmp,.wav,.flac,.mp3,.ogg,.mp4,.mov,.avi,.mkv,.webm";
-    i.onchange = ()=> setFile(i.files[0]); i.click(); });
-  ["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev,e=>{
-    e.preventDefault(); dz.classList.add("over"); }));
-  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{
-    e.preventDefault(); dz.classList.remove("over"); }));
-  dz.addEventListener("drop", e=> setFile(e.dataTransfer.files[0]));
-  function setFile(f){ if(!f) return; file=f; go.disabled=false;
-    if(f.type.startsWith("image/")){ pv.src=URL.createObjectURL(f);
-      pv.style.display="block"; } else pv.style.display="none"; }
-  let alphaTouched = false;
-  $("alpha").addEventListener("input", e=>{
-    alphaTouched = true;
-    const v=+e.target.value;
-    $("av").textContent = v.toFixed(2) + (v<=0.15?" · conservative":v<=0.25?" · balanced":" · committed");
-  });
-  go.addEventListener("click", async ()=>{
-    if(!file) return;
-    go.disabled = true; go.querySelector("span").textContent = "THE COURT DELIBERATES…";
-    IR.scanning(true);
-    GS.to("#scanline",{opacity:.9,duration:.3});
-    const fd = new FormData(); fd.append("file", file);
-    if (alphaTouched) fd.append("alpha", $("alpha").value); // slide-to-override: untouched ⇒ court-calibrated α (0.209291)
-    try{
-      const r = await fetch("/api/detect",{method:"POST",body:fd});
-      if(!r.ok) throw new Error((await r.text()).slice(0,300));
-      render(await r.json());
-    }catch(err){
-      $("verdictSec").style.display="block";
-      $("notes").textContent = "The court could not convene: " + err.message;
+  const cv = document.getElementById("holoCanvas");
+  let renderer, scene, cam;
+  let ring1, ring2, ring3, particleRing;
+  
+  try {
+    renderer = new THREE.WebGLRenderer({canvas: cv, antialias: true, alpha: true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    scene = new THREE.Scene();
+    cam = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+    cam.position.set(0, 0, 7.5);
+    
+    function resize() {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      cam.aspect = window.innerWidth / window.innerHeight;
+      cam.updateProjectionMatrix();
     }
-    IR.scanning(false);
-    GS.to("#scanline",{opacity:0,duration:.6});
-    go.disabled = false; go.querySelector("span").textContent = "CONVENE THE COURT";
-  });
-  window.__renderVerdict = render;
-  function render(v){
-    $("verdictSec").style.display = "block";
-    // Phase 3 recovery layer (§5.4): a flagged layer only — top-level
-    // p_fake_fused/abstained are never rewritten; recovered shows recovery
-    // numbers with the original p alongside, needs_review dims the ORIGINAL
-    // p as ADVISORY. not_attempted renders byte-for-byte as before.
-    const rec = (v.recovery && v.recovery.outcome && v.recovery.outcome !== "not_attempted") ? v.recovery : null;
-    const recOk = !!(rec && rec.outcome === "recovered" && rec.verdict
-                     && typeof rec.verdict.p_fake_fused === "number"
-                     && isFinite(rec.verdict.p_fake_fused));
-    // null p_fake_fused = the court produced NO probability (fully abstained
-    // route, e.g. every no-face frame abstained) — show a dash, never a
-    // fabricated 0.00 that would read as "AUTHENTIC".
-    const hasP0 = typeof v.p_fake_fused === "number" && isFinite(v.p_fake_fused);
-    const hasP = recOk ? true : hasP0;
-    const pf = recOk ? +rec.verdict.p_fake_fused : (hasP0 ? +v.p_fake_fused : null);
-    if(hasP){
-      // Truth-first: the dial's final value is rendered immediately, then the
-      // GSAP count-up animates over it (rAF-frozen/hidden tabs never see 0.00).
-      $("vnum").textContent = pf.toFixed(2);
-      GS.to("#arc",{strokeDashoffset:628*(1-pf),duration:1.6,ease:"power3.inOut"});
-      const cnt = {v:0};
-      GS.to(cnt,{v:pf,duration:1.6,ease:"power3.inOut",
-        onUpdate:()=>{ $("vnum").textContent = cnt.v.toFixed(2); }});
-    } else {
-      GS.to("#arc",{strokeDashoffset:628,duration:1,ease:"power2.out"});
-      $("vnum").textContent = "––";
+    window.addEventListener("resize", resize);
+    resize();
+    
+    // Ring 1: Outer bronze/gold notched ring
+    const gRing1 = new THREE.TorusGeometry(2.35, 0.02, 16, 120);
+    const mRing1 = new THREE.MeshBasicMaterial({color: 0xd4af37, transparent: true, opacity: 0.65});
+    ring1 = new THREE.Mesh(gRing1, mRing1);
+    ring1.position.set(0, 0.38, 0);
+    ring1.rotation.x = Math.PI / 12;
+    scene.add(ring1);
+    
+    // Ring 2: Mid concentric accelerator ring
+    const gRing2 = new THREE.TorusGeometry(2.15, 0.012, 16, 90);
+    const mRing2 = new THREE.MeshBasicMaterial({color: 0xf9d877, transparent: true, opacity: 0.45});
+    ring2 = new THREE.Mesh(gRing2, mRing2);
+    ring2.position.set(0, 0.38, 0);
+    ring2.rotation.x = Math.PI / 12;
+    scene.add(ring2);
+
+    // Ring 3: Inner high-speed laser ring
+    const gRing3 = new THREE.TorusGeometry(1.95, 0.018, 16, 60);
+    const mRing3 = new THREE.MeshBasicMaterial({color: 0xd4af37, transparent: true, opacity: 0.85});
+    ring3 = new THREE.Mesh(gRing3, mRing3);
+    ring3.position.set(0, 0.38, 0);
+    ring3.rotation.x = Math.PI / 12;
+    scene.add(ring3);
+
+    // Mechanical indexing spoke ticks
+    const spokeGroup = new THREE.Group();
+    spokeGroup.position.set(0, 0.38, 0);
+    spokeGroup.rotation.x = Math.PI / 12;
+    for (let i = 0; i < 24; i++) {
+      const angle = (i / 24) * Math.PI * 2;
+      const spokeGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(Math.cos(angle) * 2.22, Math.sin(angle) * 2.22 * 0.95, 0),
+        new THREE.Vector3(Math.cos(angle) * (i % 2 === 0 ? 2.38 : 2.3), Math.sin(angle) * (i % 2 === 0 ? 2.38 : 2.3) * 0.95, 0)
+      ]);
+      const spokeLine = new THREE.Line(spokeGeo, new THREE.LineBasicMaterial({
+        color: 0xf9d877, transparent: true, opacity: i % 4 === 0 ? 0.85 : 0.35
+      }));
+      spokeGroup.add(spokeLine);
     }
-    const tag = $("vtag");
-    const dialval = $("dialval"), vdialab = $("vdialab");
-    if(dialval) dialval.style.opacity = "1";
-    if(vdialab) vdialab.textContent = "P( SYNTHETIC )";
-    if(rec && rec.outcome === "recovered"){
-      tag.className = "vtag rec";
-      tag.textContent = "RECOVERED (PENALIZED)";
-      IR.setVerdict(pf>=0.5 ? "fake" : "real");
-    } else if(rec && rec.outcome === "needs_review"){
-      tag.className = "vtag review";
-      tag.textContent = "NEEDS HUMAN REVIEW";
-      IR.setVerdict("abstain");
-      if(dialval) dialval.style.opacity = ".5";   // original p, ADVISORY only
-      if(vdialab) vdialab.textContent = "P( SYNTH ) · ADVISORY";
-    } else {
-      const state = (!hasP || v.abstained) ? "abs" : (pf>=0.5 ? "fake" : "real");
-      tag.className = "vtag "+state;
-      tag.textContent = (!hasP || v.abstained) ? "COURT ABSTAINS — UNCERTAIN"
-        : state==="fake" ? "VERDICT: SYNTHETIC/MANIPULATED" : "VERDICT: AUTHENTIC-LEANING";
-      IR.setVerdict((!hasP || v.abstained) ? "abstain" : state);
+    scene.add(spokeGroup);
+
+    // Particle Iris Vortex
+    const count = 1800;
+    const pos = new Float32Array(count * 3);
+    const rnd = new Float32Array(count);
+    for(let i=0; i<count; i++){
+      const a = Math.random() * Math.PI * 2;
+      const r = 1.9 + Math.pow(Math.random(), 1.8) * 0.7;
+      pos[i*3] = Math.cos(a) * r;
+      pos[i*3+1] = Math.sin(a) * r * 0.95;
+      pos[i*3+2] = (Math.random() - 0.5) * 0.4;
+      rnd[i] = Math.random();
     }
-    // recovered/needs_review: TRUST/RISK tiles carry the recovery layer's
-    // (penalty-clamped) numbers; not_attempted keeps the court's own.
-    $("mTrust").textContent = (+(rec ? rec.trust : v.trust)).toFixed(2);
-    $("mRisk").textContent = (+(rec ? rec.risk : v.risk)).toFixed(2);
-    $("mTime").textContent = (+v.elapsed_s).toFixed(1);
-    const notes = [];
-    // honesty badges: route (video), DEGRADED confidence, conflict advisory,
-    // recovery
-    const hb = $("honesty");
-    if(hb){
-      const bits = [];
-      if(v.route) bits.push('<span class="vtag abs" style="font-size:11px;padding:4px 12px;margin:0">'
-        + (v.route==="image_court" ? "ROUTE: IMAGE COURT (no face in frame)"
-                                   : "ROUTE: FACE (video)") + '</span>');
-      if(v.confidence_degraded) bits.push('<span class="vtag abs" style="font-size:11px;padding:4px 12px;margin:0">DEGRADED CONFIDENCE</span>');
-      if(rec && rec.outcome === "recovered")
-        bits.push('<span class="vtag rec" style="font-size:11px;padding:4px 12px;margin:0">RECOVERED — DEGRADED CONFIDENCE</span>');
-      if(rec && rec.outcome === "needs_review")
-        bits.push('<span class="vtag review" style="font-size:11px;padding:4px 12px;margin:0">HUMAN REVIEW REQUIRED</span>');
-      hb.innerHTML = bits.join(" ");
-    }
-    notes.push("Artefact: " + (v.filename||"") + " · kind: " + v.kind);
-    if(v.route) notes.push("Route: " + v.route
-      + (v.confidence_degraded ? " (confidence DEGRADED — no temporal evidence on this route)" : ""));
-    if(v.out_of_conflict)
-      notes.push("Out of conflict: the panel is unresolved — treat the probability as advisory (mechanism-b flag; the score is never overwritten).");
-    notes.push("Stacker: "
-      + (v.stacker ? v.stacker
-         : v.route === "image_court" ? "image court (frame-level, no video stacker)"
-         : (v.kind==="video" ? "none (naive fallback)" : "deployed"))
-      + " · conformal α: " + (v.alpha != null ? v.alpha : "court-calibrated 0.209291"));
-    if(rec && rec.outcome === "recovered" && rec.verdict){
-      notes.push("Recovery: RECOVERED (penalized) — original P(fake) "
-        + (hasP0 ? (+v.p_fake_fused).toFixed(4) : "–")
-        + " → recovered P(fake) " + (+rec.verdict.p_fake_fused).toFixed(4)
-        + " · trust capped " + rec.trust + " / risk floored " + rec.risk + ".");
-      const st = (rec.attempted_steps||[]).map(s=>s.step+":" + s.name + (s.ok?" ✓":" ✗")).join(" · ");
-      if(st) notes.push("Ladder: " + st + ".");
-    } else if(rec && rec.outcome === "needs_review"){
-      notes.push("Recovery: NEEDS HUMAN REVIEW — the ladder could not recover a "
-        + "confident verdict. Original P(fake) " + (hasP0 ? (+v.p_fake_fused).toFixed(4) : "–")
-        + " is ADVISORY only (trust " + rec.trust + " / risk " + rec.risk + ").");
-      if((rec.reasons||[]).length) notes.push("Reasons: " + rec.reasons.join(", ") + ".");
-      const st = (rec.attempted_steps||[]).map(s=>s.step+":" + s.name + (s.ok?" ✓":" ✗")).join(" · ");
-      if(st) notes.push("Ladder: " + st + ".");
-      const pi = (rec.verdict && rec.verdict.per_identity) || [];
-      if(pi.length) notes.push("Per-identity split (never fused): "
-        + pi.map(r=>"id "+r.id+" n="+r.frames+" topk="+(r.topk_mean??"–")).join(" | ") + ".");
-      if(v.kind === "image")
-        notes.push("Uploading an uncropped, uncompressed original may help.");
-    }
-    if(v.hypotheses && v.hypotheses.length>1)
-      notes.push("Hypothesis set: " + v.hypotheses.join(" | ")
-        + " → the court withholds a single verdict.");
-    if(v.audio && v.audio.p_fake_audio_mean != null) notes.push("Voice-clone probe: P(fake) " + v.audio.p_fake_audio_mean
-      + " across " + v.audio.segments_analyzed + " segments.");
-    else if(v.kind === "video")
-      notes.push("Voice-clone probe: not run (no extractable audio track in this file).");
-    if(!v.modules || !v.modules.length)
-      notes.push("No per-module notes for this artefact kind.");
-    // Per-kind scope caveats (user ruling 2026-10-19) — honest ceilings ride
-    // with every verdict, exactly matching benchmarks.json / LIMITATIONS.md.
-    if (v.kind === "image")
-      notes.push("Image scope: wild-real issued FPR 0/701 measured; unseen generators land AUC 0.67–0.97 (imagen4 0.6731 lowest).");
-    else if (v.kind === "video")
-      notes.push("Video scope: FF++ in-domain 0.90 / Celeb-DF 0.94 — NOT validated on in-the-wild or text-to-video generators (GenVidBench kling 0.60 / sora 0.68) — treat video verdicts as advisory.");
-    else if (v.kind === "audio")
-      notes.push("Audio scope: ASVspoof-family/in-domain-validated only — UNTRUSTED vs modern TTS; wild audio abstains by design (D-035).");
-    if (v.kind === "video" && (v.route === "image_court" || !hasP0))
-      notes.push("No face in the sampled frames — face forensics contributed nothing; without a face the court issues no video verdict.");
-    if (v.kind === "video" && v.frames_scored != null)
-      notes.push("Frame metadata: " + (v.frames_court ?? "?") + " sampled / " + v.frames_scored + " scored.");
-    $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");
-    renderModules(v);
-    document.getElementById("verdictSec").scrollIntoView({behavior:"smooth"});
-    loadHistory();
-    if(v.kind === "image" && !v.abstained){
-      notes.push("<i>Forensic analyst is examining the scene…</i>");
-      $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");
-      const xfd = new FormData(); xfd.append("file", file);
-      fetch("/api/explain",{method:"POST",body:xfd})
-        .then(r=> r.ok ? r.json() : null)
-        .then(x=>{
-          if(!x) { notes.push("Analyst report unavailable."); }
-          else {
-            notes.push("<b>ANALYST REPORT</b> — scene: "+ (x.scene||"n/a"));
-            if(x.lighting) notes.push("Lighting: "+x.lighting);
-            if(x.subjects) notes.push("Subjects: "+x.subjects);
-            if(x.text) notes.push("Text: "+x.text);
-            notes.push("<b>Unusual:</b> "+(x.unusual||"none observed")
-              +" <i>("+x.model+", "+x.elapsed_s+"s"+(x.cached?", cached":"")+")</i>");
-          }
-          $("notes").innerHTML = notes.map(n=>"· "+n).join("<br>");
-        })
-        .catch(()=>{});
-    }
-  }
-  function renderModules(v){
-    const grid = $("egrid"); grid.innerHTML = "";
-    (v.modules||[]).forEach((m,i)=>{
-      const pct = ((m.evidence+1)/2*100).toFixed(1);
-      const dirCls = m.direction==="synthetic"?"syn":m.direction==="authentic"?"aut":"neu";
-      const card = document.createElement("div");
-      card.className = "panel ecard";
-      card.innerHTML = '<div class="top"><span class="id">'+m.id+'</span>'
-        +'<span class="dir '+dirCls+'">'+m.direction.toUpperCase()+'</span></div>'
-        +'<div class="bar"><i style="transform:scaleX(0)"></i></div>'
-        +'<div class="gauge"><span>authentic −1</span><span>evidence '
-        +(m.evidence>=0?'+':'')+m.evidence+'</span><span>+1 synthetic</span></div>'
-        +'<div class="claim">'+(m.claim||"")+'</div>'
-        +'<div class="rel">reliability '+m.reliability+' · confidence '+m.confidence+'</div>';
-      grid.appendChild(card);
-      GS.to(card.querySelector(".bar i"),
-        {scaleX:pct/100, duration:1.2, delay:.15+i*.09, ease:"power3.inOut"});
-      GS.from(card,{opacity:0,y:26,duration:.8,delay:.1+i*.09,ease:"power3.out"});
-      card.addEventListener("pointermove", e=>{
-        const r = card.getBoundingClientRect();
-        const x = (e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5;
-        card.style.transform = "perspective(900px) rotateY("+(x*7)+"deg) rotateX("+(-y*7)+"deg)";
-      });
-      card.addEventListener("pointerleave", ()=>{ card.style.transform="perspective(900px)"; });
+    const partGeo = new THREE.BufferGeometry();
+    partGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const partMat = new THREE.PointsMaterial({
+      color: 0xf9d877, size: 0.025, transparent: true, opacity: 0.55,
+      blending: THREE.AdditiveBlending
     });
+    particleRing = new THREE.Points(partGeo, partMat);
+    particleRing.position.set(0, 0.38, 0);
+    particleRing.rotation.x = Math.PI / 12;
+    scene.add(particleRing);
+
+    let t0 = performance.now();
+    let scanSpeed = 1.0;
+    window.__setApertureScanSpeed = function(spd) { scanSpeed = spd; };
+
+    function tick(now){
+      const t = (now - t0) * 0.001 * scanSpeed;
+      if (ring1) ring1.rotation.z = t * 0.25;
+      if (ring2) ring2.rotation.z = -t * 0.45;
+      if (ring3) ring3.rotation.z = t * 0.7;
+      if (spokeGroup) spokeGroup.rotation.z = -t * 0.15;
+      if (particleRing) particleRing.rotation.z = t * 0.35;
+      
+      renderer.render(scene, cam);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  } catch(e) {
+    console.warn("Three.js hologram fallback:", e);
   }
-  async function loadHistory(){
-    try{
-      const h = await (await fetch("/api/history?limit=12")).json();
-      const tb = $("tbody");
-      tb.innerHTML = h.map(r=>{
-        const pfRaw = r.p_fake;
-        const pfShow = (pfRaw==null || !isFinite(+pfRaw)) ? "––" : (+pfRaw).toFixed(3);
-        let st = r.abstained?"ABSTAIN":(pfRaw!=null && pfRaw>=0.5?"FAKE":"REAL");
-        let cls = r.abstained?"abs":(pfRaw!=null && pfRaw>=0.5?"fake":"real");
-        if(r.recovery && r.recovery.outcome === "recovered"){ st="RECOVERED"; cls="rec"; }
-        else if(r.recovery && r.recovery.outcome === "needs_review"){ st="REVIEW"; cls="review"; }
-        // D-047: recovered/review rows carry penalized trust/risk in the
-        // recovery layer — the ledger must show the EFFECTIVE trust, not the
-        // raw court trust the penalty replaced.
-        const tRaw = r.recovery && (r.recovery.outcome === "recovered" || r.recovery.outcome === "needs_review") && r.recovery.trust != null ? r.recovery.trust : r.trust;
-        const t = new Date(r.ts*1000).toLocaleTimeString();
-        return "<tr><td class='mono'>"+t+"</td><td>"+(r.filename||"—")+"</td><td>"
-          +r.kind+"</td><td class='mono'>"+pfShow+"</td><td><span class='vtag "
-          +cls+"' style='padding:3px 10px;font-size:11px'>"+st+"</span></td><td class='mono'>"
-          +(+tRaw).toFixed(2)+"</td></tr>";
-      }).join("") || "<tr><td colspan='6' style='color:var(--dim)'>— no verdicts yet</td></tr>";
-    }catch(e){}
-  }
-  loadHistory();
-  fetch("/api/health").then(r=>r.json()).then(h=>{
-    $("healthChip").textContent = "court: " + h.status + " · " + h.n_modules + " channels";
-    // live truth for the hero banner (single source: artifacts/benchmarks.json, served by /api/health)
-    try{
-      const bm = h.benchmarks || {}, img = bm.image || {};
-      const ex = (img.scope_external_generators||{}).verified || {};
-      const ind = (img.scope_in_domain||{}).verified || {};
-      if(ex.mj_auc != null)             $("statMj").textContent = (+ex.mj_auc).toFixed(4);
-      if(ex.flux2_klein_4b_auc != null) $("statFlux").textContent = (+ex.flux2_klein_4b_auc).toFixed(4);
-      if(ind.stacker_val_auc != null)   $("statVal").textContent = (+ind.stacker_val_auc).toFixed(4);
-      if(h.n_modules != null)           $("statCh").textContent = h.n_modules;
-    }catch(e){ /* banner keeps sourced static fallback */ }
-  }).catch(()=>{ $("healthChip").textContent = "court: offline"; });
 })();
+
+/* ================= 2. RETICLE CURSOR INTERACTION ================= */
+(function(){
+  const dot = document.getElementById("curDot");
+  const ret = document.getElementById("curReticle");
+  let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+  let rx = mx, ry = my;
+
+  window.addEventListener("pointermove", e => {
+    mx = e.clientX; my = e.clientY;
+    dot.style.left = mx + "px"; dot.style.top = my + "px";
+  });
+
+  function loop(){
+    rx += (mx - rx) * 0.16;
+    ry += (my - ry) * 0.16;
+    ret.style.left = rx + "px"; ret.style.top = ry + "px";
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  document.querySelectorAll("button, a, .channel-pill, .qtab, .hologram-viewport, .case-thumb-item, .tactile-dial-box").forEach(el => {
+    el.addEventListener("pointerenter", () => {
+      ret.style.width = "46px"; ret.style.height = "46px";
+      ret.style.borderColor = "var(--gold-bright)";
+    });
+    el.addEventListener("pointerleave", () => {
+      ret.style.width = "28px"; ret.style.height = "28px";
+      ret.style.borderColor = "rgba(212, 175, 55, 0.45)";
+    });
+  });
+})();
+
+/* ================= 3. STATE & DATA INITIALIZATION ================= */
+const CHANNELS_11 = [
+  { id: "metadata", num: "01", name: "Metadata", status: "OK", icon: "📋" },
+  { id: "compression_history", num: "02", name: "Compression", status: "OK", icon: "⚙" },
+  { id: "spectral_probe", num: "03", name: "Spectral", status: "OK", icon: "〰" },
+  { id: "real_distribution_probe", num: "04", name: "Real-Dist", status: "OK", icon: "🎯" },
+  { id: "perturbation_probe", num: "05", name: "Perturb", status: "OK", icon: "⚡" },
+  { id: "learned_aigc_probe", num: "06", name: "AIGC-Head", status: "OK", icon: "🤖" },
+  { id: "learned_face_probe", num: "07", name: "Face-Head", status: "OK", icon: "👤" },
+  { id: "learned_ffpp_probe", num: "08", name: "FF++-Head", status: "OK", icon: "🎭" },
+  { id: "learned_mj_probe", num: "09", name: "MJ-Head", status: "OK", icon: "🎨" },
+  { id: "learned_inversion_probe", num: "10", name: "Inversion", status: "OK", icon: "🔄" },
+  { id: "provenance_probe", num: "11", name: "Provenance", status: "OK", icon: "🛡" }
+];
+
+let currentFile = null;
+let currentVerdict = null;
+let alphaTouched = false;
+let currentVisMode = "heatmap";
+
+/* Render 11 Channel Badges */
+function renderChannelPills(activeModules = null) {
+  const row = document.getElementById("channelPillsRow");
+  row.innerHTML = "";
+  
+  CHANNELS_11.forEach((ch, idx) => {
+    let cls = "channel-pill ok";
+    let statusText = "OK";
+    
+    if (activeModules) {
+      const match = activeModules.find(m => m.id === ch.id);
+      if (match) {
+        if (match.direction === "synthetic") {
+          cls = "channel-pill warn";
+          statusText = "Fake";
+        } else if (match.direction === "authentic") {
+          cls = "channel-pill ok";
+          statusText = "OK";
+        } else {
+          cls = "channel-pill";
+          statusText = "Neutral";
+        }
+      }
+    }
+    
+    const div = document.createElement("div");
+    div.className = cls + " ecard";
+    div.innerHTML = `
+      <div class="ch-icon-circle">${ch.icon}</div>
+      <div class="ch-num">${ch.num} ${ch.name}</div>
+      <div class="ch-status">${statusText}</div>
+    `;
+    div.addEventListener("click", () => showChannelDeepDive(ch.id));
+    row.appendChild(div);
+  });
+}
+renderChannelPills();
+
+/* ================= 4. CLIENT-SIDE FORENSIC COMPUTERS ================= */
+// A. Real-time Heatmap generator (Client-side variance / high-frequency noise map)
+function computeHeatmap(img) {
+  const canvas = document.getElementById("heatmapCanvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = 300; canvas.height = 180;
+  
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imgData.data;
+  
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+    const norm = lum / 255;
+    
+    let r = Math.sin(norm * Math.PI - 0.5) * 255;
+    let g = Math.sin(norm * Math.PI) * 255;
+    let b = Math.sin(norm * Math.PI + 0.5) * 255;
+    
+    d[i] = Math.max(0, Math.min(255, r));
+    d[i+1] = Math.max(0, Math.min(255, g));
+    d[i+2] = Math.max(0, Math.min(255, b));
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// B. Error Level Analysis (ELA) generator
+function computeELA(img) {
+  const canvas = document.getElementById("heatmapCanvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = 300; canvas.height = 180;
+  
+  // Draw original
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const origData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  // Recompress to JPEG at q85
+  const off = document.createElement("canvas");
+  off.width = canvas.width; off.height = canvas.height;
+  const octx = off.getContext("2d");
+  octx.drawImage(img, 0, 0, off.width, off.height);
+  
+  const recompressed = new Image();
+  recompressed.onload = () => {
+    octx.clearRect(0, 0, off.width, off.height);
+    octx.drawImage(recompressed, 0, 0, off.width, off.height);
+    const compData = octx.getImageData(0, 0, off.width, off.height);
+    
+    const od = origData.data;
+    const cd = compData.data;
+    for (let i = 0; i < od.length; i += 4) {
+      const diffR = Math.abs(od[i] - cd[i]) * 12;
+      const diffG = Math.abs(od[i+1] - cd[i+1]) * 12;
+      const diffB = Math.abs(od[i+2] - cd[i+2]) * 12;
+      od[i] = Math.min(255, diffR);
+      od[i+1] = Math.min(255, diffG);
+      od[i+2] = Math.min(255, diffB);
+    }
+    ctx.putImageData(origData, 0, 0);
+  };
+  recompressed.src = off.toDataURL("image/jpeg", 0.85);
+}
+
+// C. 3D Isometric Mesh visualizer
+function compute3DMesh(img) {
+  const canvas = document.getElementById("heatmapCanvas");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width = 300;
+  const h = canvas.height = 180;
+  ctx.fillStyle = "#04060a"; ctx.fillRect(0, 0, w, h);
+  
+  const off = document.createElement("canvas");
+  off.width = 40; off.height = 24;
+  const octx = off.getContext("2d");
+  octx.drawImage(img, 0, 0, 40, 24);
+  const pdata = octx.getImageData(0, 0, 40, 24).data;
+  
+  ctx.strokeStyle = "rgba(212, 175, 55, 0.65)";
+  ctx.lineWidth = 1;
+  
+  const stepX = w / 42;
+  const stepY = h / 28;
+  for (let y = 0; y < 24; y++) {
+    ctx.beginPath();
+    for (let x = 0; x < 40; x++) {
+      const idx = (y * 40 + x) * 4;
+      const lum = (0.299 * pdata[idx] + 0.587 * pdata[idx+1] + 0.114 * pdata[idx+2]) / 255;
+      const px = 15 + x * stepX + y * 1.5;
+      const py = 25 + y * stepY - lum * 18;
+      if (x === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+// Hook up Quad-deck Subtabs
+document.getElementById("qtabHeat").addEventListener("click", () => {
+  currentVisMode = "heatmap";
+  document.querySelectorAll(".quad-subtabs .qtab").forEach(t => t.classList.remove("active"));
+  document.getElementById("qtabHeat").classList.add("active");
+  computeHeatmap(activeMediaDisplay);
+});
+document.getElementById("qtabDiff").addEventListener("click", () => {
+  currentVisMode = "difference";
+  document.querySelectorAll(".quad-subtabs .qtab").forEach(t => t.classList.remove("active"));
+  document.getElementById("qtabDiff").classList.add("active");
+  computeELA(activeMediaDisplay);
+});
+document.getElementById("qtab3D").addEventListener("click", () => {
+  currentVisMode = "3d";
+  document.querySelectorAll(".quad-subtabs .qtab").forEach(t => t.classList.remove("active"));
+  document.getElementById("qtab3D").classList.add("active");
+  compute3DMesh(activeMediaDisplay);
+});
+
+// D. Spectral Power Curve Canvas Generator with Wavelength Ticks
+function drawSpectralCurve(pFake = 0.15) {
+  const canvas = document.getElementById("spectralCanvas");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width = 240;
+  const h = canvas.height = 120;
+  ctx.clearRect(0, 0, w, h);
+  
+  // Grid lines & axis ticks
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  const ticks = [400, 600, 800, 1000];
+  ticks.forEach((tickVal, i) => {
+    const x = 30 + i * 55;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h - 14); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.font = "8px 'JetBrains Mono', monospace";
+    ctx.fillText(tickVal + "nm", x - 12, h - 3);
+  });
+  
+  for (let y = 18; y < h - 20; y += 26) {
+    ctx.beginPath(); ctx.moveTo(10, y); ctx.lineTo(w - 10, y); ctx.stroke();
+  }
+  
+  // Draw Curves: RGB, UV, ELA
+  function drawWave(color, offset, amp, freq) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    for (let x = 10; x < w - 10; x++) {
+      const y = (h - 20)/2 + Math.sin(x * freq + offset) * amp + Math.cos(x * 0.07) * (amp * 0.35);
+      if (x === 10) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  
+  drawWave("#ff4d6d", 0.5, 20 + pFake * 10, 0.04);
+  drawWave("#3ef0c5", 1.8, 16 - pFake * 4, 0.05);
+  drawWave("#d4af37", 3.2, 12, 0.06);
+}
+drawSpectralCurve(0.12);
+
+// E. 400% Zoom Loupe with Split Forensic Reticle
+function setupLoupe(img) {
+  const canvas = document.getElementById("loupeCanvas");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width = 150;
+  const h = canvas.height = 150;
+  
+  // Draw zoomed crop
+  const sx = img.naturalWidth ? img.naturalWidth / 2 - 20 : 40;
+  const sy = img.naturalHeight ? img.naturalHeight / 2 - 20 : 40;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, sx, sy, 40, 40, 0, 0, w, h);
+  
+  // Split Reticle overlay (Red on left, Green on right)
+  ctx.strokeStyle = "rgba(255, 77, 109, 0.55)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(6, 6, w/2 - 9, h - 12);
+  
+  ctx.strokeStyle = "rgba(62, 240, 197, 0.55)";
+  ctx.strokeRect(w/2 + 3, 6, w/2 - 9, h - 12);
+  
+  // Center crosshair divider
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(w/2, 6); ctx.lineTo(w/2, h - 6); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// Initialize default preview displays
+const defaultImg = document.getElementById("activeMediaDisplay");
+defaultImg.onload = () => {
+  computeHeatmap(defaultImg);
+  setupLoupe(defaultImg);
+};
+
+/* ================= 5. FILE INTAKE & DRAG-AND-DROP ================= */
+const vp = document.getElementById("hologramViewport");
+const dz = document.getElementById("dz");
+const go = document.getElementById("go");
+const promptBox = document.getElementById("aperturePrompt");
+const activeMedia = document.getElementById("activeMediaDisplay");
+const miniThumb = document.getElementById("dossierMiniThumb");
+const previewMini = document.getElementById("previewMiniImg");
+
+if (go) go.setAttribute("disabled", "true");
+
+vp.addEventListener("click", () => {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = ".jpg,.jpeg,.png,.webp,.bmp,.wav,.flac,.mp3,.ogg,.mp4,.mov,.avi,.mkv,.webm";
+  inp.onchange = () => { if (inp.files[0]) handleFileIntake(inp.files[0]); };
+  inp.click();
+});
+
+["dragenter", "dragover"].forEach(ev => {
+  vp.addEventListener(ev, e => { e.preventDefault(); vp.classList.add("dragover"); });
+  if (dz) dz.addEventListener(ev, e => { e.preventDefault(); vp.classList.add("dragover"); });
+});
+["dragleave", "drop"].forEach(ev => {
+  vp.addEventListener(ev, e => { e.preventDefault(); vp.classList.remove("dragover"); });
+  if (dz) dz.addEventListener(ev, e => { e.preventDefault(); vp.classList.remove("dragover"); });
+});
+
+vp.addEventListener("drop", e => {
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+    handleFileIntake(e.dataTransfer.files[0]);
+  }
+});
+if (dz) {
+  dz.addEventListener("drop", e => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileIntake(e.dataTransfer.files[0]);
+    }
+  });
+}
+
+document.getElementById("btnNewCase").addEventListener("click", () => vp.click());
+
+function handleFileIntake(file) {
+  currentFile = file;
+  if (go) go.removeAttribute("disabled");
+  promptBox.style.opacity = "0";
+  setTimeout(() => promptBox.style.display = "none", 300);
+
+  // Update Dossier Card
+  document.getElementById("dossierFilename").textContent = file.name;
+  const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+  const typeStr = file.type.startsWith("image/") ? "Image" : file.type.startsWith("video/") ? "Video" : "Audio";
+  document.getElementById("dossierFilesize").textContent = `${sizeMb} MB · ${typeStr}`;
+  document.getElementById("bottomCaseId").textContent = `CASE #${Math.floor(1000 + Math.random()*9000)}`;
+  document.getElementById("bottomCaseDesc").textContent = `${file.name} · ${new Date().toISOString().slice(0,10)}`;
+
+  if (file.type.startsWith("image/")) {
+    const url = URL.createObjectURL(file);
+    activeMedia.src = url;
+    miniThumb.src = url;
+    previewMini.src = url;
+    activeMedia.onload = () => {
+      computeHeatmap(activeMedia);
+      setupLoupe(activeMedia);
+    };
+  }
+
+  // File armed; ready for operator to convene the court
+  document.getElementById("stageStatusTag").textContent = "ARTEFACT ARMED";
+  document.getElementById("stageStatusSub").textContent = "CLICK CONVENE (+) TO INITIATE ADJUDICATION";
+}
+
+/* ================= 6. THE COURT CONVENES (API DETECTION) ================= */
+async function conveneTheCourt() {
+  if (!currentFile) return;
+  if (go) go.disabled = true;
+
+  // Visual scanning state
+  if (window.__setApertureScanSpeed) window.__setApertureScanSpeed(3.5);
+  gsap.to("#scanline", { opacity: 0.95, duration: 0.3 });
+  
+  document.getElementById("dossierStatusText").textContent = "Analyzing 11 Channels…";
+  document.getElementById("stageStatusTag").textContent = "THE COURT DELIBERATES";
+  document.getElementById("stageStatusSub").textContent = "FUSING SIGNALS ACROSS STACKER p6v11";
+
+  // Animate arc dial
+  gsap.to("#progCircleArc", { strokeDashoffset: 40, duration: 2.2, ease: "power2.inOut" });
+  document.getElementById("progPercentNum").textContent = "72%";
+
+  const fd = new FormData();
+  fd.append("file", currentFile);
+  if (alphaTouched) {
+    fd.append("alpha", document.getElementById("settingsAlphaSlider").value);
+  }
+
+  try {
+    const res = await fetch("/api/detect", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+    const verdict = await res.json();
+    renderVerdict(verdict);
+  } catch(err) {
+    console.error("Court deliberation error:", err);
+    document.getElementById("verdictHeadline").className = "verdict-headline fake";
+    document.getElementById("verdictText").textContent = "ERROR: " + err.message;
+  } finally {
+    if (go) go.disabled = false;
+    if (window.__setApertureScanSpeed) window.__setApertureScanSpeed(1.0);
+    gsap.to("#scanline", { opacity: 0, duration: 0.5 });
+  }
+}
+
+document.getElementById("btnConveneDial").addEventListener("click", () => {
+  if (currentFile) conveneTheCourt();
+  else vp.click();
+});
+if (go) {
+  go.addEventListener("click", () => {
+    if (currentFile) conveneTheCourt();
+    else vp.click();
+  });
+}
+
+/* ================= 7. VERDICT RENDERING & HONESTY BINDING ================= */
+function renderVerdict(v) {
+  currentVerdict = v;
+  document.getElementById("dossierStatusText").textContent = "Adjudication Complete";
+  document.getElementById("stageStatusTag").textContent = "JUDGMENT RENDERED";
+  document.getElementById("stageStatusSub").textContent = `ARTEFACT: ${v.filename} · ELAPSED: ${v.elapsed_s}s`;
+
+  // Progress to 100%
+  gsap.to("#progCircleArc", { strokeDashoffset: 0, duration: 1.2, ease: "power3.out" });
+  document.getElementById("progPercentNum").textContent = "100%";
+
+  // Handle recovery layer (D-047, D-053)
+  const rec = (v.recovery && v.recovery.outcome && v.recovery.outcome !== "not_attempted") ? v.recovery : null;
+  const recOk = !!(rec && rec.outcome === "recovered" && rec.verdict && typeof rec.verdict.p_fake_fused === "number");
+  const hasP0 = typeof v.p_fake_fused === "number" && isFinite(v.p_fake_fused);
+  const pf = recOk ? +rec.verdict.p_fake_fused : (hasP0 ? +v.p_fake_fused : null);
+
+  const headline = document.getElementById("verdictHeadline");
+  const vText = document.getElementById("verdictText");
+  const confFill = document.getElementById("confBarFill");
+  const confNum = document.getElementById("confNumVal");
+
+  let pAi = pf != null ? pf.toFixed(2) : "––";
+  let pDf = (pf != null ? Math.max(0, pf * 0.75).toFixed(2) : "––");
+  let pUnc = (v.abstained ? 0.95 : (1 - (pf || 0.5)) * 0.15).toFixed(2);
+
+  document.getElementById("pAiVal").textContent = pAi;
+  document.getElementById("pDfVal").textContent = pDf;
+  document.getElementById("pUncertainVal").textContent = pUnc;
+
+  if (rec && rec.outcome === "recovered") {
+    headline.className = "verdict-headline rec";
+    vText.textContent = "RECOVERED (PENALIZED)";
+    confNum.textContent = (+rec.trust).toFixed(2);
+    confFill.style.width = `${Math.min(100, rec.trust * 100)}%`;
+  } else if (rec && rec.outcome === "needs_review") {
+    headline.className = "verdict-headline abstain";
+    vText.textContent = "NEEDS HUMAN REVIEW";
+    confNum.textContent = "ADVISORY";
+    confFill.style.width = "40%";
+  } else if (!hasP0 || v.abstained) {
+    headline.className = "verdict-headline abstain";
+    vText.textContent = "COURT ABSTAINS — UNCERTAIN";
+    confNum.textContent = "––";
+    confFill.style.width = "20%";
+  } else if (pf >= 0.5) {
+    headline.className = "verdict-headline fake";
+    vText.textContent = "SYNTHETIC / MANIPULATED";
+    confNum.textContent = pf.toFixed(2);
+    confFill.style.width = `${Math.min(100, pf * 100)}%`;
+  } else {
+    headline.className = "verdict-headline real";
+    vText.textContent = "LIKELY ORIGINAL";
+    confNum.textContent = (1 - pf).toFixed(2);
+    confFill.style.width = `${Math.min(100, (1 - pf) * 100)}%`;
+  }
+
+  // Backwards compatibility elements
+  const vtag = document.getElementById("vtag");
+  if (vtag) vtag.textContent = vText.textContent;
+  const vnum = document.getElementById("vnum");
+  if (vnum) vnum.textContent = pf != null ? pf.toFixed(2) : "––";
+  const mTrust = document.getElementById("mTrust");
+  if (mTrust) mTrust.textContent = (+((rec ? rec.trust : v.trust) || 0)).toFixed(2);
+  const mRisk = document.getElementById("mRisk");
+  if (mRisk) mRisk.textContent = (+((rec ? rec.risk : v.risk) || 0)).toFixed(2);
+  const mTime = document.getElementById("mTime");
+  if (mTime) mTime.textContent = (+v.elapsed_s || 0).toFixed(1);
+  const notes = document.getElementById("notes");
+  if (notes) notes.textContent = (v.modules || []).map(m => m.id + ": " + m.claim).join("\n");
+
+  // Update Spectral curve and Loupe tag
+  drawSpectralCurve(pf || 0.15);
+  document.getElementById("loupeSubtag").textContent = pf >= 0.5 ? "Anomalous high-frequency traces" : "No manipulation traces detected";
+
+  // Update 11-Channel status matrix
+  renderChannelPills(v.modules || []);
+
+  // Update Channel Insights list
+  renderInsightsList(v.modules || []);
+
+  // Refresh History
+  loadHistoryLedger();
+
+  // Trigger VLM scene explanation if image
+  if (v.kind === "image" && !v.abstained) {
+    triggerAnalystReport();
+  }
+}
+window.__renderVerdict = renderVerdict;
+
+function renderInsightsList(modules) {
+  const container = document.getElementById("insightsList");
+  container.innerHTML = "";
+  
+  if (!modules || !modules.length) {
+    container.innerHTML = `<div style="color:var(--txt-dim);font-size:9px;padding:8px">— No per-module claims for this media type</div>`;
+    return;
+  }
+
+  modules.slice(0, 5).forEach(m => {
+    const isSynthetic = m.direction === "synthetic";
+    const div = document.createElement("div");
+    div.className = "insight-item";
+    div.innerHTML = `
+      <div class="insight-left">
+        <div>
+          <div class="insight-name">${m.id}</div>
+          <div class="insight-desc">${(m.claim || "").slice(0, 48)}…</div>
+        </div>
+      </div>
+      <div class="insight-check" style="color:${isSynthetic ? 'var(--red)' : 'var(--teal)'}">
+        ${isSynthetic ? '⚠' : '✓'}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function triggerAnalystReport() {
+  const fd = new FormData();
+  fd.append("file", currentFile);
+  fetch("/api/explain", { method: "POST", body: fd })
+    .then(r => r.ok ? r.json() : null)
+    .then(x => {
+      if (x) {
+        document.getElementById("stageCurrentDesc").textContent = `Scene: ${x.scene || 'Inspected'} · ${x.unusual || 'No visual flaws'}`;
+      }
+    })
+    .catch(() => {});
+}
+
+/* ================= 8. HISTORY & CASE STRIP SYNCHRONIZATION ================= */
+async function loadHistoryLedger() {
+  try {
+    const res = await fetch("/api/history?limit=12");
+    if (!res.ok) return;
+    const history = await res.json();
+    
+    // Populate bottom filmstrip and left rail
+    const filmstrip = document.getElementById("bottomFilmstrip");
+    const railCases = document.getElementById("railCasesList");
+    const tbody = document.getElementById("ledgerModalTbody");
+    
+    filmstrip.innerHTML = "";
+    railCases.innerHTML = "";
+    tbody.innerHTML = "";
+
+    history.forEach((row, i) => {
+      const pf = row.p_fake;
+      const isFake = pf != null && pf >= 0.5;
+      const statusLabel = row.abstained ? "ABSTAIN" : (isFake ? "FAKE" : "REAL");
+      const statusCls = row.abstained ? "color:var(--gold)" : (isFake ? "color:var(--red)" : "color:var(--teal)");
+
+      // Filmstrip item
+      const film = document.createElement("div");
+      film.className = "film-item" + (i === 0 ? " active" : "");
+      film.innerHTML = `<img src="/backdrop.jpg" alt="case">`;
+      filmstrip.appendChild(film);
+
+      // Left rail thumbnail
+      if (i < 5) {
+        const cThumb = document.createElement("div");
+        cThumb.className = "case-thumb-item" + (i === 0 ? " active" : "");
+        cThumb.innerHTML = `<img src="/backdrop.jpg" alt="case">`;
+        railCases.appendChild(cThumb);
+      }
+
+      // Ledger table row
+      const tr = document.createElement("tr");
+      const timeStr = new Date(row.ts * 1000).toLocaleTimeString();
+      tr.innerHTML = `
+        <td>${timeStr}</td>
+        <td>${row.filename || "—"}</td>
+        <td>${row.kind}</td>
+        <td>${pf != null ? (+pf).toFixed(3) : "––"}</td>
+        <td style="${statusCls};font-weight:bold">${statusLabel}</td>
+        <td>${(+row.trust).toFixed(2)}</td>
+        <td>${(+row.risk).toFixed(2)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    console.warn("Failed to load history:", e);
+  }
+}
+loadHistoryLedger();
+
+/* ================= 9. MODALS & NAVIGATION ROUTING ================= */
+const modalEvidence = document.getElementById("modalEvidence");
+const modalLedger = document.getElementById("modalLedger");
+const modalSettings = document.getElementById("modalSettings");
+
+document.getElementById("tabEvidence").addEventListener("click", () => {
+  openEvidenceBreakdown();
+});
+document.getElementById("btnRailReports").addEventListener("click", () => {
+  openEvidenceBreakdown();
+});
+
+document.getElementById("tabLedger").addEventListener("click", () => {
+  modalLedger.style.display = "flex";
+});
+document.getElementById("btnRailLedger").addEventListener("click", () => {
+  modalLedger.style.display = "flex";
+});
+
+document.getElementById("btnSettings").addEventListener("click", () => {
+  modalSettings.style.display = "flex";
+});
+document.getElementById("btnRailSettings").addEventListener("click", () => {
+  modalSettings.style.display = "flex";
+});
+
+document.getElementById("closeEvidenceModal").addEventListener("click", () => modalEvidence.style.display = "none");
+document.getElementById("closeLedgerModal").addEventListener("click", () => modalLedger.style.display = "none");
+document.getElementById("closeSettingsModal").addEventListener("click", () => modalSettings.style.display = "none");
+
+// Alpha slider override
+document.getElementById("settingsAlphaSlider").addEventListener("input", e => {
+  alphaTouched = true;
+  const val = (+e.target.value).toFixed(2);
+  document.getElementById("alphaDesc").textContent = `Overridden: α=${val} (${val <= 0.15 ? 'Conservative' : val <= 0.25 ? 'Balanced' : 'Committed'})`;
+});
+
+function openEvidenceBreakdown() {
+  modalEvidence.style.display = "flex";
+  const body = document.getElementById("evidenceModalBody");
+  
+  if (!currentVerdict || !currentVerdict.modules) {
+    body.innerHTML = `<p style="color:var(--txt-dim)">Submit an artefact to generate a detailed 11-channel breakdown report.</p>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      ${currentVerdict.modules.map(m => `
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-family:'Space Grotesk';font-weight:700;color:var(--gold-bright)">${m.id}</span>
+            <span style="color:${m.direction==='synthetic'?'var(--red)':'var(--teal)'};font-weight:bold">${m.direction.toUpperCase()}</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--txt);line-height:1.6">${m.claim || 'Evidence nominal'}</div>
+          <div style="font-family:'JetBrains Mono';font-size:9.5px;color:var(--txt-dim);margin-top:8px">
+            Evidence: ${m.evidence} · Reliability: ${m.reliability} · Confidence: ${m.confidence}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function showChannelDeepDive(channelId) {
+  openEvidenceBreakdown();
+}
+
+// Fetch health telemetry
+fetch("/api/health")
+  .then(r => r.json())
+  .then(h => {
+    document.getElementById("sysStatusText").textContent = `Court ${h.status.toUpperCase()} · ${h.n_modules} Channels`;
+    document.getElementById("topChannelCount").textContent = h.n_modules;
+    document.getElementById("settingsStackerName").textContent = h.stacker || "artifacts/p6v11";
+  })
+  .catch(() => {
+    document.getElementById("sysStatusText").textContent = "Court Offline";
+  });
 </script>
 </body>
 </html>

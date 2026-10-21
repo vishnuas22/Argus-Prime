@@ -182,6 +182,16 @@ def index():
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/backdrop.jpg")
+def backdrop():
+    p = STATIC / "backdrop_opt.jpg"
+    if not p.exists():
+        p = STATIC / "backdrop.jpg"
+    if p.exists():
+        return FileResponse(p, media_type="image/jpeg")
+    raise HTTPException(404, "Backdrop not found")
+
+
 @app.get("/api/health")
 def health():
     from argus_detect import STACKER
