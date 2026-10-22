@@ -178,6 +178,9 @@ html, body {
 }
 @keyframes livePing { 0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(0.8);} }
 .badge-val { color: var(--txt); font-weight: 600; }
+/* audit B9: a dead court's dot must not pulse teal; B5: keyboard reach focus rings */
+.badge-item.offline .live-dot { background: var(--txt-dimmer); box-shadow: none; animation: none; }
+.modal-close:focus-visible, .channel-pill:focus-visible, .qtab:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
 .btn-icon {
   width: 28px; height: 28px; border-radius: 4px;
   background: rgba(255,255,255,0.04);
@@ -539,7 +542,34 @@ html, body {
 .conf-bar-fill {
   height: 100%; border-radius: 3px;
   background: linear-gradient(90deg, var(--teal), var(--gold-bright));
-  width: 82%; transition: width 1.2s cubic-bezier(0.2, 0.9, 0.3, 1);
+  width: 0; transition: width 1.2s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+/* honesty strip (restore of truth layer — D-047/scope caveats) */
+.verdict-notes {
+  margin-top: 8px; display: none;
+  font-family: 'JetBrains Mono', monospace; font-size: 8.5px;
+  color: var(--txt-dim); line-height: 1.55; max-height: 120px; overflow-y: auto;
+  border-top: 1px dotted rgba(212, 175, 55, 0.2); padding-top: 6px;
+}
+.verdict-notes::-webkit-scrollbar { width: 2px; }
+.verdict-notes::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.25); }
+/* kind glyphs for history thumbs (no fabricated evidence imagery) */
+.film-kind-glyph, .rail-kind-glyph {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  color: var(--txt-dim); font-family: 'JetBrains Mono', monospace;
+  font-size: 7px; font-weight: 600; letter-spacing: 0.08em;
+}
+.rail-kind-glyph { font-size: 8px; }
+/* reduced motion: instrument stops, never dances (SC 2.2.2 / 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  #cockpitCanvas { transform: none; transition: none; }
+  #scanline { display: none; }
+  .eye-iris, .live-dot, .channel-pill.analyzing .ch-icon-circle { animation: none; }
+}
+/* narrow screens scroll instead of clip */
+@media (max-width: 1120px) {
+  body { overflow: auto; }
+  .cockpit-bridge { min-width: 1120px; }
 }
 
 .prob-breakdown {
@@ -632,7 +662,7 @@ html, body {
 }
 @keyframes chSpin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
 .ch-num {
-  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; color: var(--txt-dimmer);
+  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; color: var(--txt-dim);
 }
 .ch-name {
   font-family: 'Space Grotesk', sans-serif; font-size: 8.5px; font-weight: 600;
@@ -678,7 +708,7 @@ html, body {
 }
 .qtab {
   font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: 0.1em;
-  padding: 1px 5px; border-radius: 3px; color: var(--txt-dimmer); cursor: pointer;
+  padding: 1px 5px; border-radius: 3px; color: var(--txt-dim); cursor: pointer;
 }
 .qtab.active {
   color: var(--gold-bright); background: rgba(212,175,55,0.15); border: 1px solid rgba(212,175,55,0.3);
@@ -814,6 +844,16 @@ html, body {
   pointer-events: none;
 }
 .tactile-dial-box:hover .tactile-dial-ring { transform: rotate(45deg) scale(1.08); }
+/* armed-dial law (visual fix pass): when an artefact awaits the judge, the REAL
+   convene dial announces itself — no hunting for the small + in the transport bar */
+.tactile-dial-box.armed .tactile-dial-ring {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 22px var(--gold-glow), 0 0 44px var(--gold-glow), inset 0 0 10px var(--gold-glow);
+}
+.tactile-dial-box.armed .tactile-center-btn {
+  background: radial-gradient(circle, #ffd766 20%, var(--gold) 100%);
+  box-shadow: 0 0 16px var(--gold-glow);
+}
 .tactile-center-btn {
   position: relative; z-index: 2;
   width: 22px; height: 22px; border-radius: 50%;
@@ -958,28 +998,28 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
     <!-- Top-Left Floating HUD: Evidence Dossier -->
     <section class="hud-panel dossier-card" id="dossierCard">
       <div class="hud-header">
-        <div class="hud-title">EVIDENCE <span class="hud-title-badge" id="caseBadge">VERIFIED</span></div>
+        <div class="hud-title">EVIDENCE <span class="hud-title-badge" id="caseBadge">STANDBY</span></div>
         <div class="hud-close" title="Reset View">✕</div>
       </div>
       
       <div class="file-meta-box">
         <div class="file-thumb-mini">
-          <img id="dossierMiniThumb" src="/backdrop.jpg" alt="Evidence thumbnail">
+          <img id="dossierMiniThumb" alt="Evidence thumbnail" style="display:none">
         </div>
         <div class="file-details">
-          <div class="file-name" id="dossierFilename">IMG_4827.heic</div>
-          <div class="file-sub" id="dossierFilesize">3.4 MB · Image / Multi-spectral</div>
+          <div class="file-name" id="dossierFilename">No artefact loaded</div>
+          <div class="file-sub" id="dossierFilesize">Drop an artefact to begin</div>
           <div class="file-waveform-line"></div>
         </div>
       </div>
       
       <div class="meta-table">
-        <div class="meta-row"><span class="meta-label"><span>🛡</span> File Integrity</span><span class="meta-val ok" id="metaIntegrity">OK</span></div>
-        <div class="meta-row"><span class="meta-label"><span>📋</span> Metadata</span><span class="meta-val ok" id="metaMetadata">OK</span></div>
-        <div class="meta-row"><span class="meta-label"><span>⚙</span> Compression</span><span class="meta-val ok" id="metaCompression">OK</span></div>
-        <div class="meta-row"><span class="meta-label"><span>📷</span> Camera Model</span><span class="meta-val" id="metaCamera">iPhone 15 Pro</span></div>
-        <div class="meta-row"><span class="meta-label"><span>📍</span> GPS Location</span><span class="meta-val" id="metaGps">10.2345° N, 76.5432° E</span></div>
-        <div class="meta-row"><span class="meta-label"><span>⏱</span> Timestamp</span><span class="meta-val" id="metaTimestamp">2026-10-20 14:32:17</span></div>
+        <div class="meta-row"><span class="meta-label"><span>🧭</span> Route</span><span class="meta-val" id="mRoute">—</span></div>
+        <div class="meta-row"><span class="meta-label"><span>🧪</span> Degraded</span><span class="meta-val" id="mDegraded">—</span></div>
+        <div class="meta-row"><span class="meta-label"><span>⚖</span> Abstained</span><span class="meta-val" id="mAbstain">—</span></div>
+        <div class="meta-row"><span class="meta-label"><span>🩹</span> Recovery</span><span class="meta-val" id="mRecovery">—</span></div>
+        <div class="meta-row"><span class="meta-label"><span>🎞</span> Frames</span><span class="meta-val" id="mFrames">—</span></div>
+        <div class="meta-row"><span class="meta-label"><span>🔊</span> Audio Probe</span><span class="meta-val" id="mAudio">—</span></div>
       </div>
       
       <div class="dossier-progress">
@@ -991,7 +1031,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
     <!-- Center Stage: Holographic Aperture & Dropzone -->
     <section class="aperture-stage" id="apertureDropzone">
       <div class="stage-coordinates">
-        <span id="coordLat">10.2345° N</span> · <span id="coordLon">76.5432° E</span>
+        <span id="coordLat">—</span> · <span id="coordLon">—</span>
       </div>
       
       <div class="hologram-viewport" id="hologramViewport">
@@ -1001,13 +1041,12 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
         <div class="viewport-bracket bracket-bl"></div>
         <div class="viewport-bracket bracket-br"></div>
         
-        <img id="activeMediaDisplay" src="/backdrop.jpg" alt="Active Media Hologram">
-        <img id="preview" style="display:none" alt="">
+        <img id="activeMediaDisplay" alt="Active Media Hologram" style="display:none">
         
         <div class="aperture-prompt" id="aperturePrompt">
           <div class="ic-drop">👁</div>
           <h3>DROP ARTEFACT TO CONVENE COURT</h3>
-          <p>IMAGE · VIDEO · AUDIO · NOTHING LEAVES MACHINE</p>
+          <p>IMAGE · VIDEO · AUDIO · ≤ 100 MB · NOTHING LEAVES MACHINE</p>
         </div>
       </div>
       
@@ -1020,7 +1059,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
     <!-- Top-Right Floating HUD: Verdict & Progress -->
     <section class="hud-panel verdict-card" id="verdictCard">
       <div class="hud-header">
-        <div class="hud-title">ANALYSIS PROGRESS <span style="font-size:10px;color:var(--txt-dim)" id="progRatio">11/11</span></div>
+        <div class="hud-title">ANALYSIS PROGRESS <span style="font-size:10px;color:var(--txt-dim)" id="progRatio">0/11</span></div>
         <div class="hud-close">✕</div>
       </div>
       
@@ -1039,7 +1078,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
             </defs>
           </svg>
           <div class="circle-val-text">
-            <div class="num" id="progPercentNum">100%</div>
+            <div class="num" id="progPercentNum">0%</div>
             <div class="lbl">COMPLETE</div>
           </div>
         </div>
@@ -1054,23 +1093,23 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       
       <div class="verdict-banner-box">
         <div class="verdict-header-row">
-          <span>PRELIMINARY VERDICT</span>
-          <span id="verdictConfidenceTag">CONFIDENCE 0.82</span>
+          <span>COURT VERDICT</span>
+          <span id="verdictConfidenceTag">COURT STANDBY · NO VERDICT</span>
         </div>
-        <div class="verdict-headline real" id="verdictHeadline">
+        <div class="verdict-headline abstain" id="verdictHeadline" role="status" aria-live="polite">
           <div class="verdict-dot"></div>
-          <span id="verdictText">LIKELY ORIGINAL</span>
+          <span id="verdictText">AWAITING ARTEFACT</span>
           <span id="vtag" style="display:none">DELIBERATING…</span>
         </div>
         
         <div class="confidence-row">
           <div class="conf-label">
             <span>Confidence Level</span>
-            <span id="confNumVal">0.82</span>
-            <span id="vnum" style="display:none">0.82</span>
-            <span id="mTrust" style="display:none">0.82</span>
-            <span id="mRisk" style="display:none">0.18</span>
-            <span id="mTime" style="display:none">1.2</span>
+            <span id="confNumVal">––</span>
+            <span id="vnum" style="display:none">––</span>
+            <span id="mTrust" style="display:none">––</span>
+            <span id="mRisk" style="display:none">––</span>
+            <span id="mTime" style="display:none">––</span>
           </div>
           <div class="conf-bar-bg">
             <div class="conf-bar-fill" id="confBarFill"></div>
@@ -1079,16 +1118,16 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
         
         <div class="prob-breakdown">
           <div class="prob-item">
-            <div class="lbl">AI Gen Prob</div>
-            <div class="val" id="pAiVal">0.12</div>
+            <div class="lbl">P(SYN) · FUSED</div>
+            <div class="val" id="pAiVal">––</div>
           </div>
           <div class="prob-item">
-            <div class="lbl">Deepfake Prob</div>
-            <div class="val" id="pDfVal">0.08</div>
+            <div class="lbl">TRUST</div>
+            <div class="val" id="pDfVal">––</div>
           </div>
           <div class="prob-item">
-            <div class="lbl">Uncertain / α</div>
-            <div class="val" id="pUncertainVal">0.03</div>
+            <div class="lbl">RISK</div>
+            <div class="val" id="pUncertainVal">––</div>
           </div>
         </div>
       </div>
@@ -1096,8 +1135,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       <div class="verdict-footer-note" id="verdictFooterNote">
         (i) Adjudicated by Stacker p6v11. Conformal α active. Truth leaves patterns.
       </div>
-      <div id="notes" style="display:none"></div>
-    </section>
+      <div id="notes" class="verdict-notes" aria-live="polite"></div>
     </section>
 
   </main>
@@ -1138,14 +1176,14 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
             <span>High</span>
             <span>Low</span>
           </div>
-          <div class="zoom-tag">2.5x ⤢</div>
+          <div class="zoom-tag">VISUAL</div>
         </div>
       </div>
 
       <!-- Panel 2: Spectral Analysis Graph -->
       <div class="quad-panel">
         <div class="quad-head">
-          <div class="quad-title">SPECTRAL ANALYSIS</div>
+          <div class="quad-title">SPECTRAL RENDER · VISUAL ONLY</div>
           <div class="spectral-legend">
             <span class="sleg-item"><span class="sleg-dot" style="background:#ff4d6d"></span>RGB</span>
             <span class="sleg-item"><span class="sleg-dot" style="background:#3ef0c5"></span>UV</span>
@@ -1176,12 +1214,12 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
         </div>
         <div class="preview-split-box">
           <div class="preview-mini-frame">
-            <img id="previewMiniImg" src="/backdrop.jpg" alt="Preview Frame">
+            <img id="previewMiniImg" alt="Preview Frame" style="display:none">
           </div>
           <div class="loupe-frame" id="loupeContainer">
             <canvas id="loupeCanvas"></canvas>
             <div class="loupe-tag">Zoom 400%</div>
-            <div class="loupe-subtag" id="loupeSubtag">No anomalies detected</div>
+            <div class="loupe-subtag" id="loupeSubtag">Visualization only — not evidence</div>
           </div>
         </div>
       </div>
@@ -1192,9 +1230,9 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
   <!-- 5. BOTTOM CONTROL RAIL -->
   <footer class="bottom-flight-rail">
     <div class="case-badge-rail">
-      <span class="case-id-strong" id="bottomCaseId">CASE #0427</span>
+      <span class="case-id-strong" id="bottomCaseId">CASE #—</span>
       <span>·</span>
-      <span id="bottomCaseDesc">Alpine Reconnaissance · 2026-10-21</span>
+      <span id="bottomCaseDesc">No artefact on stage</span>
     </div>
 
     <div class="scrubber-zone">
@@ -1211,7 +1249,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
 
     <div class="system-release-rail">
       <div class="mini-wave-anim"></div>
-      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM v4.2.1</span>
+      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop3 · 2026-10-21</span></span>
     </div>
   </footer>
 
@@ -1278,20 +1316,46 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
           <div class="config-label">Active Stacker Model</div>
           <div class="config-sub" id="settingsStackerName">artifacts/p6v11 (11 Channels Active)</div>
         </div>
-        <span style="color:var(--teal)">VERIFIED</span>
+        <span id="stackerVerifiedTag" style="color:var(--teal)">VERIFIED</span>
       </div>
       <div class="config-row">
         <div>
           <div class="config-label">Forensic Audio & Video Probes</div>
           <div class="config-sub">XLS-R voice clone probe & ArcFace temporal drift head</div>
         </div>
-        <span style="color:var(--teal)">ONLINE</span>
+        <span id="probesOnlineTag" style="color:var(--teal)">ONLINE</span>
       </div>
     </div>
   </div>
 </div>
 
 <!-- ================= JAVASCRIPT ENGINE ================= -->
+<script>
+/* Offline guard (2026-10-19 ruling, restored): a CDN outage must never dead the court.
+   GS = shim-safe gsap; RM = prefers-reduced-motion — the instrument stops, it never dances. */
+const GS = window.gsap || { to(){}, set(){}, from(){}, timeline(){ return { to(){}, from(){} }; } };
+const RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* Build identity + stale-page guard (visual fix pass): a tab holding OLD JS must be
+   visibly distinguishable from the served build. The stamp renders in the bottom
+   colophon (#buildStamp); a persisted build mismatch raises a reload banner. */
+const BUILD_ID = "hop3-2026-10-21";
+try {
+  const __seenBuild = localStorage.getItem("argusBuild");
+  const __showStaleBanner = () => {
+    const b = document.createElement("div");
+    b.textContent = "STALE COURT PAGE - this tab ran build " + __seenBuild + "; the served build is " + BUILD_ID + ". Hard-reload (Cmd+Shift+R).";
+    b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#3a2b08;color:#ffd766;font:11px 'JetBrains Mono',monospace;padding:6px 12px;text-align:center;letter-spacing:0.08em;";
+    document.body.appendChild(b);
+    setTimeout(() => b.remove(), 20000);
+  };
+  if (__seenBuild && __seenBuild !== BUILD_ID) {
+    if (document.readyState === "loading") window.addEventListener("DOMContentLoaded", __showStaleBanner);
+    else __showStaleBanner();
+  }
+  localStorage.setItem("argusBuild", BUILD_ID);
+} catch (e) {}
+</script>
 <script>
 /* ================= 1. THREE.JS CONCENTRIC HOLOGRAPHIC IRIS ================= */
 (function(){
@@ -1393,7 +1457,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       renderer.render(scene, cam);
       requestAnimationFrame(tick);
     }
-    requestAnimationFrame(tick);
+    if (RM) renderer.render(scene, cam); else requestAnimationFrame(tick);
   } catch(e) {
     console.warn("Three.js hologram fallback:", e);
   }
@@ -1450,6 +1514,7 @@ let currentFile = null;
 let currentVerdict = null;
 let alphaTouched = false;
 let currentVisMode = "heatmap";
+let activeObjectUrl = null; // audit B14: object URLs are revoked on next intake — no leak-per-drop
 
 /* Render 11 Channel Badges */
 function renderChannelPills(activeModules = null) {
@@ -1457,8 +1522,8 @@ function renderChannelPills(activeModules = null) {
   row.innerHTML = "";
   
   CHANNELS_11.forEach((ch, idx) => {
-    let cls = "channel-pill ok";
-    let statusText = "OK";
+    let cls = "channel-pill";
+    let statusText = "STANDBY";
     
     if (activeModules) {
       const match = activeModules.find(m => m.id === ch.id);
@@ -1478,12 +1543,16 @@ function renderChannelPills(activeModules = null) {
     
     const div = document.createElement("div");
     div.className = cls + " ecard";
+    div.tabIndex = 0; // audit B5: the channel matrix is keyboard reachable
     div.innerHTML = `
       <div class="ch-icon-circle">${ch.icon}</div>
       <div class="ch-num">${ch.num} ${ch.name}</div>
       <div class="ch-status">${statusText}</div>
     `;
     div.addEventListener("click", () => showChannelDeepDive(ch.id));
+    div.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showChannelDeepDive(ch.id); }
+    });
     row.appendChild(div);
   });
 }
@@ -1604,6 +1673,14 @@ document.getElementById("qtab3D").addEventListener("click", () => {
   document.getElementById("qtab3D").classList.add("active");
   compute3DMesh(activeMediaDisplay);
 });
+// audit B5: quad subtabs are keyboard reachable too
+["qtabHeat", "qtabDiff", "qtab3D"].forEach(id => {
+  const el = document.getElementById(id);
+  el.tabIndex = 0;
+  el.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click(); }
+  });
+});
 
 // D. Spectral Power Curve Canvas Generator with Wavelength Ticks
 function drawSpectralCurve(pFake = 0.15) {
@@ -1679,12 +1756,8 @@ function setupLoupe(img) {
   ctx.setLineDash([]);
 }
 
-// Initialize default preview displays
-const defaultImg = document.getElementById("activeMediaDisplay");
-defaultImg.onload = () => {
-  computeHeatmap(defaultImg);
-  setupLoupe(defaultImg);
-};
+// Initialize default preview displays → removed (audit B14): the intake assignment
+// overwrites this onload; the standby state is kept honest by quadsNoStills().
 
 /* ================= 5. FILE INTAKE & DRAG-AND-DROP ================= */
 const vp = document.getElementById("hologramViewport");
@@ -1696,6 +1769,73 @@ const miniThumb = document.getElementById("dossierMiniThumb");
 const previewMini = document.getElementById("previewMiniImg");
 
 if (go) go.setAttribute("disabled", "true");
+
+/* ---- bench-state resets (audit B2/B3/B4): no stale verdict or stale evidence ----
+   may ever sit beside a NEW artefact or a REFUSED artefact. */
+function resetVerdictPanel() {
+  const hl = document.getElementById("verdictHeadline");
+  if (hl) hl.className = "verdict-headline abstain";
+  document.getElementById("verdictText").textContent = "AWAITING ARTEFACT";
+  document.getElementById("verdictConfidenceTag").textContent = "COURT STANDBY · NO VERDICT";
+  document.getElementById("confNumVal").textContent = "––";
+  document.getElementById("confBarFill").style.width = "0%";
+  ["pAiVal", "pDfVal", "pUncertainVal"].forEach(id => { document.getElementById(id).textContent = "––"; });
+  ["vtag", "vnum", "mTrust", "mRisk", "mTime"].forEach(id => { document.getElementById(id).textContent = "––"; });
+  document.getElementById("progPercentNum").textContent = "0%";
+  document.getElementById("progRatio").textContent = "0/11";
+  GS.set("#progCircleArc", { strokeDashoffset: 207 });
+  currentVerdict = null;
+}
+function resetVerdictPanelArmed() {
+  resetVerdictPanel();
+  // CTA law: the armed state's instruction lives IN the headline — the judge must
+  // never read the pending bench as a stall (user ruling 2026-10-21, fix UX-1).
+  document.getElementById("verdictText").textContent = "ARTEFACT ARMED — PRESS (+) TO CONVENE THE COURT";
+  document.getElementById("verdictConfidenceTag").textContent = "NO VERDICT FOR THIS ARTEFACT";
+}
+function quadsNoStills(note, sub) {
+  // B3: the analytic deck must never display ANOTHER artefact's pixels
+  const stamp = (cv, w, h, text) => {
+    const ctx = cv.getContext("2d");
+    cv.width = w; cv.height = h;
+    ctx.fillStyle = "#0a0d14"; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(212,175,55,0.25)"; ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    ctx.fillStyle = "rgba(139,137,148,0.95)";
+    ctx.font = "9px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(text, w / 2, h / 2 + 3);
+    ctx.textAlign = "start";
+  };
+  stamp(document.getElementById("heatmapCanvas"), 300, 180, note);
+  stamp(document.getElementById("loupeCanvas"), 150, 150, "LOUPE · " + note);
+  document.getElementById("loupeSubtag").textContent = sub || ("No still evidence — " + note.toLowerCase());
+}
+function fullStandbyReset() {
+  resetVerdictPanel();
+  currentFile = null;
+  if (go) go.disabled = true;
+  document.getElementById("dossierFilename").textContent = "No artefact loaded";
+  document.getElementById("dossierFilesize").textContent = "Drop an artefact to begin";
+  ["mRoute", "mDegraded", "mAbstain", "mRecovery", "mFrames", "mAudio"].forEach(id => {
+    const el = document.getElementById(id); el.textContent = "—"; el.classList.remove("ok");
+  });
+  const cb = document.getElementById("caseBadge");
+  if (cb) cb.textContent = "STANDBY";
+  const dialBox = document.getElementById("btnConveneDial");
+  if (dialBox) dialBox.classList.remove("armed");
+  document.getElementById("bottomCaseId").textContent = "CASE #—";
+  document.getElementById("bottomCaseDesc").textContent = "No artefact on stage";
+  document.getElementById("stageStatusTag").textContent = "COURT IN SESSION";
+  document.getElementById("stageStatusSub").textContent = "11 FORENSIC CHANNELS · READY FOR ARTEFACT";
+  document.getElementById("dossierStatusText").textContent = "Standby";
+  document.getElementById("notes").style.display = "none";
+  document.getElementById("notes").textContent = "";
+  quadsNoStills("AWAITING ARTEFACT");
+  if (activeObjectUrl) { URL.revokeObjectURL(activeObjectUrl); activeObjectUrl = null; }
+  renderChannelPills(null);
+  renderInsightsList([]);
+  if (promptBox) { promptBox.style.display = "flex"; promptBox.style.opacity = "1"; }
+}
 
 vp.addEventListener("click", () => {
   const inp = document.createElement("input");
@@ -1721,6 +1861,11 @@ vp.addEventListener("drop", e => {
 });
 if (dz) {
   dz.addEventListener("drop", e => {
+    // audit B1: dz overlays vp — a drop would otherwise fire BOTH this listener AND
+    // vp's own on the bubble, running the intake twice (double fetch/leak risk).
+    e.stopPropagation();
+    e.preventDefault();
+    vp.classList.remove("dragover");
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFileIntake(e.dataTransfer.files[0]);
     }
@@ -1728,6 +1873,8 @@ if (dz) {
 }
 
 document.getElementById("btnNewCase").addEventListener("click", () => vp.click());
+document.querySelector("#dossierCard .hud-close").addEventListener("click", fullStandbyReset);
+document.querySelector("#verdictCard .hud-close").addEventListener("click", resetVerdictPanel);
 
 function handleFileIntake(file) {
   currentFile = file;
@@ -1738,20 +1885,53 @@ function handleFileIntake(file) {
   // Update Dossier Card
   document.getElementById("dossierFilename").textContent = file.name;
   const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-  const typeStr = file.type.startsWith("image/") ? "Image" : file.type.startsWith("video/") ? "Video" : "Audio";
+  const typeStr = file.type.startsWith("image/") ? "Image" : file.type.startsWith("video/") ? "Video" : file.type.startsWith("audio/") ? "Audio" : "Artefact";
   document.getElementById("dossierFilesize").textContent = `${sizeMb} MB · ${typeStr}`;
-  document.getElementById("bottomCaseId").textContent = `CASE #${Math.floor(1000 + Math.random()*9000)}`;
+  // CASE identity: the ledger assigns it, never Math.random
+  document.getElementById("bottomCaseId").textContent = "CASE #—";
   document.getElementById("bottomCaseDesc").textContent = `${file.name} · ${new Date().toISOString().slice(0,10)}`;
 
+  // truth law: nothing about the file is known before adjudication — clear standby meta
+  ["mRoute", "mDegraded", "mAbstain", "mRecovery", "mFrames", "mAudio"].forEach(id => {
+    const el = document.getElementById(id); el.textContent = "—"; el.classList.remove("ok");
+  });
+  const cb = document.getElementById("caseBadge");
+  if (cb) cb.textContent = "ARMED";
+  const dialBox = document.getElementById("btnConveneDial");
+  if (dialBox) dialBox.classList.add("armed"); // armed-dial law: the glow marks the real convene dial
+
+  // audit B2: a new artefact must retire the PREVIOUS verdict — no stale judgments
+  resetVerdictPanelArmed();
+  document.getElementById("loupeSubtag").textContent = "Visualization only — not evidence";
+
   if (file.type.startsWith("image/")) {
+    if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
     const url = URL.createObjectURL(file);
+    activeObjectUrl = url;
     activeMedia.src = url;
+    activeMedia.style.display = "block";
     miniThumb.src = url;
+    miniThumb.style.display = "block";
     previewMini.src = url;
+    previewMini.style.display = "block";
+    // audit B3/B14: an undecodable artefact must not leave a broken still or stale quads
+    activeMedia.onerror = () => {
+      activeMedia.style.display = "none";
+      quadsNoStills("UNREADABLE ARTEFACT");
+    };
     activeMedia.onload = () => {
       computeHeatmap(activeMedia);
       setupLoupe(activeMedia);
     };
+  } else {
+    // video/audio: no still hologram exists — the stage stays empty, the dossier carries the truth
+    if (activeObjectUrl) URL.revokeObjectURL(activeObjectUrl);
+    activeMedia.removeAttribute("src");
+    activeMedia.style.display = "none";
+    quadsNoStills(
+      file.type.startsWith("video/") ? "VIDEO" : "AUDIO",
+      "No still evidence — " + (file.type.startsWith("video/") ? "video" : "audio") + " adjudicates without a still"
+    );
   }
 
   // File armed; ready for operator to convene the court
@@ -1760,21 +1940,39 @@ function handleFileIntake(file) {
 }
 
 /* ================= 6. THE COURT CONVENES (API DETECTION) ================= */
+// One artefact, one verdict: #go lives inside #btnConveneDial, so a single click
+// reaches conveneTheCourt twice (own listener + bubbling dial listener).
+// Re-entry guard is the double-adjudication law.
+let conveneInFlight = false;
 async function conveneTheCourt() {
-  if (!currentFile) return;
+  if (!currentFile || conveneInFlight) return;
+  conveneInFlight = true;
+  try {
+    await convene_body();
+  } finally {
+    conveneInFlight = false;
+    // armed-dial law: the glow means "a judgment is pending" — the session ended,
+    // issued or refused, so the dial retires its summons glow
+    const dialBox = document.getElementById("btnConveneDial");
+    if (dialBox) dialBox.classList.remove("armed");
+  }
+}
+async function convene_body() {
   if (go) go.disabled = true;
 
-  // Visual scanning state
+  // Visual scanning state (RM users get a still courtroom, never a dancing instrument)
   if (window.__setApertureScanSpeed) window.__setApertureScanSpeed(3.5);
-  gsap.to("#scanline", { opacity: 0.95, duration: 0.3 });
+  if (!RM) GS.to("#scanline", { opacity: 0.95, duration: 0.3 });
   
   document.getElementById("dossierStatusText").textContent = "Analyzing 11 Channels…";
   document.getElementById("stageStatusTag").textContent = "THE COURT DELIBERATES";
-  document.getElementById("stageStatusSub").textContent = "FUSING SIGNALS ACROSS STACKER p6v11";
+  document.getElementById("stageStatusSub").textContent = "FUSING SIGNALS ACROSS THE DEPLOYED STACKER";
 
-  // Animate arc dial
-  gsap.to("#progCircleArc", { strokeDashoffset: 40, duration: 2.2, ease: "power2.inOut" });
-  document.getElementById("progPercentNum").textContent = "72%";
+  // truth law: no invented completion percent mid-flight — arc motion with a status word
+  if (RM) GS.set("#progCircleArc", { strokeDashoffset: 40 });
+  else GS.to("#progCircleArc", { strokeDashoffset: 40, duration: 2.2, ease: "power2.inOut" });
+  document.getElementById("progPercentNum").textContent = "WORKING";
+  document.getElementById("progRatio").textContent = "IN SESSION";
 
   const fd = new FormData();
   fd.append("file", currentFile);
@@ -1784,17 +1982,35 @@ async function conveneTheCourt() {
 
   try {
     const res = await fetch("/api/detect", { method: "POST", body: fd });
-    if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+    if (!res.ok) throw new Error((await res.text()).slice(0, 220));
     const verdict = await res.json();
     renderVerdict(verdict);
   } catch(err) {
     console.error("Court deliberation error:", err);
-    document.getElementById("verdictHeadline").className = "verdict-headline fake";
-    document.getElementById("verdictText").textContent = "ERROR: " + err.message;
+    // H4 law: a refusal is NOT a fake-lane verdict — abstain styling, verbatim
+    // server detail, and a status that unsticks itself.
+    const headline = document.getElementById("verdictHeadline");
+    headline.className = "verdict-headline abstain";
+    document.getElementById("verdictText").textContent = "REFUSED BY THE COURT";
+    document.getElementById("verdictConfidenceTag").textContent = "NO VERDICT — OBJECTION";
+    document.getElementById("confNumVal").textContent = "––";
+    document.getElementById("confBarFill").style.width = "0%";
+    document.getElementById("progPercentNum").textContent = "0%";
+    document.getElementById("progRatio").textContent = "0/11";
+    document.getElementById("dossierStatusText").textContent = "Refused";
+    document.getElementById("stageStatusTag").textContent = "OBJECTION SUSTAINED";
+    document.getElementById("stageStatusSub").textContent = "THE COURT REFUSED THIS ARTEFACT — SERVER DETAIL (VERBATIM) BELOW";
+    const notesEl = document.getElementById("notes");
+    notesEl.style.display = "block";
+    notesEl.textContent = "· OBJECTION (verbatim server reply): " + (err.message || err);
+    // audit B3: a refused artefact must not carry the previous run's telemetry
+    renderChannelPills(null);
+    renderInsightsList([]);
+    quadsNoStills("OBJECTION — NO EVIDENCE PANEL", "Objection sustained — the deck carries no evidence panel");
   } finally {
     if (go) go.disabled = false;
     if (window.__setApertureScanSpeed) window.__setApertureScanSpeed(1.0);
-    gsap.to("#scanline", { opacity: 0, duration: 0.5 });
+    if (!RM) GS.to("#scanline", { opacity: 0, duration: 0.5 });
   }
 }
 
@@ -1817,53 +2033,67 @@ function renderVerdict(v) {
   document.getElementById("stageStatusSub").textContent = `ARTEFACT: ${v.filename} · ELAPSED: ${v.elapsed_s}s`;
 
   // Progress to 100%
-  gsap.to("#progCircleArc", { strokeDashoffset: 0, duration: 1.2, ease: "power3.out" });
+  if (RM) GS.set("#progCircleArc", { strokeDashoffset: 0 });
+  else GS.to("#progCircleArc", { strokeDashoffset: 0, duration: 1.2, ease: "power3.out" });
   document.getElementById("progPercentNum").textContent = "100%";
+  const progRatioEl = document.getElementById("progRatio");
+  if (progRatioEl) progRatioEl.textContent = "11/11";
 
-  // Handle recovery layer (D-047, D-053)
+  // Handle recovery layer (D-043/D-046/D-047)
   const rec = (v.recovery && v.recovery.outcome && v.recovery.outcome !== "not_attempted") ? v.recovery : null;
   const recOk = !!(rec && rec.outcome === "recovered" && rec.verdict && typeof rec.verdict.p_fake_fused === "number");
   const hasP0 = typeof v.p_fake_fused === "number" && isFinite(v.p_fake_fused);
   const pf = recOk ? +rec.verdict.p_fake_fused : (hasP0 ? +v.p_fake_fused : null);
+  // effective trust/risk live on the recovery verdict when recovery acted (D-047)
+  const trust = rec ? rec.trust : v.trust;
+  const risk = rec ? rec.risk : v.risk;
+  const trustOk = typeof trust === "number" && isFinite(trust);
+  const riskOk = typeof risk === "number" && isFinite(risk);
 
   const headline = document.getElementById("verdictHeadline");
   const vText = document.getElementById("verdictText");
   const confFill = document.getElementById("confBarFill");
   const confNum = document.getElementById("confNumVal");
+  const confTag = document.getElementById("verdictConfidenceTag");
 
-  let pAi = pf != null ? pf.toFixed(2) : "––";
-  let pDf = (pf != null ? Math.max(0, pf * 0.75).toFixed(2) : "––");
-  let pUnc = (v.abstained ? 0.95 : (1 - (pf || 0.5)) * 0.15).toFixed(2);
-
-  document.getElementById("pAiVal").textContent = pAi;
-  document.getElementById("pDfVal").textContent = pDf;
-  document.getElementById("pUncertainVal").textContent = pUnc;
+  // The three tiles are the SERVER's own numbers — the client never manufactures a probability
+  document.getElementById("pAiVal").textContent = pf != null ? pf.toFixed(2) : "––";
+  document.getElementById("pDfVal").textContent = trustOk ? (+trust).toFixed(2) : "––";
+  document.getElementById("pUncertainVal").textContent = riskOk ? (+risk).toFixed(2) : "––";
 
   if (rec && rec.outcome === "recovered") {
+    const recTrustOk = typeof rec.trust === "number" && isFinite(rec.trust); // audit B13
     headline.className = "verdict-headline rec";
     vText.textContent = "RECOVERED (PENALIZED)";
-    confNum.textContent = (+rec.trust).toFixed(2);
-    confFill.style.width = `${Math.min(100, rec.trust * 100)}%`;
+    confNum.textContent = recTrustOk ? (+rec.trust).toFixed(2) : "––";
+    confFill.style.width = recTrustOk ? `${Math.min(100, rec.trust * 100)}%` : "0%";
+    confTag.textContent = recTrustOk
+      ? `CONFIDENCE ${(+rec.trust).toFixed(2)} (PENALIZED · TRUST CAPPED)`
+      : "RECOVERED — PENALIZED";
   } else if (rec && rec.outcome === "needs_review") {
     headline.className = "verdict-headline abstain";
     vText.textContent = "NEEDS HUMAN REVIEW";
-    confNum.textContent = "ADVISORY";
-    confFill.style.width = "40%";
+    confNum.textContent = trustOk ? (+trust).toFixed(2) : "ADVISORY";
+    confFill.style.width = trustOk ? `${Math.min(100, trust * 100)}%` : "0%";
+    confTag.textContent = "NO VERDICT ISSUED · ORIGINAL SCORE IS ADVISORY ONLY";
   } else if (!hasP0 || v.abstained) {
     headline.className = "verdict-headline abstain";
-    vText.textContent = "COURT ABSTAINS — UNCERTAIN";
+    vText.textContent = "COURT ABSTAINS · NEEDS REVIEW";
     confNum.textContent = "––";
-    confFill.style.width = "20%";
+    confFill.style.width = "0%";
+    confTag.textContent = "NO CONFIDENT VERDICT ISSUED";
   } else if (pf >= 0.5) {
     headline.className = "verdict-headline fake";
-    vText.textContent = "SYNTHETIC / MANIPULATED";
-    confNum.textContent = pf.toFixed(2);
-    confFill.style.width = `${Math.min(100, pf * 100)}%`;
+    vText.textContent = "VERDICT: SYNTHETIC/MANIPULATED";
+    confNum.textContent = trustOk ? (+trust).toFixed(2) : "––";
+    confFill.style.width = trustOk ? `${Math.min(100, trust * 100)}%` : "0%";
+    confTag.textContent = `CONFIDENCE ${trustOk ? (+trust).toFixed(2) : "––"} (COURT-TRUST)`;
   } else {
     headline.className = "verdict-headline real";
-    vText.textContent = "LIKELY ORIGINAL";
-    confNum.textContent = (1 - pf).toFixed(2);
-    confFill.style.width = `${Math.min(100, (1 - pf) * 100)}%`;
+    vText.textContent = "VERDICT: AUTHENTIC-LEANING";
+    confNum.textContent = trustOk ? (+trust).toFixed(2) : "––";
+    confFill.style.width = trustOk ? `${Math.min(100, trust * 100)}%` : "0%";
+    confTag.textContent = `CONFIDENCE ${trustOk ? (+trust).toFixed(2) : "––"} (COURT-TRUST)`;
   }
 
   // Backwards compatibility elements
@@ -1872,17 +2102,85 @@ function renderVerdict(v) {
   const vnum = document.getElementById("vnum");
   if (vnum) vnum.textContent = pf != null ? pf.toFixed(2) : "––";
   const mTrust = document.getElementById("mTrust");
-  if (mTrust) mTrust.textContent = (+((rec ? rec.trust : v.trust) || 0)).toFixed(2);
+  if (mTrust) mTrust.textContent = trustOk ? (+trust).toFixed(2) : "––";
   const mRisk = document.getElementById("mRisk");
-  if (mRisk) mRisk.textContent = (+((rec ? rec.risk : v.risk) || 0)).toFixed(2);
+  if (mRisk) mRisk.textContent = riskOk ? (+risk).toFixed(2) : "––";
   const mTime = document.getElementById("mTime");
   if (mTime) mTime.textContent = (+v.elapsed_s || 0).toFixed(1);
-  const notes = document.getElementById("notes");
-  if (notes) notes.textContent = (v.modules || []).map(m => m.id + ": " + m.claim).join("\n");
+
+  // —— dossier meta row = PAYLOAD TRUTH ONLY (fix UX-2): six fields the response
+  // actually carries. No EXIF scalars exist in the schema — never invent them. ——
+  const metaSet = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  metaSet("mRoute", v.route || "—");
+  metaSet("mDegraded", v.confidence_degraded === true ? "YES" : v.confidence_degraded === false ? "no" : "—");
+  metaSet("mAbstain", v.abstained === true ? "YES" : v.abstained === false ? "no" : "—");
+  metaSet("mRecovery", v.recovery ? (v.recovery.outcome || "present") : "—");
+  metaSet("mFrames", (typeof v.frames_court === "number" && isFinite(v.frames_court))
+    ? `${(typeof v.frames_scored === "number" && isFinite(v.frames_scored)) ? v.frames_scored : "?"}/${v.frames_court}`
+    : "—");
+  metaSet("mAudio", (() => {
+    const a = v.audio;
+    const m = a && typeof a.p_fake_audio_mean === "number" && isFinite(a.p_fake_audio_mean) ? a.p_fake_audio_mean.toFixed(2) : null;
+    return m ? `${m}${a.segments_analyzed ? " · " + a.segments_analyzed + " seg" : ""}` : "—";
+  })());
+
+  // —— honesty strip: the truth layer (patterns.md:94 — the UI is the honesty surface) ——
+  const notes = [];
+  if (v.route) {
+    notes.push("ROUTE: " + (v.route === "image_court"
+      ? "IMAGE COURT — no face in frame; face forensics contribute nothing on this route."
+      : "FACE — temporal video forensics engaged."));
+    if (v.confidence_degraded) notes.push("DEGRADED CONFIDENCE — no temporal evidence on this route; treat the fused score as advisory-grade support.");
+  } else if (v.confidence_degraded) {
+    notes.push("DEGRADED CONFIDENCE — treat the issued verdict as advisory-grade support.");
+  }
+  if (v.out_of_conflict) notes.push("OUT OF CONFLICT — the panel is unresolved; the fused score is a mechanism-b flag and is NEVER overwritten; the probability is advisory.");
+  if (v.stacker || v.alpha != null) notes.push("Stacker: " + (v.stacker || "image court (frame-level)") + (v.alpha != null ? " · conformal α " + v.alpha + " in effect" : ""));
+  if (v.hypotheses && v.hypotheses.length > 1) notes.push("HYPOTHESIS SET: " + v.hypotheses.join(" · ") + " — the court withholds a single verdict.");
+  else if (v.hypotheses && v.hypotheses.length === 1) notes.push("HYPOTHESIS: " + v.hypotheses[0]);
+  if (rec && rec.outcome === "recovered") {
+    notes.push("RECOVERED (PENALIZED) — original P(fake) " + (hasP0 ? (+v.p_fake_fused).toFixed(4) : "n/a") +
+      " → adjudicated P(fake) " + (+rec.verdict.p_fake_fused).toFixed(4) +
+      " · trust capped " + (rec.trust != null ? rec.trust : "–") + ", risk floored " + (rec.risk != null ? rec.risk : "–") + ".");
+    const steps = rec.attempted_steps || [];
+    if (steps.length) notes.push("Recovery ladder: " + steps.map(s => s.step + ":" + s.name + (s.ok ? " ✓" : " ✗")).join(" · ") + ".");
+    const pi = (rec.verdict && rec.verdict.per_identity) || [];
+    if (pi.length) notes.push("Per-identity (never fused): " + pi.map(r => "id " + r.id + " n=" + r.frames + " topk=" + (r.topk_mean != null ? (+r.topk_mean).toFixed(2) : "–")).join(" · ") + ".");
+  } else if (rec && rec.outcome === "needs_review") {
+    notes.push("NEEDS HUMAN REVIEW — the recovery ladder could not restore a confident verdict; any original score is ADVISORY (trust " + (rec.trust != null ? rec.trust : "–") + " / risk " + (rec.risk != null ? rec.risk : "–") + ").");
+    const steps = rec.attempted_steps || [];
+    if (steps.length) notes.push("Recovery ladder: " + steps.map(s => s.step + ":" + s.name + (s.ok ? " ✓" : " ✗")).join(" · ") + ".");
+    const pi = (rec.verdict && rec.verdict.per_identity) || [];
+    if (pi.length) notes.push("Per-identity (never fused): " + pi.map(r => "id " + r.id + " n=" + r.frames + " topk=" + (r.topk_mean != null ? (+r.topk_mean).toFixed(2) : "–")).join(" · ") + ".");
+    notes.push("Uploading an uncropped, uncompressed original (or a file with fewer identities) may allow adjudication.");
+  }
+  if (v.audio && v.audio.p_fake_audio_mean != null) {
+    notes.push("VOICE CLONE: probe P(fake audio) " + v.audio.p_fake_audio_mean + " across " + v.audio.segments_analyzed + " segments.");
+  } else if (v.kind === "video") {
+    notes.push("VOICE CLONE: no audio-borne verdict available for this file (no extractable track, or the probe returned nothing).");
+  }
+  if (v.frames_scored != null || v.frames_court != null) {
+    notes.push("FRAMES: " + (v.frames_court != null ? v.frames_court + " sampled" : "?") + (v.frames_scored != null ? " / " + v.frames_scored + " scored" : "") + ".");
+  }
+  if (v.kind === "image") {
+    notes.push("SCOPE (image): 0/701 wild-real FPR measured — but unseen generators scored AUC 0.67–0.97; C2PA-signed AI reads as synthetic.");
+  } else if (v.kind === "video") {
+    notes.push("SCOPE (video): FF++ 0.90 / Celeb-DF 0.94 IN-DOMAIN — NOT validated in the wild; treat video verdicts as advisory evidence, not settled law.");
+  } else if (v.kind === "audio") {
+    notes.push("SCOPE (audio): ASVspoof-family in-domain only — untrustworthy against modern TTS; wild audio abstains by design.");
+  }
+  (v.modules || []).forEach(m => notes.push(m.id + " [" + m.direction + (m.reliability != null ? " · rel " + m.reliability : "") + "]: " + (m.claim || "")));
+  const notesEl = document.getElementById("notes");
+  if (notesEl) {
+    notesEl.style.display = "block";
+    notesEl.innerHTML = notes.map(n => "· " + String(n).replace(/</g, "&lt;")).join("<br>");
+  }
 
   // Update Spectral curve and Loupe tag
   drawSpectralCurve(pf || 0.15);
-  document.getElementById("loupeSubtag").textContent = pf >= 0.5 ? "Anomalous high-frequency traces" : "No manipulation traces detected";
+  document.getElementById("loupeSubtag").textContent = pf >= 0.5
+    ? "High-frequency structure visible at the loupe — visualization only"
+    : "Loupe is a magnifier only — the verdict lives at the bench";
 
   // Update 11-Channel status matrix
   renderChannelPills(v.modules || []);
@@ -1911,30 +2209,35 @@ function renderInsightsList(modules) {
 
   modules.slice(0, 5).forEach(m => {
     const isSynthetic = m.direction === "synthetic";
+    const isNeutral = !isSynthetic && m.direction !== "authentic"; // audit B7: neutral ≠ pass
+    const claim = String(m.claim || "");
+    const claimShort = (claim.length > 48 ? claim.slice(0, 48) + "…" : claim).replace(/</g, "&lt;");
     const div = document.createElement("div");
     div.className = "insight-item";
     div.innerHTML = `
       <div class="insight-left">
         <div>
           <div class="insight-name">${m.id}</div>
-          <div class="insight-desc">${(m.claim || "").slice(0, 48)}…</div>
+          <div class="insight-desc">${claimShort}</div>
         </div>
       </div>
-      <div class="insight-check" style="color:${isSynthetic ? 'var(--red)' : 'var(--teal)'}">
-        ${isSynthetic ? '⚠' : '✓'}
+      <div class="insight-check" style="color:${isSynthetic ? 'var(--red)' : isNeutral ? 'var(--txt-dim)' : 'var(--teal)'}">
+        ${isSynthetic ? '⚠' : isNeutral ? '·' : '✓'}
       </div>
     `;
     container.appendChild(div);
   });
 }
 
+window.__describeGen = 0;
 function triggerAnalystReport() {
   const fd = new FormData();
   fd.append("file", currentFile);
+  const gen = ++window.__describeGen; // audit B8: a late VLM answer must not talk over a newer artefact
   fetch("/api/explain", { method: "POST", body: fd })
     .then(r => r.ok ? r.json() : null)
     .then(x => {
-      if (x) {
+      if (x && gen === window.__describeGen) {
         document.getElementById("stageCurrentDesc").textContent = `Scene: ${x.scene || 'Inspected'} · ${x.unusual || 'No visual flaws'}`;
       }
     })
@@ -1942,6 +2245,8 @@ function triggerAnalystReport() {
 }
 
 /* ================= 8. HISTORY & CASE STRIP SYNCHRONIZATION ================= */
+// D-047 law: the ledger shows the EFFECTIVE verdict — a recovery overrides
+// status/trust/risk exactly as the backend does. No fabricated imagery: kind glyphs only.
 async function loadHistoryLedger() {
   try {
     const res = await fetch("/api/history?limit=12");
@@ -1957,23 +2262,39 @@ async function loadHistoryLedger() {
     railCases.innerHTML = "";
     tbody.innerHTML = "";
 
+    if (!history.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="color:var(--txt-dim)">— no verdicts on this court yet —</td></tr>`;
+      return;
+    }
+
     history.forEach((row, i) => {
       const pf = row.p_fake;
+      const rec = (row.recovery && (row.recovery.outcome === "recovered" || row.recovery.outcome === "needs_review")) ? row.recovery : null;
+      const effTrust = (rec && rec.trust != null) ? rec.trust : row.trust;
+      const effRisk = (rec && rec.risk != null) ? rec.risk : row.risk;
       const isFake = pf != null && pf >= 0.5;
-      const statusLabel = row.abstained ? "ABSTAIN" : (isFake ? "FAKE" : "REAL");
-      const statusCls = row.abstained ? "color:var(--gold)" : (isFake ? "color:var(--red)" : "color:var(--teal)");
+      let statusLabel, statusColor;
+      if (rec && rec.outcome === "recovered") { statusLabel = "RECOVERED"; statusColor = "var(--gold-bright)"; }
+      else if (rec && rec.outcome === "needs_review") { statusLabel = "REVIEW"; statusColor = "var(--gold)"; }
+      else if (row.abstained) { statusLabel = "ABSTAIN"; statusColor = "var(--gold)"; }
+      else if (isFake) { statusLabel = "FAKE"; statusColor = "var(--red)"; }
+      else { statusLabel = "REAL"; statusColor = "var(--teal)"; }
 
-      // Filmstrip item
+      const kindGlyph = String(row.kind || "?").slice(0, 3).toUpperCase();
+
+      // Filmstrip item — kind glyph, never a fabricated evidence image
       const film = document.createElement("div");
       film.className = "film-item" + (i === 0 ? " active" : "");
-      film.innerHTML = `<img src="/backdrop.jpg" alt="case">`;
+      film.title = (row.filename || "historical entry") + " · " + statusLabel;
+      film.innerHTML = `<span class="film-kind-glyph">${kindGlyph}</span>`;
       filmstrip.appendChild(film);
 
-      // Left rail thumbnail
+      // Left rail thumbnail — same law
       if (i < 5) {
         const cThumb = document.createElement("div");
         cThumb.className = "case-thumb-item" + (i === 0 ? " active" : "");
-        cThumb.innerHTML = `<img src="/backdrop.jpg" alt="case">`;
+        cThumb.title = (row.filename || "historical entry") + " · " + statusLabel;
+        cThumb.innerHTML = `<span class="rail-kind-glyph">${kindGlyph}</span>`;
         railCases.appendChild(cThumb);
       }
 
@@ -1982,15 +2303,21 @@ async function loadHistoryLedger() {
       const timeStr = new Date(row.ts * 1000).toLocaleTimeString();
       tr.innerHTML = `
         <td>${timeStr}</td>
-        <td>${row.filename || "—"}</td>
+        <td>${String(row.filename || "—").replace(/</g, "&lt;")}</td>
         <td>${row.kind}</td>
         <td>${pf != null ? (+pf).toFixed(3) : "––"}</td>
-        <td style="${statusCls};font-weight:bold">${statusLabel}</td>
-        <td>${(+row.trust).toFixed(2)}</td>
-        <td>${(+row.risk).toFixed(2)}</td>
+        <td style="color:${statusColor};font-weight:bold">${statusLabel}</td>
+        <td>${effTrust != null ? (+effTrust).toFixed(2) : "––"}</td>
+        <td>${effRisk != null ? (+effRisk).toFixed(2) : "––"}</td>
       `;
       tbody.appendChild(tr);
     });
+
+    // The CASE number comes from the ledger, never from Math.random
+    if (typeof currentVerdict !== "undefined" && currentVerdict && history[0] && history[0].filename === currentVerdict.filename) {
+      const caseIdEl = document.getElementById("bottomCaseId");
+      if (caseIdEl) caseIdEl.textContent = "CASE #" + history[0].id;
+    }
   } catch(e) {
     console.warn("Failed to load history:", e);
   }
@@ -2002,6 +2329,18 @@ const modalEvidence = document.getElementById("modalEvidence");
 const modalLedger = document.getElementById("modalLedger");
 const modalSettings = document.getElementById("modalSettings");
 
+// Keyboard-accessible modal law (audit B5): one opener helper — Escape closes any
+// open overlay, clicking the backdrop closes, close buttons are focusable on open.
+const closeEvidenceBtn = document.getElementById("closeEvidenceModal");
+const closeLedgerBtn = document.getElementById("closeLedgerModal");
+const closeSettingsBtn = document.getElementById("closeSettingsModal");
+[closeEvidenceBtn, closeLedgerBtn, closeSettingsBtn].forEach(el => { el.tabIndex = 0; });
+
+function openModalOverlay(modal, closeBtn) {
+  modal.style.display = "flex";
+  if (closeBtn) closeBtn.focus({ preventScroll: true });
+}
+
 document.getElementById("tabEvidence").addEventListener("click", () => {
   openEvidenceBreakdown();
 });
@@ -2010,71 +2349,131 @@ document.getElementById("btnRailReports").addEventListener("click", () => {
 });
 
 document.getElementById("tabLedger").addEventListener("click", () => {
-  modalLedger.style.display = "flex";
+  openModalOverlay(modalLedger, closeLedgerBtn);
 });
 document.getElementById("btnRailLedger").addEventListener("click", () => {
-  modalLedger.style.display = "flex";
+  openModalOverlay(modalLedger, closeLedgerBtn);
 });
 
 document.getElementById("btnSettings").addEventListener("click", () => {
-  modalSettings.style.display = "flex";
+  openModalOverlay(modalSettings, closeSettingsBtn);
 });
 document.getElementById("btnRailSettings").addEventListener("click", () => {
-  modalSettings.style.display = "flex";
+  openModalOverlay(modalSettings, closeSettingsBtn);
 });
 
 document.getElementById("closeEvidenceModal").addEventListener("click", () => modalEvidence.style.display = "none");
 document.getElementById("closeLedgerModal").addEventListener("click", () => modalLedger.style.display = "none");
 document.getElementById("closeSettingsModal").addEventListener("click", () => modalSettings.style.display = "none");
 
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  [[modalEvidence, closeEvidenceBtn], [modalLedger, closeLedgerBtn], [modalSettings, closeSettingsBtn]].forEach(([m, c]) => {
+    if (m.style.display === "flex") { m.style.display = "none"; if (c) c.blur(); }
+  });
+});
+[modalEvidence, modalLedger, modalSettings].forEach(m => {
+  m.addEventListener("pointerdown", e => {
+    if (e.target === m) m.style.display = "none";
+  });
+});
+
 // Alpha slider override
 document.getElementById("settingsAlphaSlider").addEventListener("input", e => {
   alphaTouched = true;
   const val = (+e.target.value).toFixed(2);
-  document.getElementById("alphaDesc").textContent = `Overridden: α=${val} (${val <= 0.15 ? 'Conservative' : val <= 0.25 ? 'Balanced' : 'Committed'})`;
+  document.getElementById("alphaDesc").textContent = `Overridden: α=${val} (${val <= 0.15 ? 'Conservative' : val < 0.30 ? 'Balanced' : 'Committed'})`;
 });
 
-function openEvidenceBreakdown() {
-  modalEvidence.style.display = "flex";
+function openEvidenceBreakdown(channelId) {
+  openModalOverlay(modalEvidence, closeEvidenceBtn);
   const body = document.getElementById("evidenceModalBody");
+  const titleEl = document.querySelector("#modalEvidence .modal-title");
   
   if (!currentVerdict || !currentVerdict.modules) {
+    if (titleEl) titleEl.textContent = "EVIDENCE & CHANNEL REPORT";
     body.innerHTML = `<p style="color:var(--txt-dim)">Submit an artefact to generate a detailed 11-channel breakdown report.</p>`;
     return;
   }
 
+  // M6 law: a deep-dive from a channel pill filters to THAT channel's truth
+  const mods = channelId ? currentVerdict.modules.filter(m => m.id === channelId) : currentVerdict.modules;
+  const shown = mods.length ? mods : currentVerdict.modules;
+  if (titleEl) titleEl.textContent = (channelId && mods.length)
+    ? "CHANNEL DEEP-DIVE — " + mods[0].id.toUpperCase()
+    : "EVIDENCE & CHANNEL REPORT — FULL 11-CHANNEL TELEMETRY";
+
+  // context block: the resting-state truth of this adjudication
+  const ctx = [];
+  if (currentVerdict.abstained) ctx.push("ABSTAINED — no confident verdict was issued");
+  if (currentVerdict.out_of_conflict) ctx.push("OUT OF CONFLICT — fused score is advisory (never overwritten)");
+  if (currentVerdict.hypotheses && currentVerdict.hypotheses.length) ctx.push("Hypotheses: " + currentVerdict.hypotheses.join(" · "));
+  const recx = currentVerdict.recovery;
+  if (recx && recx.outcome && recx.outcome !== "not_attempted") {
+    ctx.push("RECOVERY: " + String(recx.outcome).toUpperCase() +
+      (recx.trust != null ? " · trust " + recx.trust : "") + (recx.risk != null ? " · risk " + recx.risk : ""));
+  }
+  const ctxHtml = ctx.length
+    ? `<div style="grid-column:1/-1;font-size:10px;color:var(--txt-dim);border-top:1px dotted rgba(212,175,55,0.25);padding-top:10px;line-height:1.6">${ctx.map(c => "· " + String(c).replace(/</g, "&lt;")).join("<br>")}</div>`
+    : "";
+
   body.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      ${currentVerdict.modules.map(m => `
+      ${shown.map(m => `
         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <span style="font-family:'Space Grotesk';font-weight:700;color:var(--gold-bright)">${m.id}</span>
             <span style="color:${m.direction==='synthetic'?'var(--red)':'var(--teal)'};font-weight:bold">${m.direction.toUpperCase()}</span>
           </div>
-          <div style="font-size:11.5px;color:var(--txt);line-height:1.6">${m.claim || 'Evidence nominal'}</div>
+          <div style="font-size:11.5px;color:var(--txt);line-height:1.6">${(m.claim || 'Evidence nominal').replace(/</g, "&lt;")}</div>
           <div style="font-family:'JetBrains Mono';font-size:9.5px;color:var(--txt-dim);margin-top:8px">
             Evidence: ${m.evidence} · Reliability: ${m.reliability} · Confidence: ${m.confidence}
           </div>
         </div>
       `).join("")}
+      ${ctxHtml}
     </div>
   `;
 }
 
 function showChannelDeepDive(channelId) {
-  openEvidenceBreakdown();
+  openEvidenceBreakdown(channelId);
 }
 
-// Fetch health telemetry
+// Fetch health telemetry — one source of truth for court identity
 fetch("/api/health")
   .then(r => r.json())
   .then(h => {
     document.getElementById("sysStatusText").textContent = `Court ${h.status.toUpperCase()} · ${h.n_modules} Channels`;
+    const dotBox = document.getElementById("sysStatusText").closest(".badge-item");
+    if (dotBox) dotBox.classList.remove("offline");
+    ["stackerVerifiedTag", "probesOnlineTag"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.style.color = "var(--teal)"; el.textContent = id === "stackerVerifiedTag" ? "VERIFIED" : "ONLINE"; }
+    });
     document.getElementById("topChannelCount").textContent = h.n_modules;
     document.getElementById("settingsStackerName").textContent = h.stacker || "artifacts/p6v11";
+    const chip = document.getElementById("healthChip");
+    if (chip) chip.textContent = `court: ${h.status} · ${h.n_modules} channels · stacker ${h.stacker}`;
+    const alphaDesc = document.getElementById("alphaDesc");
+    if (alphaDesc && h.conformal_alpha != null) alphaDesc.textContent = `Court-calibrated α ${h.conformal_alpha} · override below`;
+    const foot = document.getElementById("verdictFooterNote");
+    if (foot) foot.textContent = `(i) Adjudicated by Stacker ${h.stacker}. Conformal α ${h.conformal_alpha} active. Truth leaves patterns.`;
+    const rel = document.getElementById("releaseTag");
+    if (rel) rel.textContent = `court ${h.stacker} · ${h.n_modules} channels`;
   })
   .catch(() => {
     document.getElementById("sysStatusText").textContent = "Court Offline";
+    const dotBox = document.getElementById("sysStatusText").closest(".badge-item");
+    if (dotBox) dotBox.classList.add("offline");
+    ["stackerVerifiedTag", "probesOnlineTag"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.style.color = "var(--amber)"; el.textContent = "UNKNOWN (NO TELEMETRY)"; }
+    });
+    const chip = document.getElementById("healthChip");
+    if (chip) chip.textContent = "court offline";
+    const rel = document.getElementById("releaseTag");
+    if (rel) rel.textContent = "court telemetry unavailable";
   });
 </script>
 </body>
