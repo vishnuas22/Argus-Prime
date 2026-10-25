@@ -162,6 +162,16 @@ html, body {
 }
 .tab-ic { font-size: 12px; }
 
+/* F9: inline stroke-glyph system — emoji purge — viewBox 24, 2px strokes, scales to 1em */
+svg.ic {
+  width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em;
+  fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; flex: none;
+}
+.ch-icon-circle svg { width: 11px; height: 11px; }
+.meta-label svg { width: 11px; height: 11px; }
+.btn-icon svg { width: 15px; height: 15px; display: block; }
+
 .telemetry-badges {
   display: flex; align-items: center; gap: 14px;
   font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
@@ -255,7 +265,7 @@ html, body {
   display: flex; flex-direction: column; gap: 12px; align-items: center; width: 100%;
 }
 .rail-btn {
-  width: 38px; height: 38px; border-radius: 8px;
+  width: 48px; height: 38px; border-radius: 8px;
   background: rgba(255,255,255,0.02);
   border: 1px solid transparent;
   color: var(--txt-dim);
@@ -263,13 +273,15 @@ html, body {
   font-size: 15px; cursor: pointer; transition: all 0.2s;
   position: relative;
 }
-.rail-btn span { font-size: 8px; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+.rail-btn .rail-ic { width: 15px; height: 15px; }
+.rail-btn .rail-ic svg { width: 15px; height: 15px; display: block; }
+.rail-btn .rail-lbl { font-size: 9.5px; font-family: 'JetBrains Mono', monospace; margin-top: 3px; line-height: 1; }
 .rail-btn:hover { color: var(--gold-bright); border-color: rgba(212,175,55,0.3); background: rgba(212,175,55,0.06); }
 .rail-btn.active { color: var(--gold-bright); border-color: var(--gold); background: rgba(212,175,55,0.12); box-shadow: 0 0 10px rgba(212,175,55,0.2); }
 
 .rail-motto {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 8px; font-weight: 700; letter-spacing: 0.35em;
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.35em;
   color: var(--txt-dimmer);
   writing-mode: vertical-rl; transform: rotate(180deg);
   margin-top: 10px;
@@ -481,12 +493,12 @@ html, body {
   font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: #fff;
 }
 .circle-val-text .lbl {
-  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: 0.15em; color: var(--txt-dim);
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.15em; color: var(--txt-dim);
 }
 
 .stage-info { flex: 1; }
 .stage-label {
-  font-family: 'JetBrains Mono', monospace; font-size: 8.5px; letter-spacing: 0.22em; color: var(--txt-dim);
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.22em; color: var(--txt-dim);
 }
 .stage-name {
   font-family: 'Space Grotesk', sans-serif; font-size: 11.5px; font-weight: 700;
@@ -547,8 +559,8 @@ html, body {
 /* honesty strip (restore of truth layer — D-047/scope caveats) */
 .verdict-notes {
   margin-top: 8px; display: none;
-  font-family: 'JetBrains Mono', monospace; font-size: 8.5px;
-  color: var(--txt-dim); line-height: 1.55; max-height: 120px; overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+  color: var(--txt-dim); line-height: 1.55; max-height: 122px; overflow-y: auto;
   border-top: 1px dotted rgba(212, 175, 55, 0.2); padding-top: 6px;
 }
 .verdict-notes::-webkit-scrollbar { width: 2px; }
@@ -557,9 +569,9 @@ html, body {
 .film-kind-glyph, .rail-kind-glyph {
   width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
   color: var(--txt-dim); font-family: 'JetBrains Mono', monospace;
-  font-size: 7px; font-weight: 600; letter-spacing: 0.08em;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.08em; /* 9px: cell-constrained (32×22 film chip) */
 }
-.rail-kind-glyph { font-size: 8px; }
+.rail-kind-glyph { font-size: 9.5px; }
 /* reduced motion: instrument stops, never dances (SC 2.2.2 / 2.3.3) */
 @media (prefers-reduced-motion: reduce) {
   #cockpitCanvas { transform: none; transition: none; }
@@ -582,7 +594,7 @@ html, body {
 
 .verdict-footer-note {
   margin-top: auto; padding-top: 8px;
-  font-family: 'JetBrains Mono', monospace; font-size: 8.5px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
   color: var(--txt-dimmer); line-height: 1.4;
 }
 
@@ -620,7 +632,7 @@ html, body {
   letter-spacing: 0.18em; color: #fff;
 }
 .matrix-sub {
-  font-size: 8px; color: var(--txt-dim); font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; color: var(--txt-dim); font-family: 'JetBrains Mono', monospace;
 }
 
 .channels-pills-row {
@@ -662,14 +674,14 @@ html, body {
 }
 @keyframes chSpin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
 .ch-num {
-  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; color: var(--txt-dim);
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--txt-dim);
 }
 .ch-name {
-  font-family: 'Space Grotesk', sans-serif; font-size: 8.5px; font-weight: 600;
+  font-family: 'Space Grotesk', sans-serif; font-size: 9.5px; font-weight: 600;
   color: var(--txt); white-space: nowrap;
 }
 .ch-status {
-  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 600;
   color: var(--txt-dim); margin-top: 1px;
 }
 .channel-pill.ok .ch-status { color: var(--teal); }
@@ -707,7 +719,7 @@ html, body {
   display: flex; gap: 4px;
 }
 .qtab {
-  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: 0.1em;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em;
   padding: 1px 5px; border-radius: 3px; color: var(--txt-dim); cursor: pointer;
 }
 .qtab.active {
@@ -727,12 +739,12 @@ html, body {
   width: 14px; margin-left: 6px; height: 100%; border-radius: 2px;
   background: linear-gradient(180deg, #ff0055 0%, #ffaa00 35%, #00ffaa 70%, #0066ff 100%);
   display: flex; flex-direction: column; justify-content: space-between;
-  font-family: 'JetBrains Mono', monospace; font-size: 6.5px; color: #fff;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #fff;
   padding: 2px 1px; text-shadow: 0 1px 2px #000;
 }
 .zoom-tag {
   position: absolute; bottom: 4px; right: 24px;
-  font-family: 'JetBrains Mono', monospace; font-size: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
   background: rgba(0,0,0,0.65); padding: 2px 5px; border-radius: 3px;
   border: 1px solid rgba(255,255,255,0.1); color: var(--txt-dim);
 }
@@ -746,7 +758,7 @@ html, body {
 }
 .spectral-legend {
   display: flex; justify-content: flex-end; gap: 8px;
-  font-family: 'JetBrains Mono', monospace; font-size: 7.5px; margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; margin-top: 4px;
 }
 .sleg-item { display: flex; align-items: center; gap: 3px; color: var(--txt-dim); }
 .sleg-dot { width: 5px; height: 5px; border-radius: 50%; }
@@ -761,11 +773,11 @@ html, body {
   display: flex; align-items: center; justify-content: space-between;
   padding: 3px 6px; border-radius: 4px;
   background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.03);
-  font-family: 'JetBrains Mono', monospace; font-size: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
 }
 .insight-left { display: flex; align-items: center; gap: 6px; }
 .insight-name { color: var(--txt); font-weight: 600; }
-.insight-desc { color: var(--txt-dim); font-size: 7.5px; }
+.insight-desc { color: var(--txt-dim); font-size: 9.5px; }
 .insight-check { color: var(--teal); font-weight: bold; }
 
 /* Panel 4: Evidence Preview & 400% Zoom Loupe */
@@ -785,13 +797,13 @@ html, body {
 #loupeCanvas { width: 100%; height: 100%; }
 .loupe-tag {
   position: absolute; top: 4px; left: 4px;
-  font-family: 'JetBrains Mono', monospace; font-size: 7.5px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
   background: rgba(0,0,0,0.7); color: var(--teal);
   padding: 1px 4px; border-radius: 2px;
 }
 .loupe-subtag {
   position: absolute; bottom: 4px; left: 4px; right: 4px;
-  font-family: 'JetBrains Mono', monospace; font-size: 6.5px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
   color: var(--txt-dim); text-align: center;
 }
 
@@ -956,16 +968,16 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
     </div>
     
     <nav class="nav-tabs">
-      <div class="nav-tab active" id="tabCourt"><span class="tab-ic">👁</span> COURT</div>
-      <div class="nav-tab" id="tabEvidence"><span class="tab-ic">⚡</span> EVIDENCE</div>
-      <div class="nav-tab" id="tabLedger"><span class="tab-ic">⛓</span> LEDGER</div>
+      <div class="nav-tab active" id="tabCourt"><span class="tab-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span> COURT</div>
+      <div class="nav-tab" id="tabEvidence"><span class="tab-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> EVIDENCE</div>
+      <div class="nav-tab" id="tabLedger"><span class="tab-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span> LEDGER</div>
     </nav>
     
     <div class="telemetry-badges">
       <div class="badge-item"><div class="live-dot"></div> <span id="sysStatusText">System Online</span><span id="healthChip" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0">court: ok · 11 channels</span></div>
       <div class="badge-item">Court: <span class="badge-val">01</span></div>
       <div class="badge-item">Channels: <span class="badge-val" id="topChannelCount">11</span></div>
-      <div class="btn-icon" id="btnSettings" title="Court Settings & Alpha Override">⚙</div>
+      <div class="btn-icon" id="btnSettings" title="Court Settings & Alpha Override"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
       <div class="user-tag">VD</div>
     </div>
   </header>
@@ -983,10 +995,10 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
     </div>
     
     <div class="rail-nav">
-      <div class="rail-btn active" id="btnRailAnalysis"><span>🔍</span><span>Analysis</span></div>
-      <div class="rail-btn" id="btnRailReports"><span>📄</span><span>Reports</span></div>
-      <div class="rail-btn" id="btnRailLedger"><span>⛓</span><span>Ledger</span></div>
-      <div class="rail-btn" id="btnRailSettings"><span>⚙</span><span>Config</span></div>
+      <div class="rail-btn active" id="btnRailAnalysis"><span class="rail-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></span><span class="rail-lbl">Analysis</span></div>
+      <div class="rail-btn" id="btnRailReports"><span class="rail-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span><span class="rail-lbl">Reports</span></div>
+      <div class="rail-btn" id="btnRailLedger"><span class="rail-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span><span class="rail-lbl">Ledger</span></div>
+      <div class="rail-btn" id="btnRailSettings"><span class="rail-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="rail-lbl">Config</span></div>
     </div>
     
     <div class="rail-motto">TRUTH LEAVES PATTERNS.</div>
@@ -1014,12 +1026,12 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       </div>
       
       <div class="meta-table">
-        <div class="meta-row"><span class="meta-label"><span>🧭</span> Route</span><span class="meta-val" id="mRoute">—</span></div>
-        <div class="meta-row"><span class="meta-label"><span>🧪</span> Degraded</span><span class="meta-val" id="mDegraded">—</span></div>
-        <div class="meta-row"><span class="meta-label"><span>⚖</span> Abstained</span><span class="meta-val" id="mAbstain">—</span></div>
-        <div class="meta-row"><span class="meta-label"><span>🩹</span> Recovery</span><span class="meta-val" id="mRecovery">—</span></div>
-        <div class="meta-row"><span class="meta-label"><span>🎞</span> Frames</span><span class="meta-val" id="mFrames">—</span></div>
-        <div class="meta-row"><span class="meta-label"><span>🔊</span> Audio Probe</span><span class="meta-val" id="mAudio">—</span></div>
+        <div class="meta-row"><span class="meta-label"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg> Route</span><span class="meta-val" id="mRoute">—</span></div>
+        <div class="meta-row"><span class="meta-label"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v4.5L4.9 16.5A2.5 2.5 0 0 0 7.2 20h9.6a2.5 2.5 0 0 0 2.3-3.5L14 7.5V3"/><path d="M7.6 13h8.8"/></svg> Degraded</span><span class="meta-val" id="mDegraded">—</span></div>
+        <div class="meta-row"><span class="meta-label"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg> Abstained</span><span class="meta-val" id="mAbstain">—</span></div>
+        <div class="meta-row"><span class="meta-label"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg> Recovery</span><span class="meta-val" id="mRecovery">—</span></div>
+        <div class="meta-row"><span class="meta-label"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2.18"/><path d="M7 2v20"/><path d="M17 2v20"/><path d="M2 12h20"/><path d="M2 7h5"/><path d="M2 17h5"/><path d="M17 17h5"/><path d="M17 7h5"/></svg> Frames</span><span class="meta-val" id="mFrames">—</span></div>
+        <div class="meta-row"><span class="meta-label"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Audio Probe</span><span class="meta-val" id="mAudio">—</span></div>
       </div>
       
       <div class="dossier-progress">
@@ -1044,7 +1056,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
         <img id="activeMediaDisplay" alt="Active Media Hologram" style="display:none">
         
         <div class="aperture-prompt" id="aperturePrompt">
-          <div class="ic-drop">👁</div>
+          <div class="ic-drop"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
           <h3>DROP ARTEFACT TO CONVENE COURT</h3>
           <p>IMAGE · VIDEO · AUDIO · ≤ 100 MB · NOTHING LEAVES MACHINE</p>
         </div>
@@ -1145,7 +1157,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
     <!-- 11 Channel Pill Row -->
     <div class="channel-matrix-strip">
       <div class="matrix-meta">
-        <div class="polyhedron-ic">💎</div>
+        <div class="polyhedron-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20"/><path d="M8.5 3L7 9l5 12"/><path d="M15.5 3L17 9l-5 12"/></svg></div>
         <div>
           <div class="matrix-title">11 FORENSIC CHANNELS</div>
           <div class="matrix-sub">Cross-verifying evidence across all physical & learned dimensions</div>
@@ -1173,8 +1185,8 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
         <div class="heatmap-view-container">
           <canvas id="heatmapCanvas"></canvas>
           <div class="heatmap-scale-bar">
-            <span>High</span>
-            <span>Low</span>
+            <span>H</span>
+            <span>L</span>
           </div>
           <div class="zoom-tag">VISUAL</div>
         </div>
@@ -1199,7 +1211,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       <div class="quad-panel">
         <div class="quad-head">
           <div class="quad-title">CHANNEL INSIGHTS</div>
-          <span style="font-size:8px;color:var(--teal)">SYNCHRONIZED</span>
+          <span style="font-size:9.5px;color:var(--teal)">SYNCHRONIZED</span>
         </div>
         <div class="insights-list" id="insightsList">
           <!-- Populated from backend modules claims -->
@@ -1210,7 +1222,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       <div class="quad-panel">
         <div class="quad-head">
           <div class="quad-title">EVIDENCE PREVIEW & 400% LOUPE</div>
-          <span style="font-size:8px;color:var(--txt-dim);cursor:pointer;" id="btnFullView">Full View →</span>
+          <span style="font-size:9.5px;color:var(--txt-dim);cursor:pointer;" id="btnFullView">Full View →</span>
         </div>
         <div class="preview-split-box">
           <div class="preview-mini-frame">
@@ -1249,7 +1261,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
 
     <div class="system-release-rail">
       <div class="mini-wave-anim"></div>
-      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop5 · 2026-10-25</span></span>
+      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop6 · 2026-10-25</span></span>
     </div>
   </footer>
 
@@ -1339,7 +1351,7 @@ const RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").m
 /* Build identity + stale-page guard (visual fix pass): a tab holding OLD JS must be
    visibly distinguishable from the served build. The stamp renders in the bottom
    colophon (#buildStamp); a persisted build mismatch raises a reload banner. */
-const BUILD_ID = "hop5-2026-10-25";
+const BUILD_ID = "hop6-2026-10-25";
 try {
   const __seenBuild = localStorage.getItem("argusBuild");
   const __showStaleBanner = () => {
@@ -1497,18 +1509,32 @@ try {
 
 /* ================= 3. STATE & DATA INITIALIZATION ================= */
 const CHANNELS_11 = [
-  { id: "metadata", num: "01", name: "Metadata", status: "OK", icon: "📋" },
-  { id: "compression_history", num: "02", name: "Compression", status: "OK", icon: "⚙" },
-  { id: "spectral_probe", num: "03", name: "Spectral", status: "OK", icon: "〰" },
-  { id: "real_distribution_probe", num: "04", name: "Real-Dist", status: "OK", icon: "🎯" },
-  { id: "perturbation_probe", num: "05", name: "Perturb", status: "OK", icon: "⚡" },
-  { id: "learned_aigc_probe", num: "06", name: "AIGC-Head", status: "OK", icon: "🤖" },
-  { id: "learned_face_probe", num: "07", name: "Face-Head", status: "OK", icon: "👤" },
-  { id: "learned_ffpp_probe", num: "08", name: "FF++-Head", status: "OK", icon: "🎭" },
-  { id: "learned_mj_probe", num: "09", name: "MJ-Head", status: "OK", icon: "🎨" },
-  { id: "learned_inversion_probe", num: "10", name: "Inversion", status: "OK", icon: "🔄" },
-  { id: "provenance_probe", num: "11", name: "Provenance", status: "OK", icon: "🛡" }
+  { id: "metadata", num: "01", name: "Metadata", status: "OK", icon: "clipboard" },
+  { id: "compression_history", num: "02", name: "Compression", status: "OK", icon: "sliders" },
+  { id: "spectral_probe", num: "03", name: "Spectral", status: "OK", icon: "wave" },
+  { id: "real_distribution_probe", num: "04", name: "Real-Dist", status: "OK", icon: "target" },
+  { id: "perturbation_probe", num: "05", name: "Perturb", status: "OK", icon: "zap" },
+  { id: "learned_aigc_probe", num: "06", name: "AIGC-Head", status: "OK", icon: "cpu" },
+  { id: "learned_face_probe", num: "07", name: "Face-Head", status: "OK", icon: "user" },
+  { id: "learned_ffpp_probe", num: "08", name: "FF++-Head", status: "OK", icon: "video" },
+  { id: "learned_mj_probe", num: "09", name: "MJ-Head", status: "OK", icon: "image" },
+  { id: "learned_inversion_probe", num: "10", name: "Inversion", status: "OK", icon: "cycle" },
+  { id: "provenance_probe", num: "11", name: "Provenance", status: "OK", icon: "shield" }
 ];
+/* F9: stroke-glyph map — emoji purge — `icon` keys above resolve here */
+const CHANNEL_ICONS = {
+  clipboard: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
+  sliders: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+  wave: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  target: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+  zap: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  cpu: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2"/><path d="M15 2v2"/><path d="M9 20v2"/><path d="M15 20v2"/><path d="M2 9h2"/><path d="M2 15h2"/><path d="M20 9h2"/><path d="M20 15h2"/></svg>',
+  user: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  video: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>',
+  image: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+  cycle: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+  shield: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+};
 
 let currentFile = null;
 let currentVerdict = null;
@@ -1545,7 +1571,7 @@ function renderChannelPills(activeModules = null) {
     div.className = cls + " ecard";
     div.tabIndex = 0; // audit B5: the channel matrix is keyboard reachable
     div.innerHTML = `
-      <div class="ch-icon-circle">${ch.icon}</div>
+      <div class="ch-icon-circle">${CHANNEL_ICONS[ch.icon] || ""}</div>
       <div class="ch-num">${ch.num} ${ch.name}</div>
       <div class="ch-status">${statusText}</div>
     `;
@@ -1698,7 +1724,7 @@ function drawSpectralCurve(pFake = 0.15) {
     const x = 30 + i * 55;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h - 14); ctx.stroke();
     ctx.fillStyle = "rgba(255,255,255,0.25)";
-    ctx.font = "8px 'JetBrains Mono', monospace";
+    ctx.font = "9.5px 'JetBrains Mono', monospace";
     ctx.fillText(tickVal + "nm", x - 12, h - 3);
   });
   
