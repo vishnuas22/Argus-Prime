@@ -27,7 +27,9 @@ os.environ["PATH"] = f"{WS/'tools'/'bin'}:{os.environ['PATH']}"
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from urllib.parse import urlparse
 
 DB = WS / "artifacts" / "verdicts.db"
 STATIC = WS / "web"
@@ -42,6 +44,28 @@ _CORS = os.environ.get("ARGUS_CORS_ORIGINS",
                        "http://127.0.0.1:8420,http://localhost:8420").split(",")
 app.add_middleware(CORSMiddleware, allow_origins=_CORS, allow_methods=["*"],
                    allow_headers=["*"])
+
+# F8 (hop7): cross-origin mutation reject — the court accepts mutators only from its
+# own origin. POST lanes are gated; GET lanes (health/history) stay open.
+# No Origin header => allow (curl, lane batteries and pinned probe suites all lack it).
+# Origin "null" (file:// sandbox) or a netloc mismatch with Host => 403 JSON.
+_MUTATION_PATHS = ("/api/detect", "/api/explain")
+
+@app.middleware("http")
+async def _origin_gate(request, call_next):
+    if request.method == "POST" and request.url.path in _MUTATION_PATHS:
+        origin = request.headers.get("origin")
+        if origin is not None:
+            o = urlparse(origin.strip())
+            same = o.scheme == "http" and \
+                   o.netloc.lower() == request.headers.get("host", "").lower()
+            if not same:
+                return JSONResponse({"detail": "cross-origin POST rejected"},
+                                    status_code=403)
+    return await call_next(request)
+
+# F7 (hop7): vendored three.js/gsap + fonts serve same-origin (zero CDN call-outs).
+app.mount("/vendor", StaticFiles(directory=STATIC / "vendor"), name="vendor")
 
 _state = {}
 

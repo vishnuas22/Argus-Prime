@@ -4,11 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARGUS PRIME — Digital Forensic Command Bridge</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.152.2/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<!-- F7/F11b (hop7): vendored assets, served same-origin — the page makes ZERO external
+     network calls (posture ruling: "NOTHING LEAVES MACHINE" is now literally true).
+     gsap stays sync (parse-time shim read); three.js is deferred — the hologram
+     boots at DOMContentLoaded, which fires after deferred scripts per spec. -->
+<link rel="preload" href="/vendor/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+<link rel="preload" href="/vendor/fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+<script src="/vendor/gsap.min.js" integrity="sha384-d+vyQ0dYcymoP8ndq2hW7FGC50nqGdXUEgoOUGxbbkAJwZqL7h+jKN0GGgn9hFDS"></script>
+<script defer src="/vendor/three.min.js" integrity="sha384-aUS0jUAjhhBFNPifgxTHTNcsZDqkbegLd/JKEhJzK3Lyg9nFF1PZ2J++mzKwd8Kz"></script>
 <style>
+/* F11b (hop7): vendored variable fonts — same-origin, zero external call-outs.
+   Variable woff2 cover the full wght axis; in-page weights in use: 400/500/600/700. */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url(/vendor/fonts/space-grotesk-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url(/vendor/fonts/jetbrains-mono-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 :root {
   --bg: #05060a;
   --panel-bg: rgba(9, 11, 16, 0.78);
@@ -34,7 +56,7 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--txt);
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: 'Space Grotesk', sans-serif; /* hop7: Inter purge — body joins the instrument stack */
   cursor: default;
 }
 
@@ -1261,7 +1283,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
 
     <div class="system-release-rail">
       <div class="mini-wave-anim"></div>
-      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop6 · 2026-10-25</span></span>
+      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop7 · 2026-10-25</span></span>
     </div>
   </footer>
 
@@ -1351,7 +1373,7 @@ const RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").m
 /* Build identity + stale-page guard (visual fix pass): a tab holding OLD JS must be
    visibly distinguishable from the served build. The stamp renders in the bottom
    colophon (#buildStamp); a persisted build mismatch raises a reload banner. */
-const BUILD_ID = "hop6-2026-10-25";
+const BUILD_ID = "hop7-2026-10-25";
 try {
   const __seenBuild = localStorage.getItem("argusBuild");
   const __showStaleBanner = () => {
@@ -1370,7 +1392,8 @@ try {
 </script>
 <script>
 /* ================= 1. THREE.JS CONCENTRIC HOLOGRAPHIC IRIS ================= */
-(function(){
+/* F12 (hop7): three.js is deferred — the hologram boots after it lands (DOMContentLoaded fires after deferred scripts per spec). */
+function bootHolo(){
   const cv = document.getElementById("holoCanvas");
   let renderer, scene, cam;
   let ring1, ring2, ring3, particleRing;
@@ -1473,7 +1496,10 @@ try {
   } catch(e) {
     console.warn("Three.js hologram fallback:", e);
   }
-})();
+}
+/* F12 (hop7): boot gate — DCL when still parsing, else immediate (hot-path safety). */
+if (document.readyState === "loading") addEventListener("DOMContentLoaded", bootHolo, { once: true });
+else bootHolo();
 
 /* ================= 2. RETICLE CURSOR INTERACTION ================= */
 (function(){
