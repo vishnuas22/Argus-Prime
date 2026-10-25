@@ -12,6 +12,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -24,7 +25,7 @@ sys.path.insert(0, str(WS / "integrations" / "Argus_Master" / "backend"))
 import os
 os.environ["PATH"] = f"{WS/'tools'/'bin'}:{os.environ['PATH']}"
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -44,6 +45,12 @@ app.add_middleware(CORSMiddleware, allow_origins=_CORS, allow_methods=["*"],
 
 _state = {}
 
+# Audit F2: the video lane's α bracket mutates a module global
+# (argus_detect.USER_ALPHA); two concurrent video requests could interleave
+# the bracket and cross-bind α. One lock serialises bracket + adjudication
+# (ordering, never silence).
+_VIDEO_ALPHA_LOCK = threading.Lock()
+
 
 def init_court():
     """Preload stacker + channel modules once (meta-driven, matches CLI).
@@ -53,6 +60,17 @@ def init_court():
     import joblib
     from argus_detect import build_modules, STACKER
     from triage import DegradationEstimator
+
+    # Audit F13: sweep stale request tempdirs (>1 h = crash debris) at
+    # startup — single-shot here, so nothing in-flight can be swept.
+    troot = Path(tempfile.gettempdir())
+    now_ts = time.time()
+    for d in troot.glob("argus_*"):
+        try:
+            if d.is_dir() and now_ts - d.stat().st_mtime > 3600:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
     mids = None
     feature_names = None
     conflict_p99 = None
@@ -81,6 +99,10 @@ def init_court():
         con.execute("ALTER TABLE verdicts ADD COLUMN recovery_json TEXT")
     except sqlite3.OperationalError:
         pass
+    # Audit F5: WAL + busy timeout — concurrent adjudications must never
+    # surface "database is locked" as a silently-lost ledger row (D-046).
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA busy_timeout=5000")
     con.commit()
     con.close()
 
@@ -94,8 +116,6 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
     from base import ImageContext
     from fusion import fuse
     from stacker_judge import StackerJudge
-    if alpha is not None:
-        fusion.conformal_set = functools.partial(fusion.conformal_set, alpha=alpha)
     modules = _state["modules"]
     tmp = Path(tempfile.mkdtemp(prefix="argus_api_"))
     art = Path(tempfile.mkdtemp(prefix="argus_art_"))
@@ -109,36 +129,45 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
                        sha256=hashlib.sha256(raw).hexdigest()[:16], fmt="png",
                        verdict_id=vid, artifact_dir=art, src_path=src,
                        original_raw=original_raw)
-    d = _state["estimator"].estimate(ctx)
-    outputs = [m.run(ctx, d) for m in modules]
-    judge = StackerJudge(_state["clf"], d.evidence_capacity, _state["mids"],
-                         feature_names=_state.get("feature_names"),
-                         conflict_p99=_state.get("conflict_p99"))
-    # B3: bind the stacker's own conformal alpha for THIS fuse call (only when
-    # no form α was provided — D-039: an explicit request always wins); no key
-    # in the artifact's meta => nothing saved/restored (no-op contract)
-    bind_alpha = None if alpha is not None else _state.get("conformal_alpha")
-    prev_conformal = fusion.conformal_set if bind_alpha is not None else None
-    if bind_alpha is not None:
-        fusion.conformal_set = functools.partial(prev_conformal, alpha=bind_alpha)
     try:
-        core, *_ = fuse(outputs, d, judge=judge)
+        d = _state["estimator"].estimate(ctx)
+        outputs = [m.run(ctx, d) for m in modules]
+        judge = StackerJudge(_state["clf"], d.evidence_capacity, _state["mids"],
+                             feature_names=_state.get("feature_names"),
+                             conflict_p99=_state.get("conflict_p99"))
+        detail = []
+        for mo in outputs:
+            if getattr(mo, "unavailable_reason", None):
+                continue
+            claim = ""
+            if mo.artifacts:
+                claim = mo.artifacts[0].checkable_claim or mo.artifacts[0].description
+            detail.append({"id": mo.module_id, "evidence": mo.evidence_score,
+                           "reliability": mo.reliability_score,
+                           "direction": mo.verdict_direction,
+                           "confidence": mo.confidence_score, "claim": claim})
+        # B3/D-039 + audit F3: BOTH α bindings under ONE save/restore umbrella —
+        # the operator form α wins; else the stacker meta α binds for THIS fuse
+        # call; module state is restored before returning either way (no
+        # operator-α pin, no partial-chain growth, no cross-request residue)
+        bind_alpha = None if alpha is not None else _state.get("conformal_alpha")
+        prev_conformal = None
+        if alpha is not None:
+            prev_conformal = fusion.conformal_set
+            fusion.conformal_set = functools.partial(prev_conformal, alpha=alpha)
+        elif bind_alpha is not None:
+            prev_conformal = fusion.conformal_set
+            fusion.conformal_set = functools.partial(prev_conformal, alpha=bind_alpha)
+        try:
+            core, *_ = fuse(outputs, d, judge=judge)
+        finally:
+            if prev_conformal is not None:
+                fusion.conformal_set = prev_conformal
     finally:
-        if prev_conformal is not None:
-            fusion.conformal_set = prev_conformal
-    detail = []
-    for mo in outputs:
-        if getattr(mo, "unavailable_reason", None):
-            continue
-        claim = ""
-        if mo.artifacts:
-            claim = mo.artifacts[0].checkable_claim or mo.artifacts[0].description
-        detail.append({"id": mo.module_id, "evidence": mo.evidence_score,
-                       "reliability": mo.reliability_score,
-                       "direction": mo.verdict_direction,
-                       "confidence": mo.confidence_score, "claim": claim})
-    shutil.rmtree(tmp, ignore_errors=True)
-    shutil.rmtree(art, ignore_errors=True)
+        # Audit F4: tempdirs are swept even when a court exception aborts the
+        # pass (previously only the straight-through path cleaned up)
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(art, ignore_errors=True)
     from argus_detect import STACKER
     from fusion import conflict_metric, gate
     survivors, _unavailable = gate(outputs, d)
@@ -240,7 +269,13 @@ def log_verdict(filename, kind, v, alpha):
 
 
 @app.post("/api/detect")
-async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
+async def detect(request: Request, file: UploadFile = File(...), alpha: float = Form(None)):
+    # Audit F6: refuse oversized BODIES before multipart buffering — a GB-scale
+    # POST would spool entirely to disk before the parsed part-size check could
+    # act. Slack covers multipart framing overhead.
+    _cl = request.headers.get("content-length", "")
+    if _cl.isdigit() and int(_cl) > MAX_UPLOAD + (1 << 20):
+        raise HTTPException(413, "file too large (100 MB court cap)")
     ext = Path(file.filename or "").suffix.lower()
     if getattr(file, "size", None) and file.size > MAX_UPLOAD:
         raise HTTPException(413, "file too large (100 MB court cap)")
@@ -291,14 +326,17 @@ async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
             import argus_detect as _ad
             # D-039: the form α wins on every sub-route of this call — the
             # faceless-video image court rebinds from the stacker's meta
-            # (argus_detect.USER_ALPHA state), so arm it for the duration
-            prev_USER_ALPHA = _ad.USER_ALPHA
-            _ad.USER_ALPHA = alpha if alpha is not None else _ad.USER_ALPHA
-            try:
-                # frame budget 5 for the API path by design (decision #4)
-                v = detect_video(tmp, 5)
-            finally:
-                _ad.USER_ALPHA = prev_USER_ALPHA
+            # (argus_detect.USER_ALPHA state), so arm it for the duration.
+            # Audit F2: the bracket mutates a module global; serialise it on
+            # _VIDEO_ALPHA_LOCK so concurrent video requests never interleave.
+            with _VIDEO_ALPHA_LOCK:
+                prev_USER_ALPHA = _ad.USER_ALPHA
+                _ad.USER_ALPHA = alpha if alpha is not None else _ad.USER_ALPHA
+                try:
+                    # frame budget 5 for the API path by design (decision #4)
+                    v = detect_video(tmp, 5)
+                finally:
+                    _ad.USER_ALPHA = prev_USER_ALPHA
             kind = "video"
             # honesty fields (Phase 5): trust/risk/route come from detect_video —
             # never hardcoded here (D-035 lesson: hardcoded trust is silent
@@ -329,11 +367,15 @@ async def detect(file: UploadFile = File(...), alpha: float = Form(None)):
 
 
 @app.post("/api/explain")
-async def explain(file: UploadFile = File(...)):
+async def explain(request: Request, file: UploadFile = File(...)):
     """Layer-1 explanation engine: neutral VLM narration of an image (D-031).
 
     Not evidence — the court never sees this. Human-readable observations
     attached to an already-rendered verdict. Cached by image hash."""
+    # Audit F6: same early body-cap precheck as /api/detect.
+    _cl = request.headers.get("content-length", "")
+    if _cl.isdigit() and int(_cl) > MAX_UPLOAD + (1 << 20):
+        raise HTTPException(413, "file too large (100 MB cap)")
     ext = Path(file.filename or "").suffix.lower()
     if ext not in IMAGE_EXTS:
         raise HTTPException(400, "explain supports images only")

@@ -1249,7 +1249,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
 
     <div class="system-release-rail">
       <div class="mini-wave-anim"></div>
-      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop3 · 2026-10-21</span></span>
+      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop5 · 2026-10-25</span></span>
     </div>
   </footer>
 
@@ -1339,7 +1339,7 @@ const RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").m
 /* Build identity + stale-page guard (visual fix pass): a tab holding OLD JS must be
    visibly distinguishable from the served build. The stamp renders in the bottom
    colophon (#buildStamp); a persisted build mismatch raises a reload banner. */
-const BUILD_ID = "hop3-2026-10-21";
+const BUILD_ID = "hop5-2026-10-25";
 try {
   const __seenBuild = localStorage.getItem("argusBuild");
   const __showStaleBanner = () => {
@@ -1989,8 +1989,28 @@ async function convene_body() {
     console.error("Court deliberation error:", err);
     // H4 law: a refusal is NOT a fake-lane verdict — abstain styling, verbatim
     // server detail, and a status that unsticks itself.
+    // Audit F1: a TRANSPORT failure (no server response at all) is not a
+    // refusal either — it renders its own truthful lane; the artefact stays
+    // armed and a retry is legitimate (T9RR-proven).
     const headline = document.getElementById("verdictHeadline");
     headline.className = "verdict-headline abstain";
+    if (err instanceof TypeError && err.message === "Failed to fetch") {
+      document.getElementById("verdictText").textContent = "COURT UNREACHABLE — NETWORK DROPPED";
+      document.getElementById("verdictConfidenceTag").textContent = "NO TRANSPORT — NO RULING";
+      document.getElementById("confNumVal").textContent = "––";
+      document.getElementById("confBarFill").style.width = "0%";
+      document.getElementById("progPercentNum").textContent = "0%";
+      document.getElementById("progRatio").textContent = "0/11";
+      document.getElementById("dossierStatusText").textContent = "Court unreachable";
+      document.getElementById("stageStatusTag").textContent = "TRANSPORT FAILED";
+      document.getElementById("stageStatusSub").textContent = "THE ARTEFACT REMAINS ARMED — PRESS (+) TO RETRY";
+      const notesO = document.getElementById("notes");
+      notesO.style.display = "block";
+      notesO.textContent = "· transport: the browser could not reach the court. No request reached the bench — no server detail exists.";
+      renderChannelPills(null);
+      renderInsightsList([]);
+      quadsNoStills("TRANSPORT — NO EVIDENCE PANEL", "Network dropped — the deck carries no evidence panel");
+    } else {
     document.getElementById("verdictText").textContent = "REFUSED BY THE COURT";
     document.getElementById("verdictConfidenceTag").textContent = "NO VERDICT — OBJECTION";
     document.getElementById("confNumVal").textContent = "––";
@@ -2007,6 +2027,7 @@ async function convene_body() {
     renderChannelPills(null);
     renderInsightsList([]);
     quadsNoStills("OBJECTION — NO EVIDENCE PANEL", "Objection sustained — the deck carries no evidence panel");
+    }
   } finally {
     if (go) go.disabled = false;
     if (window.__setApertureScanSpeed) window.__setApertureScanSpeed(1.0);
