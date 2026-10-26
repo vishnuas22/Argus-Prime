@@ -8,21 +8,15 @@
      network calls (posture ruling: "NOTHING LEAVES MACHINE" is now literally true).
      gsap stays sync (parse-time shim read); three.js is deferred — the hologram
      boots at DOMContentLoaded, which fires after deferred scripts per spec. -->
-<link rel="preload" href="/vendor/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous">
 <link rel="preload" href="/vendor/fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous">
 <script src="/vendor/gsap.min.js" integrity="sha384-d+vyQ0dYcymoP8ndq2hW7FGC50nqGdXUEgoOUGxbbkAJwZqL7h+jKN0GGgn9hFDS"></script>
 <script defer src="/vendor/three.min.js" integrity="sha384-aUS0jUAjhhBFNPifgxTHTNcsZDqkbegLd/JKEhJzK3Lyg9nFF1PZ2J++mzKwd8Kz"></script>
 <style>
-/* F11b (hop7): vendored variable fonts — same-origin, zero external call-outs.
-   Variable woff2 cover the full wght axis; in-page weights in use: 400/500/600/700. */
-@font-face {
-  font-family: 'Space Grotesk';
-  font-style: normal;
-  font-weight: 300 700;
-  font-display: swap;
-  src: url(/vendor/fonts/space-grotesk-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
+/* F11b (hop7) + hop8: JetBrains Mono stays vendored variable for data/telemetry.
+   Display/UI voice (hop8, user ruling): the operator-system stack — on the macOS-only
+   operator machine this renders true SF Pro natively (Apple-website look), zero vendored
+   bytes, zero external calls; CSS references install-installed fonts, it does not
+   redistribute them (Apple SF-embedding EULA unbreached — no Apple font file ships). */
 @font-face {
   font-family: 'JetBrains Mono';
   font-style: normal;
@@ -56,7 +50,7 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--txt);
-  font-family: 'Space Grotesk', sans-serif; /* hop7: Inter purge — body joins the instrument stack */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; /* hop8: Apple-website voice — SF Pro on the operator's macOS */
   cursor: default;
 }
 
@@ -155,7 +149,7 @@ html, body {
 }
 @keyframes irisPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(0.85); opacity:0.8;} }
 .brand-title {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-weight: 700; font-size: 14px; letter-spacing: 0.35em;
   color: #fff; text-shadow: 0 0 12px rgba(255,255,255,0.3);
 }
@@ -212,7 +206,7 @@ svg.ic {
 .badge-val { color: var(--txt); font-weight: 600; }
 /* audit B9: a dead court's dot must not pulse teal; B5: keyboard reach focus rings */
 .badge-item.offline .live-dot { background: var(--txt-dimmer); box-shadow: none; animation: none; }
-.modal-close:focus-visible, .channel-pill:focus-visible, .qtab:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+.modal-close:focus-visible, .channel-pill:focus-visible, .qtab:focus-visible, button:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
 .btn-icon {
   width: 28px; height: 28px; border-radius: 4px;
   background: rgba(255,255,255,0.04);
@@ -223,7 +217,7 @@ svg.ic {
 }
 .btn-icon:hover { border-color: var(--gold); color: var(--gold); }
 .user-tag {
-  font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 11px; font-weight: 700;
   width: 28px; height: 28px; border-radius: 50%;
   background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.1));
   border: 1px solid var(--gold);
@@ -252,7 +246,7 @@ svg.ic {
   background: linear-gradient(135deg, rgba(212,175,55,0.22), rgba(212,175,55,0.08));
   border: 1px solid rgba(212,175,55,0.45);
   color: var(--gold-bright);
-  font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 10px; font-weight: 700;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   cursor: pointer; transition: all 0.25s;
 }
@@ -302,7 +296,7 @@ svg.ic {
 .rail-btn.active { color: var(--gold-bright); border-color: var(--gold); background: rgba(212,175,55,0.12); box-shadow: 0 0 10px rgba(212,175,55,0.2); }
 
 .rail-motto {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.35em;
   color: var(--txt-dimmer);
   writing-mode: vertical-rl; transform: rotate(180deg);
@@ -343,7 +337,7 @@ svg.ic {
   padding-bottom: 8px;
 }
 .hud-title {
-  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 12px; font-weight: 700;
   letter-spacing: 0.22em; color: #fff;
   display: flex; align-items: center; gap: 8px;
 }
@@ -376,7 +370,7 @@ svg.ic {
 .file-thumb-mini img { width: 100%; height: 100%; object-fit: cover; }
 .file-details { flex: 1; min-width: 0; }
 .file-name {
-  font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 12px; font-weight: 600;
   color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .file-sub {
@@ -427,30 +421,39 @@ svg.ic {
   text-shadow: 0 0 8px var(--gold-glow);
 }
 .hologram-viewport {
-  position: relative;
-  width: 380px; height: 230px;
+  /* hop8 (user defect #4): position and size are OWNED BY MATH — alignAperture()
+     projects the ring-system centre (world 0,0.38,0) through the live camera and
+     lays the aperture at exactly that point, sized to sit inside the innermost
+     ring — the holographic rings literally frame/eye the artefact. The init
+     dimensions below are the pre-alignment default only. */
+  position: absolute;
+  width: 341px; height: 206px;
   border-radius: 14px;
   border: 1.5px solid rgba(212, 175, 55, 0.5);
   box-shadow: 0 0 45px rgba(212, 175, 55, 0.25), inset 0 0 25px rgba(212, 175, 55, 0.15);
   overflow: hidden;
   background: rgba(6, 8, 12, 0.7);
   backdrop-filter: blur(8px);
-  transform: rotateX(8deg) translateY(-8px);
   cursor: pointer;
-  transition: all 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transform: none;
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2), border-color 0.35s, box-shadow 0.35s;
 }
 .hologram-viewport:hover {
+  /* depth is hover ornament only — evidence reads flat at rest (hop8 law) */
   border-color: var(--gold-bright);
   box-shadow: 0 0 60px rgba(212, 175, 55, 0.45), inset 0 0 35px rgba(212, 175, 55, 0.25);
-  transform: rotateX(4deg) translateY(-14px) scale(1.02);
+  transform: rotateX(3deg) scale(1.02);
 }
 .hologram-viewport.dragover {
   border-color: var(--teal);
   box-shadow: 0 0 70px var(--teal-glow);
-  transform: rotateX(0deg) scale(1.04);
+  transform: scale(1.04);
 }
 #activeMediaDisplay {
-  width: 100%; height: 100%; object-fit: cover; display: block;
+  /* hop8 forensic-integrity law: CONTAIN, never cover — an exhibit must never
+     be cropped out of view by its own display; letterbox, not crop */
+  width: 100%; height: 100%; object-fit: contain; display: block;
+  background: radial-gradient(ellipse at center, rgba(15, 20, 28, 0.9), rgba(6, 8, 12, 0.95));
 }
 .viewport-bracket {
   position: absolute; width: 14px; height: 14px;
@@ -463,30 +466,48 @@ svg.ic {
 .bracket-br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
 
 .aperture-prompt {
-  position: absolute; inset: 0;
+  position: absolute; inset: 24px 10px 40px; /* hop8: bounded — straddled HUD bands own the edges */
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: rgba(5,7,12,0.65);
   transition: opacity 0.3s;
+  border-radius: 10px;
 }
 .aperture-prompt .ic-drop {
-  font-size: 32px; color: var(--gold-bright);
+  font-size: 26px; color: var(--gold-bright);
   filter: drop-shadow(0 0 14px var(--gold));
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .aperture-prompt h3 {
-  font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 13px; font-weight: 600;
   letter-spacing: 0.2em; color: #fff;
+  line-height: 1.5;
+  text-align: center;
 }
 .aperture-prompt p {
   font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
   color: var(--txt-dim); margin-top: 4px;
+  text-align: center;
+  line-height: 1.7;
 }
 
 .stage-status-bar {
-  margin-top: 14px;
+  /* hop8: aperture HUD top band — plated readout STRADDLING the aperture's top
+     edge (camera-UI pattern): mostly outside the frame so the drop prompt owns
+     the full interior at every viewport. Read-only, pointer-transparent. */
+  position: absolute; top: 0; left: 50%;
+  transform: translate(-50%, -55%);
   text-align: center;
   font-family: 'JetBrains Mono', monospace;
+  pointer-events: none;
+  z-index: 6;
+  background: rgba(6, 8, 12, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 5px 14px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(212, 175, 55, 0.14);
 }
+.stage-status-tag, .stage-status-sub { white-space: nowrap; }
 .stage-status-tag {
   font-size: 10px; font-weight: 700; letter-spacing: 0.35em;
   color: var(--gold-bright);
@@ -512,7 +533,7 @@ svg.ic {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .circle-val-text .num {
-  font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: #fff;
 }
 .circle-val-text .lbl {
   font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.15em; color: var(--txt-dim);
@@ -523,7 +544,7 @@ svg.ic {
   font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.22em; color: var(--txt-dim);
 }
 .stage-name {
-  font-family: 'Space Grotesk', sans-serif; font-size: 11.5px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 11.5px; font-weight: 700;
   letter-spacing: 0.12em; color: var(--gold-bright); margin: 2px 0 4px;
 }
 .stage-desc {
@@ -547,8 +568,8 @@ svg.ic {
 }
 .verdict-headline {
   display: flex; align-items: center; gap: 8px;
-  font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700;
-  letter-spacing: 0.16em;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 14px; font-weight: 600;
+  letter-spacing: 0.16em; /* uppercase instrument label — Apple's positive-tracking ladder top */
 }
 .verdict-dot {
   width: 9px; height: 9px; border-radius: 50%;
@@ -587,13 +608,21 @@ svg.ic {
 }
 .verdict-notes::-webkit-scrollbar { width: 2px; }
 .verdict-notes::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.25); }
-/* kind glyphs for history thumbs (no fabricated evidence imagery) */
-.film-kind-glyph, .rail-kind-glyph {
-  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-  color: var(--txt-dim); font-family: 'JetBrains Mono', monospace;
-  font-size: 9px; font-weight: 600; letter-spacing: 0.08em; /* 9px: cell-constrained (32×22 film chip) */
+/* hop8 kind chips: SVG stroke glyphs + 3px verdict tick (no fabricated evidence
+   imagery — abstract kind icons are not evidence imagery; law unchanged) */
+.rail-kind-chip, .film-kind-chip {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--txt-dim); opacity: 0.75;
 }
-.rail-kind-glyph { font-size: 9.5px; }
+.rail-kind-chip .ic { width: 15px; height: 15px; }
+.film-kind-chip .ic { width: 11px; height: 11px; }
+.case-thumb-item.active .rail-kind-chip,
+.film-item.active .film-kind-chip { color: var(--gold); opacity: 1; }
+.thumb-status-tick {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  z-index: 2;
+}
 /* reduced motion: instrument stops, never dances (SC 2.2.2 / 2.3.3) */
 @media (prefers-reduced-motion: reduce) {
   #cockpitCanvas { transform: none; transition: none; }
@@ -650,7 +679,7 @@ svg.ic {
   font-size: 13px; color: var(--gold-bright);
 }
 .matrix-title {
-  font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 11px; font-weight: 700;
   letter-spacing: 0.18em; color: #fff;
 }
 .matrix-sub {
@@ -699,7 +728,7 @@ svg.ic {
   font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--txt-dim);
 }
 .ch-name {
-  font-family: 'Space Grotesk', sans-serif; font-size: 9.5px; font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 9.5px; font-weight: 600;
   color: var(--txt); white-space: nowrap;
 }
 .ch-status {
@@ -734,7 +763,7 @@ svg.ic {
   padding-bottom: 4px;
 }
 .quad-title {
-  font-family: 'Space Grotesk', sans-serif; font-size: 9.5px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 9.5px; font-weight: 700;
   letter-spacing: 0.18em; color: var(--txt-dim);
 }
 .quad-subtabs {
@@ -842,8 +871,14 @@ svg.ic {
 .case-badge-rail {
   display: flex; align-items: center; gap: 8px; color: var(--txt-dim);
 }
+#bottomCaseDesc {
+  /* hop8: long exhibit names must never wrap the footer — ellipsis, full name stays
+     in the tray badge + dossier */
+  display: inline-block; max-width: 340px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
 .case-id-strong {
-  font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #fff; font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-weight: 700; color: #fff; font-size: 11px;
 }
 
 .scrubber-zone {
@@ -865,36 +900,55 @@ svg.ic {
 }
 .film-item img { width: 100%; height: 100%; object-fit: cover; }
 
-.tactile-dial-box {
-  position: relative; width: 36px; height: 36px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-}
-.tactile-dial-ring {
-  position: absolute; inset: 0; border-radius: 50%;
-  border: 1.5px solid var(--gold);
-  box-shadow: 0 0 12px var(--gold-glow), inset 0 0 6px var(--gold-glow);
-  transition: transform 0.4s;
+/* hop8 convene-cta law: the single labelled CTA for convening the court, docked
+   INSIDE the ring-locked aperture (camera-shutter pattern). Standby = dim; .armed
+   = bright breathing summons (the artefact awaits the judge — unmissable, per the
+   user's "couldn't find the court running button" defect). Enter/Space activate
+   when enabled (keyboard parity). Dock is pointer-transparent; only the pill
+   captures clicks (the drop zone remains open everywhere else on the aperture). */
+.aperture-cta-dock {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  transform: translateY(50%); /* straddle: pill half over the aperture's quiet letterbox band, half below the frame */
+  display: flex; justify-content: center;
+  z-index: 6;
   pointer-events: none;
 }
-.tactile-dial-box:hover .tactile-dial-ring { transform: rotate(45deg) scale(1.08); }
-/* armed-dial law (visual fix pass): when an artefact awaits the judge, the REAL
-   convene dial announces itself — no hunting for the small + in the transport bar */
-.tactile-dial-box.armed .tactile-dial-ring {
+.convene-cta {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 20px 9px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: linear-gradient(180deg, rgba(20, 16, 8, 0.96), rgba(10, 9, 6, 0.94));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--txt-dim); cursor: pointer;
+  transition: border-color 0.25s, box-shadow 0.25s, color 0.25s;
+}
+.convene-cta .cta-ic { width: 16px; height: 16px; display: flex; }
+.convene-cta .cta-ic svg { width: 16px; height: 16px; display: block; fill: currentColor; stroke: none; }
+.convene-cta .cta-txt { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1; }
+.convene-cta .cta-label { font-size: 12px; font-weight: 600; letter-spacing: 0.18em; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+.convene-cta .cta-sub { font-size: 9.5px; font-weight: 500; letter-spacing: 0.14em; color: var(--txt-dimmer); font-family: 'JetBrains Mono', monospace; }
+.convene-cta:disabled { opacity: 0.55; cursor: default; }
+.convene-cta:not(:disabled):hover {
+  border-color: var(--gold);
+  box-shadow: 0 0 18px var(--gold-glow);
+}
+/* armed summons: bright, breathing — cannot be missed */
+.convene-cta.armed {
   border-color: var(--gold-bright);
-  box-shadow: 0 0 22px var(--gold-glow), 0 0 44px var(--gold-glow), inset 0 0 10px var(--gold-glow);
+  color: #ffe9b0;
+  box-shadow: 0 0 22px var(--gold-glow), 0 0 44px rgba(212, 175, 55, 0.22), inset 0 0 12px rgba(212, 175, 55, 0.15);
+  animation: cta-pulse 2.2s ease-in-out infinite;
 }
-.tactile-dial-box.armed .tactile-center-btn {
-  background: radial-gradient(circle, #ffd766 20%, var(--gold) 100%);
-  box-shadow: 0 0 16px var(--gold-glow);
+.convene-cta.armed .cta-ic svg { fill: var(--gold-bright); }
+.convene-cta.armed .cta-sub { color: var(--gold); }
+@keyframes cta-pulse {
+  0%, 100% { box-shadow: 0 0 22px var(--gold-glow), 0 0 44px rgba(212, 175, 55, 0.22), inset 0 0 12px rgba(212, 175, 55, 0.15); }
+  50% { box-shadow: 0 0 30px var(--gold-glow), 0 0 60px rgba(212, 175, 55, 0.34), inset 0 0 16px rgba(212, 175, 55, 0.2); }
 }
-.tactile-center-btn {
-  position: relative; z-index: 2;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: radial-gradient(circle, var(--gold-bright) 20%, #7d601b 100%);
-  display: flex; align-items: center; justify-content: center;
-  color: #0c0903; font-weight: bold; font-size: 13px;
-}
+@media (prefers-reduced-motion: reduce) { .convene-cta.armed { animation: none; } }
 
 .system-release-rail {
   display: flex; align-items: center; gap: 12px; color: var(--txt-dimmer); font-size: 9px;
@@ -926,7 +980,7 @@ svg.ic {
   display: flex; justify-content: space-between; align-items: center;
 }
 .modal-title {
-  font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
   letter-spacing: 0.2em; color: var(--gold-bright);
 }
 .modal-close {
@@ -1082,11 +1136,24 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
           <h3>DROP ARTEFACT TO CONVENE COURT</h3>
           <p>IMAGE · VIDEO · AUDIO · ≤ 100 MB · NOTHING LEAVES MACHINE</p>
         </div>
-      </div>
-      
-      <div class="stage-status-bar">
-        <div class="stage-status-tag" id="stageStatusTag">COURT IN SESSION</div>
-        <div class="stage-status-sub" id="stageStatusSub">11 FORENSIC CHANNELS · READY FOR ARTEFACT</div>
+
+        <!-- hop8 aperture HUD cluster: status readout (top band) + the real convene
+             CTA (bottom band, camera-shutter pattern). Both live INSIDE the
+             ring-locked aperture — they inherit its alignment for free, and the
+             armed summons pulse happens inside the iris where it belongs. -->
+        <div class="stage-status-bar">
+          <div class="stage-status-tag" id="stageStatusTag">COURT IN SESSION</div>
+          <div class="stage-status-sub" id="stageStatusSub">11 CHANNELS · READY FOR ARTEFACT</div>
+        </div>
+        <div class="aperture-cta-dock">
+          <button id="go" class="convene-cta" disabled title="Convene the Court (Enter)">
+            <span class="cta-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+            <span class="cta-txt">
+              <span class="cta-label">CONVENE COURT</span>
+              <span class="cta-sub" id="ctaSub">STANDBY · NO ARTEFACT ON STAGE</span>
+            </span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -1274,16 +1341,12 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       <div class="filmstrip-strip" id="bottomFilmstrip">
         <!-- Filmstrip items -->
       </div>
-      <div class="tactile-dial-box" id="btnConveneDial" title="Click to Convene Court / Trigger Detection">
-        <div class="tactile-dial-ring"></div>
-        <button id="go" class="tactile-center-btn" disabled style="border:none;cursor:pointer"><span>+</span></button>
-      </div>
       <span class="scrubber-arrow" id="btnScrubNext">▶</span>
     </div>
 
     <div class="system-release-rail">
       <div class="mini-wave-anim"></div>
-      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop7 · 2026-10-25</span></span>
+      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop8 · 2026-10-26</span></span>
     </div>
   </footer>
 
@@ -1373,7 +1436,7 @@ const RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").m
 /* Build identity + stale-page guard (visual fix pass): a tab holding OLD JS must be
    visibly distinguishable from the served build. The stamp renders in the bottom
    colophon (#buildStamp); a persisted build mismatch raises a reload banner. */
-const BUILD_ID = "hop7-2026-10-25";
+const BUILD_ID = "hop8-2026-10-26";
 try {
   const __seenBuild = localStorage.getItem("argusBuild");
   const __showStaleBanner = () => {
@@ -1409,9 +1472,48 @@ function bootHolo(){
       renderer.setSize(window.innerWidth, window.innerHeight);
       cam.aspect = window.innerWidth / window.innerHeight;
       cam.updateProjectionMatrix();
+      alignAperture();
     }
     window.addEventListener("resize", resize);
     resize();
+
+    /* hop8 (user defect #4): alignAperture() — the evidence aperture is positioned
+       by PROJECTION MATH, not by eye. Cam is the fixed instrument: PerspectiveCamera
+       (55°) at (0,0,7.5) looking −z (verified: no lookAt/rotation); the whole ring
+       system (r 1.95/2.15/2.35 + spokes + particles) orbits world (0, 0.38, 0).
+       Analytic projection of that centre: view z −7.5 → ndcY = 0.38/(tan(27.5°)·7.5)
+       → window centre (W/2, H·(0.5 − ndcY/2)). Aperture is inscribed inside the
+       INNERMOST ring (tilted π/12 ⇒ its projected vertical semi-axis binds) with an
+       8% margin; re-aligned on resize AND via ResizeObserver (late reflows included).
+       Note: Vector3.project() was replaced — at init time the camera's
+       matrixWorldInverse is still identity (renderer has not rendered yet), the
+       ring plane clips at w=0 → NaN (caught by the hop8 probe). */
+    function alignAperture() {
+      const vp = document.getElementById("hologramViewport");
+      if (!vp || !vp.parentElement) return;
+      const stageRect = vp.parentElement.getBoundingClientRect();
+      const ndcY = 0.38 / (Math.tan(THREE.MathUtils.degToRad(55 / 2)) * 7.5);
+      const cx = window.innerWidth / 2 - stageRect.left;
+      const cy = window.innerHeight * (0.5 - ndcY / 2) - stageRect.top;
+      const halfH = Math.tan(THREE.MathUtils.degToRad(55 / 2)) * 7.5;
+      const vertSemi = (1.95 / halfH) * (window.innerHeight / 2) * Math.cos(Math.PI / 12);
+      const unitDiag = Math.hypot(190, 115); // half-diagonal of the 380×230 instrument aspect
+      const k = (vertSemi * 0.92) / unitDiag;
+      const w = Math.round(380 * k), h = Math.round(230 * k);
+      vp.style.width = w + "px";
+      vp.style.height = h + "px";
+      vp.style.left = Math.round(cx - w / 2) + "px";
+      vp.style.top = Math.round(cy - h / 2) + "px";
+      // instrument honesty: the stage coordinates row reports the live lock truth
+      const lat = document.getElementById("coordLat");
+      const lon = document.getElementById("coordLon");
+      if (lat) lat.textContent = "APERTURE LOCK";
+      if (lon) lon.textContent = "RING Δ " + Math.round(cx) + "·" + Math.round(cy) + " PX";
+    }
+    if (window.ResizeObserver) {
+      new ResizeObserver(alignAperture).observe(document.getElementById("apertureDropzone"));
+    }
+    window.addEventListener("load", alignAperture);
     
     // Ring 1: Outer bronze/gold notched ring
     const gRing1 = new THREE.TorusGeometry(2.35, 0.02, 16, 120);
@@ -1521,7 +1623,7 @@ else bootHolo();
   }
   requestAnimationFrame(loop);
 
-  document.querySelectorAll("button, a, .channel-pill, .qtab, .hologram-viewport, .case-thumb-item, .tactile-dial-box").forEach(el => {
+  document.querySelectorAll("button, a, .channel-pill, .qtab, .hologram-viewport, .case-thumb-item, .convene-cta").forEach(el => {
     el.addEventListener("pointerenter", () => {
       ret.style.width = "46px"; ret.style.height = "46px";
       ret.style.borderColor = "var(--gold-bright)";
@@ -1842,7 +1944,7 @@ function resetVerdictPanelArmed() {
   resetVerdictPanel();
   // CTA law: the armed state's instruction lives IN the headline — the judge must
   // never read the pending bench as a stall (user ruling 2026-10-21, fix UX-1).
-  document.getElementById("verdictText").textContent = "ARTEFACT ARMED — PRESS (+) TO CONVENE THE COURT";
+  document.getElementById("verdictText").textContent = "ARTEFACT ARMED — CONVENE THE COURT TO BEGIN";
   document.getElementById("verdictConfidenceTag").textContent = "NO VERDICT FOR THIS ARTEFACT";
 }
 function quadsNoStills(note, sub) {
@@ -1873,12 +1975,16 @@ function fullStandbyReset() {
   });
   const cb = document.getElementById("caseBadge");
   if (cb) cb.textContent = "STANDBY";
-  const dialBox = document.getElementById("btnConveneDial");
-  if (dialBox) dialBox.classList.remove("armed");
+  const cta = document.getElementById("go");
+  if (cta) {
+    cta.classList.remove("armed");
+    const ctaSub = document.getElementById("ctaSub");
+    if (ctaSub) ctaSub.textContent = "STANDBY · NO ARTEFACT ON STAGE";
+  }
   document.getElementById("bottomCaseId").textContent = "CASE #—";
   document.getElementById("bottomCaseDesc").textContent = "No artefact on stage";
   document.getElementById("stageStatusTag").textContent = "COURT IN SESSION";
-  document.getElementById("stageStatusSub").textContent = "11 FORENSIC CHANNELS · READY FOR ARTEFACT";
+  document.getElementById("stageStatusSub").textContent = "11 CHANNELS · READY FOR ARTEFACT";
   document.getElementById("dossierStatusText").textContent = "Standby";
   document.getElementById("notes").style.display = "none";
   document.getElementById("notes").textContent = "";
@@ -1949,8 +2055,10 @@ function handleFileIntake(file) {
   });
   const cb = document.getElementById("caseBadge");
   if (cb) cb.textContent = "ARMED";
-  const dialBox = document.getElementById("btnConveneDial");
-  if (dialBox) dialBox.classList.add("armed"); // armed-dial law: the glow marks the real convene dial
+  const cta = document.getElementById("go");
+  if (cta) cta.classList.add("armed"); // armed-CTA law (hop8): the summons IS the labelled CTA — unmissable
+  const ctaSub = document.getElementById("ctaSub");
+  if (ctaSub) ctaSub.textContent = "ARTEFACT ARMED — READY";
 
   // audit B2: a new artefact must retire the PREVIOUS verdict — no stale judgments
   resetVerdictPanelArmed();
@@ -1988,12 +2096,12 @@ function handleFileIntake(file) {
 
   // File armed; ready for operator to convene the court
   document.getElementById("stageStatusTag").textContent = "ARTEFACT ARMED";
-  document.getElementById("stageStatusSub").textContent = "CLICK CONVENE (+) TO INITIATE ADJUDICATION";
+  document.getElementById("stageStatusSub").textContent = "PRESS CONVENE COURT TO ADJUDICATE";
 }
 
 /* ================= 6. THE COURT CONVENES (API DETECTION) ================= */
-// One artefact, one verdict: #go lives inside #btnConveneDial, so a single click
-// reaches conveneTheCourt twice (own listener + bubbling dial listener).
+// One artefact, one verdict: #go (the convene CTA) is single-bound — its own click
+// listener reaches conveneTheCourt; the CTA is also Enter/Space bound (hop8).
 // Re-entry guard is the double-adjudication law.
 let conveneInFlight = false;
 async function conveneTheCourt() {
@@ -2003,14 +2111,18 @@ async function conveneTheCourt() {
     await convene_body();
   } finally {
     conveneInFlight = false;
-    // armed-dial law: the glow means "a judgment is pending" — the session ended,
-    // issued or refused, so the dial retires its summons glow
-    const dialBox = document.getElementById("btnConveneDial");
-    if (dialBox) dialBox.classList.remove("armed");
+    // armed-dial law (hop8 re-seat): the summons glow retires when the session ends,
+    // issued or refused — the CTA returns to its post-verdict readiness state
+    const cta = document.getElementById("go");
+    if (cta) cta.classList.remove("armed");
+    const ctaSub = document.getElementById("ctaSub");
+    if (ctaSub) ctaSub.textContent = "JUDGMENT RENDERED · RECONVENE AVAILABLE";
   }
 }
 async function convene_body() {
   if (go) go.disabled = true;
+  const ctaSub = document.getElementById("ctaSub");
+  if (ctaSub) ctaSub.textContent = "COURT DELIBERATING…";
 
   // Visual scanning state (RM users get a still courtroom, never a dancing instrument)
   if (window.__setApertureScanSpeed) window.__setApertureScanSpeed(3.5);
@@ -2055,7 +2167,7 @@ async function convene_body() {
       document.getElementById("progRatio").textContent = "0/11";
       document.getElementById("dossierStatusText").textContent = "Court unreachable";
       document.getElementById("stageStatusTag").textContent = "TRANSPORT FAILED";
-      document.getElementById("stageStatusSub").textContent = "THE ARTEFACT REMAINS ARMED — PRESS (+) TO RETRY";
+      document.getElementById("stageStatusSub").textContent = "REMAINS ARMED — CONVENE TO RETRY";
       const notesO = document.getElementById("notes");
       notesO.style.display = "block";
       notesO.textContent = "· transport: the browser could not reach the court. No request reached the bench — no server detail exists.";
@@ -2087,12 +2199,21 @@ async function convene_body() {
   }
 }
 
-document.getElementById("btnConveneDial").addEventListener("click", () => {
-  if (currentFile) conveneTheCourt();
-  else vp.click();
-});
+// hop8: the CTA (#go) IS the convene control — click, or Enter/Space when armed.
+// No artefact on stage: the CTA opens the intake picker instead (parity with the
+// retired dial's fallback).
 if (go) {
   go.addEventListener("click", () => {
+    if (go.disabled) return;
+    if (currentFile) conveneTheCourt();
+    else vp.click();
+  });
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+    if (go.disabled) return;
+    e.preventDefault();
     if (currentFile) conveneTheCourt();
     else vp.click();
   });
@@ -2340,6 +2461,15 @@ async function loadHistoryLedger() {
       return;
     }
 
+    /* hop8: kind glyphs in the bridge's stroke language (feather-equivalents used
+       elsewhere in this page) — image / headphones (audio) / film (video) / file */
+    const KIND_GLYPHS = {
+      IMA: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></svg>',
+      AUD: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>',
+      VID: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2.18"/><path d="M7 2v20"/><path d="M17 2v20"/><path d="M2 12h20"/><path d="M2 7h5"/><path d="M2 17h5"/><path d="M17 17h5"/><path d="M17 7h5"/></svg>',
+      _:   '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
+    };
+
     history.forEach((row, i) => {
       const pf = row.p_fake;
       const rec = (row.recovery && (row.recovery.outcome === "recovered" || row.recovery.outcome === "needs_review")) ? row.recovery : null;
@@ -2355,11 +2485,18 @@ async function loadHistoryLedger() {
 
       const kindGlyph = String(row.kind || "?").slice(0, 3).toUpperCase();
 
-      // Filmstrip item — kind glyph, never a fabricated evidence image
+      // hop8 (user defect #3): kind → SVG stroke glyph in the bridge's own feather
+      // language (svg.ic: fill none, stroke currentColor) + a 3px verdict tick.
+      // No fabricated evidence imagery law unchanged — abstract kind icons are not
+      // evidence imagery. IMA=image · AUD=headphones · VID=film · else=file.
+      const kindIcon = KIND_GLYPHS[kindGlyph] || KIND_GLYPHS._;
+      const tickHTML = `<span class="thumb-status-tick" style="background:${statusColor}"></span>`;
+
+      // Filmstrip item — kind glyph + verdict tick, never a fabricated evidence image
       const film = document.createElement("div");
       film.className = "film-item" + (i === 0 ? " active" : "");
       film.title = (row.filename || "historical entry") + " · " + statusLabel;
-      film.innerHTML = `<span class="film-kind-glyph">${kindGlyph}</span>`;
+      film.innerHTML = `${tickHTML}<span class="film-kind-chip">${kindIcon}</span>`;
       filmstrip.appendChild(film);
 
       // Left rail thumbnail — same law
@@ -2367,7 +2504,7 @@ async function loadHistoryLedger() {
         const cThumb = document.createElement("div");
         cThumb.className = "case-thumb-item" + (i === 0 ? " active" : "");
         cThumb.title = (row.filename || "historical entry") + " · " + statusLabel;
-        cThumb.innerHTML = `<span class="rail-kind-glyph">${kindGlyph}</span>`;
+        cThumb.innerHTML = `${tickHTML}<span class="rail-kind-chip">${kindIcon}</span>`;
         railCases.appendChild(cThumb);
       }
 
@@ -2495,7 +2632,7 @@ function openEvidenceBreakdown(channelId) {
       ${shown.map(m => `
         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);padding:14px;border-radius:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <span style="font-family:'Space Grotesk';font-weight:700;color:var(--gold-bright)">${m.id}</span>
+            <span style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;font-weight:600;color:var(--gold-bright)">${m.id}</span>
             <span style="color:${m.direction==='synthetic'?'var(--red)':'var(--teal)'};font-weight:bold">${m.direction.toUpperCase()}</span>
           </div>
           <div style="font-size:11.5px;color:var(--txt);line-height:1.6">${(m.claim || 'Evidence nominal').replace(/</g, "&lt;")}</div>
