@@ -105,3 +105,7 @@ Format: `- YYYY-MM-DD [area] pattern`
 - Concurrency cells: gather-stampede = the arrival pattern under test (label semantics in receipts); health-ping corroboration rides inside every ramp round (2 pings per round, timed separately).
 - Adversarial rubric: oversize refusal graded fast-413-at-TTFB (GOOD) vs full-read-then-refuse (pays transfer + spools RSS) vs hang (FAIL); truncated → clean 400 <1.5s; UI hammer = 2 rapid clicks → exactly one ledger row (sqlite count before/after, NOT /api/history?limit=1 — len() of a 1-row page is always 1).
 - P4 grading table format: item + code-line refs + measured evidence + grade (SAFE-as-deployed / RISKY-as-pattern / CONFIRMED) + fix-pack pointer with effort/risk.
+
+## hop10 patterns (2026-10-28)
+- Loop-free heavy-endpoint pattern: async def handler -> await anyio.to_thread.run_sync(lambda: heavy(...), limiter=_GATE); one CapacityLimiter per resource class (court vs VLM); keep existing locks inside the threaded fn (defense in depth). Queued tasks cancel cleanly on client disconnect (limiter acquire is a cancellation point — better than loop-blocking, where cancellation can't land during sync work).
+- FP verification shape: REGRESSION battery first (full lanes, argv law!), then the ONE number that proves the fix (health-ping-during-load before/after), then invariants that must NOT move (ramp walls, parity, refusal latencies). A fix is proven by a delta where it should move + absence of deltas where it shouldn't.

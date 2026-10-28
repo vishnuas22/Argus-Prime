@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from urllib.parse import urlparse
+import anyio
 
 DB = WS / "artifacts" / "verdicts.db"
 STATIC = WS / "web"
@@ -74,6 +75,16 @@ _state = {}
 # the bracket and cross-bind α. One lock serialises bracket + adjudication
 # (ordering, never silence).
 _VIDEO_ALPHA_LOCK = threading.Lock()
+
+# hop9/FP-1: the court lanes are CPU-bound and ran ON the event loop (measured
+# hop9: /api/health degraded 0.010s -> 11.8s during a k=8 image ramp — every
+# endpoint frozen for the full adjudication). Court calls move to worker
+# threads; CapacityLimiter(1) preserves the exact one-at-a-time serialization
+# the loop used to provide, so all hop9-measured thread-safety properties hold
+# while health/history/UI stay live. /api/explain gets its OWN gate: the VLM
+# loads lazily (7s+ cold) and must never block a court adjudication.
+_COURT_GATE = anyio.CapacityLimiter(1)
+_EXPLAIN_GATE = anyio.CapacityLimiter(1)
 
 
 def init_court():
@@ -267,6 +278,9 @@ def health():
 
 @app.get("/api/history")
 def history(limit: int = 30):
+    # hop9/FP-2: clamp 1..200 (audit P4: the raw value hit SQLite LIMIT, where a
+    # negative limit returns ALL rows — unbounded dump on one request)
+    limit = max(1, min(limit, 200))
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
     rows = con.execute("SELECT * FROM verdicts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
@@ -320,7 +334,9 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
                 # uploaded bytes are not a decodable image (truncated/corrupt):
                 # 400 with clean body — never a raw 500 (release hardening 2026-10-19)
                 raise HTTPException(400, f"unparseable image ({type(e).__name__})")
-            v = run_court(pil.convert("RGB"), alpha, original_raw=data)
+            v = await anyio.to_thread.run_sync(
+                lambda: run_court(pil.convert("RGB"), alpha, original_raw=data),
+                limiter=_COURT_GATE)
             kind = "image"
         elif ext in AUDIO_EXTS:
             # release hardening 2026-10-19: some listed extensions (e.g. .m4a) are
@@ -332,7 +348,8 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
             except Exception as e:
                 raise HTTPException(400, f"unparseable audio ({type(e).__name__})")
             from argus_detect import detect_audio
-            a = detect_audio(tmp)
+            a = await anyio.to_thread.run_sync(lambda: detect_audio(tmp),
+                                               limiter=_COURT_GATE)
             kind = "audio"
             # D-035: coverage gate — off-manifold audio abstains, never votes.
             # The D-035 posture stays the ORIGINAL top-level trust/risk; the
@@ -357,8 +374,11 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
                 prev_USER_ALPHA = _ad.USER_ALPHA
                 _ad.USER_ALPHA = alpha if alpha is not None else _ad.USER_ALPHA
                 try:
-                    # frame budget 5 for the API path by design (decision #4)
-                    v = detect_video(tmp, 5)
+                    # frame budget 5 for the API path by decision #4; the call
+                    # itself runs on a worker thread (hop9/FP-1) — the loop
+                    # stays live while the ~25s video adjudication grinds
+                    v = await anyio.to_thread.run_sync(lambda: detect_video(tmp, 5),
+                                                       limiter=_COURT_GATE)
                 finally:
                     _ad.USER_ALPHA = prev_USER_ALPHA
             kind = "video"
@@ -415,7 +435,9 @@ async def explain(request: Request, file: UploadFile = File(...)):
         from vlm_explain import explain_image
         pil = Image.open(tmp)
         pil.load()
-        return explain_image(pil.convert("RGB"), save_path=tmp)
+        return await anyio.to_thread.run_sync(
+            lambda: explain_image(pil.convert("RGB"), save_path=tmp),
+            limiter=_EXPLAIN_GATE)
     except Exception as e:
         # 500 stays, but the detail is server-log only (user ruling 2026-10-19:
         # raw exception text never leaks to clients); court /api/detect paths
