@@ -111,15 +111,19 @@ def detect_image(pil, stacker_clfs=None, original_raw: bytes | None = None):
     return result
 
 
-def _image_stacker_clfs() -> dict:
+def _image_stacker_clfs(alpha: float | None = None) -> dict:
     """The image court's stacker bundle — ONE construction for CLI image calls
     and for the no-face video route, so a faceless video sees the same court
-    the image CLI shows (not a stacker-less degraded variant)."""
+    the image CLI shows (not a stacker-less degraded variant).
+
+    hop11/FP-3: alpha precedence is explicit-per-call (server form α threaded
+    through detect_video) > CLI USER_ALPHA global > stacker meta conformal."""
     if not STACKER.exists():
         return {}
     import joblib
     meta_p = STACKER.with_name("stacker_meta.json")
     meta = json.loads(meta_p.read_text()) if meta_p.exists() else {}
+    eff = alpha if alpha is not None else USER_ALPHA
     return {STACKER.parent.name: {
         "clf": joblib.load(STACKER),
         "module_ids": meta.get("module_ids"),
@@ -127,11 +131,11 @@ def _image_stacker_clfs() -> dict:
         "conflict_p99": meta.get("conflict_p99"),
         # B3: the bundle carries the stacker's own conformal alpha; an
         # explicit user alpha anywhere in this process wins over it
-        "alpha": None if USER_ALPHA is not None
+        "alpha": None if eff is not None
                  else meta.get("conformal_alpha")}}
 
 
-def _route_image_court(path: Path, k: int = 4) -> dict:
+def _route_image_court(path: Path, k: int = 4, alpha: float | None = None) -> dict:
     """No-face route: whole-frame image court on k evenly-sampled frames.
 
     Rationale: whole-frame AIGC detection is the honest answer for faceless
@@ -144,7 +148,7 @@ def _route_image_court(path: Path, k: int = 4) -> dict:
     cap = cv2.VideoCapture(str(path))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
     idxs = np.linspace(0, max(total - 1, 1), k, dtype=int)
-    stacker_clfs = _image_stacker_clfs()
+    stacker_clfs = _image_stacker_clfs(alpha)
     per_frame = []
     for fi in idxs:
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(fi))
@@ -230,7 +234,8 @@ def _load_video_stacker():
     return _VID_STACKER_CACHE["clf"]
 
 
-def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True) -> dict:
+def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
+                 alpha: float | None = None) -> dict:
     """Identity-aware video route with an honest no-face fallback.
 
     route=video_face : visual aggregation + identity drift + audio; verdict
@@ -240,6 +245,9 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True) 
         court on k=4 frames, median, confidence degraded (spec item 5.2).
     recovery_enabled=False is the Phase 3 ladder's own re-entry (V1/V2) —
     one court implementation, no nested recovery (§5.2).
+    alpha (hop11/FP-3): explicit per-call operating point — threads through to
+        the no-face image court so the D-039 "form α wins on every sub-route"
+        law holds by parameter instead of by mutating the USER_ALPHA global.
     """
     sys.path.insert(0, str(WS / "deepfake" / "scripts"))
     from video_score import audio_channel, combined, visual_channel_bundle
@@ -251,7 +259,7 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True) 
     clf = _load_video_stacker()
     vis, tracks, _per_track, _obs = visual_channel_bundle(path, n_frames)
     if vis is None:
-        court = _route_image_court(path)
+        court = _route_image_court(path, alpha=alpha)
         court.update({
             "p_fake_video_combined": court.get("p_fake_fused"),
             "stacker": None, "frame_budget": n_frames,

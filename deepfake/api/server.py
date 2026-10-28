@@ -12,8 +12,8 @@ import shutil
 import sqlite3
 import sys
 import tempfile
-import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 WS = Path(__file__).resolve().parents[2]
@@ -36,7 +36,15 @@ DB = WS / "artifacts" / "verdicts.db"
 STATIC = WS / "web"
 MAX_UPLOAD = 100 * 1024 * 1024  # user ruling 2026-10-19: 413 above 100 MB (courts on faxed slabs; blocks zip-bombs/multi-GB bodies)
 
-app = FastAPI(title="Argus Court", version="1.0")
+@asynccontextmanager
+async def _lifespan(_app):
+    # hop11: @app.on_event("startup") -> lifespan (audit P4 cosmetic; the
+    # forward reference to init_court resolves at startup, after its def)
+    init_court()
+    yield
+
+
+app = FastAPI(title="Argus Court", version="1.0", lifespan=_lifespan)
 # CORS scoped to local origins by default (user ruling 2026-10-19 — "*" let any web
 # page in the operator's browser POST + read verdicts cross-origin). Allow-list is
 # env-overridable for legitimate cross-origin client integrations:
@@ -74,7 +82,9 @@ _state = {}
 # (argus_detect.USER_ALPHA); two concurrent video requests could interleave
 # the bracket and cross-bind α. One lock serialises bracket + adjudication
 # (ordering, never silence).
-_VIDEO_ALPHA_LOCK = threading.Lock()
+# hop11/FP-3: _VIDEO_ALPHA_LOCK retired — the α bracket it serialised is gone
+# (form α is now a parameter threaded through detect_video; audit F2 closed at
+# the root rather than guarded).
 
 # hop9/FP-1: the court lanes are CPU-bound and ran ON the event loop (measured
 # hop9: /api/health degraded 0.010s -> 11.8s during a k=8 image ramp — every
@@ -236,11 +246,6 @@ VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg", ".m4a"}
 
 
-@app.on_event("startup")
-def _startup():
-    init_court()
-
-
 @app.get("/")
 def index():
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
@@ -265,6 +270,16 @@ def health():
     # B3 transparency: the stacker's own conformal alpha (what the court binds
     # when a request supplies no explicit alpha)
     out["conformal_alpha"] = _state.get("conformal_alpha")
+    # hop11/FP-6a: ledger row counter — log_verdict failure is SILENT by design
+    # (detect L~386 try/except), so external row accounting is the only
+    # row-loss detector; surface it where operators already look.
+    try:
+        _hcon = sqlite3.connect(f"file:{DB}?mode=ro", uri=True, timeout=2)
+        out["ledger_rows"] = _hcon.execute(
+            "SELECT count(*) FROM verdicts").fetchone()[0]
+        _hcon.close()
+    except Exception as e:
+        out["ledger_rows_error"] = str(e)[:80]
     # Scope-labeled benchmark snapshot (D-037 arc): every number carries its
     # measurement scope — operators must never quote a number without it.
     bm_path = WS / "artifacts" / "benchmarks.json"
@@ -364,23 +379,14 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
                  "recovery": a.get("recovery")}
         elif ext in VIDEO_EXTS:
             from argus_detect import detect_video
-            import argus_detect as _ad
-            # D-039: the form α wins on every sub-route of this call — the
-            # faceless-video image court rebinds from the stacker's meta
-            # (argus_detect.USER_ALPHA state), so arm it for the duration.
-            # Audit F2: the bracket mutates a module global; serialise it on
-            # _VIDEO_ALPHA_LOCK so concurrent video requests never interleave.
-            with _VIDEO_ALPHA_LOCK:
-                prev_USER_ALPHA = _ad.USER_ALPHA
-                _ad.USER_ALPHA = alpha if alpha is not None else _ad.USER_ALPHA
-                try:
-                    # frame budget 5 for the API path by decision #4; the call
-                    # itself runs on a worker thread (hop9/FP-1) — the loop
-                    # stays live while the ~25s video adjudication grinds
-                    v = await anyio.to_thread.run_sync(lambda: detect_video(tmp, 5),
-                                                       limiter=_COURT_GATE)
-                finally:
-                    _ad.USER_ALPHA = prev_USER_ALPHA
+            # hop11/FP-3: form α threads through detect_video -> _route_image_court
+            # -> _image_stacker_clfs, so the D-039 "form α wins on every sub-route"
+            # law now holds by PARAMETER instead of by mutating the module global.
+            # The former _VIDEO_ALPHA_LOCK bracket is retired (audit F2 closed at
+            # the root). Frame budget 5 for the API path by decision #4; the call
+            # runs on a worker thread (hop9/FP-1) — the loop stays live.
+            v = await anyio.to_thread.run_sync(
+                lambda: detect_video(tmp, 5, alpha=alpha), limiter=_COURT_GATE)
             kind = "video"
             # honesty fields (Phase 5): trust/risk/route come from detect_video —
             # never hardcoded here (D-035 lesson: hardcoded trust is silent

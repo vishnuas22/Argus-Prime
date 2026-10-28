@@ -36,6 +36,11 @@ _model = None
 _cache = None
 
 
+_CACHE_CAP = 512   # hop11: RAM cap on the explain cache (audit P4: unbounded
+                   # dict over jsonl); disk jsonl keeps full history — eviction
+                   # is RAM-only, an evicted key recomputes until process restart
+
+
 def _load_cache():
     global _cache
     if _cache is None:
@@ -47,6 +52,8 @@ def _load_cache():
                     _cache[rec["key"]] = rec
                 except Exception:
                     continue
+        if len(_cache) > _CACHE_CAP:
+            _cache = dict(list(_cache.items())[-_CACHE_CAP:])
     return _cache
 
 
@@ -124,4 +131,6 @@ def explain_image(pil_rgb, save_path: Path | None = None) -> dict:
         if key not in cache:
             _append_cache(key, {"key": key, "ts": time.time(), "result": result})
             cache[key] = {"key": key, "result": result}
+            if len(cache) > _CACHE_CAP:
+                cache.pop(next(iter(cache)))   # oldest inserted (dict order)
     return result
