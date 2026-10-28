@@ -344,6 +344,13 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
 _AUDIO_MODEL = None
 
 
+class AudioFormatError(RuntimeError):
+    """W3 wiring (ruled W2-(ii) accept-list): the court's libsndfile build
+    cannot decode every container it is handed (measured W2 2026-10-19:
+    ogg-vorbis fail-closed). Fail closed with an honest, actionable error
+    instead of a raw traceback."""
+
+
 def _get_audio_model(device):
     """Process-level cache so batch video scoring loads XLS-R once."""
     global _AUDIO_MODEL
@@ -362,8 +369,20 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
 
     SR = 16000
     SEG = SR * 4
-    wav, sr = sf.read(str(path), dtype="float32", always_2d=True)
+    try:
+        wav, sr = sf.read(str(path), dtype="float32", always_2d=True)
+    except Exception as e:
+        raise AudioFormatError(
+            f"AUDIO FORMAT NOT DECODABLE BY THIS COURT ({type(e).__name__}) — "
+            "re-encode to wav, flac, mp3, or ogg (libsndfile cannot open this "
+            "container; measured undecodable: aac/m4a)") from e
     wav = wav.mean(axis=1)
+    # W3 wiring: TRUE duration from the raw read (frames / original sr). The
+    # legacy interp below keeps the frame COUNT unchanged (np.interp output
+    # length = len(g) = N), so len(wav)/SR would overcount by sr/SR for any
+    # non-16k source (measured hop12: 48k/208s stem reported as 624s) and the
+    # min-duration guard would miss short 48k uploads. Scoring path untouched.
+    duration_s = wav.shape[0] / sr
     if sr != SR:
         g = np.arange(len(wav)) * (SR / sr)
         wav = np.interp(g, np.arange(len(wav)), wav)
@@ -393,6 +412,7 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
     zmean = float(np.mean(znorms))
     cov_thresh = bundle.get("coverage_threshold")
     ooc = bool(cov_thresh and zmean > cov_thresh)
+    ext = path.suffix.lower()
     result = {
         "p_fake_audio_mean": round(float(np.mean(probs)), 4),
         "segments_analyzed": len(probs),
@@ -403,7 +423,14 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
         "coverage_threshold": cov_thresh,
         "out_of_coverage": ooc,
         "abstained": ooc,
+        # W3 wiring: duration regime + ruled accept-list flag. Sub-2s uploads
+        # sit in the padding regime (W2 padprobe) and never vote.
+        "duration_s": round(duration_s, 2),
+        "short_upload": bool(duration_s < 2.0),
     }
+    if ext == ".mp3":
+        result["confidence_degraded"] = True
+        result["degraded_reason"] = "mp3 source (accept-list)"
     # Phase 3 recovery ladder — flagged layer only (C-MECHB); recovery_enabled
     # False is the ladder's own A1 re-entry (no nested recovery).
     if recovery_enabled:
@@ -413,6 +440,8 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
             {"p_fake_fused": result["p_fake_audio_mean"],
              "abstained": result["abstained"],
              "out_of_coverage": result["out_of_coverage"],
+             "short_upload": result["short_upload"],
+             "duration_s": result["duration_s"],
              "trust": None, "risk": None},
             {"path": path, "audio_result": result})
     return result
@@ -467,7 +496,11 @@ def main() -> int:
     elif ext in VIDEO_EXTS:
         result.update(kind="video", **detect_video(path, args.frames))
     elif ext in AUDIO_EXTS:
-        result.update(kind="audio", **detect_audio(path))
+        try:
+            result.update(kind="audio", **detect_audio(path))
+        except AudioFormatError as e:
+            print(f"[court] {e}", flush=True)
+            return 2
     else:
         print(f"unsupported type: {ext}", file=sys.stderr)
         return 1

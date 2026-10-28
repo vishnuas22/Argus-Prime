@@ -354,29 +354,41 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
                 limiter=_COURT_GATE)
             kind = "image"
         elif ext in AUDIO_EXTS:
-            # release hardening 2026-10-19: some listed extensions (e.g. .m4a) are
-            # not decodeable by libsndfile — fail closed with a clean 400 instead
-            # of a raw 500 from inside the court (mirrors the Image.open guard).
+            # W3 wiring (ruled W2-(ii) accept-list): undecodable containers fail
+            # CLOSED with the measured reason (W2 decoder table 2026-10-19:
+            # ogg-vorbis not decodable by this libsndfile build) — 415 with
+            # actionable copy, not a generic 400.
             try:
                 import soundfile as _sf
                 _sf.info(tmp)
             except Exception as e:
-                raise HTTPException(400, f"unparseable audio ({type(e).__name__})")
+                raise HTTPException(415, (
+                    "AUDIO FORMAT NOT DECODABLE BY THIS COURT — re-encode to "
+                    "wav, flac, mp3, or ogg (libsndfile cannot open this "
+                    f"container; measured undecodable: aac/m4a; {type(e).__name__})"))
             from argus_detect import detect_audio
             a = await anyio.to_thread.run_sync(lambda: detect_audio(tmp),
                                                limiter=_COURT_GATE)
             kind = "audio"
             # D-035: coverage gate — off-manifold audio abstains, never votes.
-            # The D-035 posture stays the ORIGINAL top-level trust/risk; the
-            # Phase-3 recovery layer (attached by detect_audio) carries the
+            # W3 wiring: a sub-2s score is a padding artifact (W2 padprobe) —
+            # the court does not vote on it either; the D-035 posture applies.
+            # The Phase-3 recovery layer (attached by detect_audio) carries the
             # operative numbers when triggered (§5.3, C-MECHB).
+            short = bool(a.get("short_upload"))
+            ooc = bool(a.get("out_of_coverage")) or short
             v = {"p_fake_fused": a["p_fake_audio_mean"],
-                 "abstained": bool(a.get("out_of_coverage", False)),
-                 "trust": 0.7 if not a.get("out_of_coverage") else 0.2,
-                 "risk": 0.9 if a.get("out_of_coverage") else 0.0,
+                 "abstained": ooc,
+                 "trust": 0.7 if not ooc else 0.2,
+                 "risk": 0.9 if ooc else 0.0,
                  "modules": [],
                  "audio": {k: v2 for k, v2 in a.items() if k != "per_segment"},
                  "recovery": a.get("recovery")}
+            # W3 wiring: the ruled accept-list flags lossy sources; the reason
+            # rides to the UI's existing Degraded meta cell.
+            v["confidence_degraded"] = bool(a.get("confidence_degraded"))
+            if a.get("degraded_reason"):
+                v["degraded_reason"] = a["degraded_reason"]
         elif ext in VIDEO_EXTS:
             from argus_detect import detect_video
             # hop11/FP-3: form α threads through detect_video -> _route_image_court

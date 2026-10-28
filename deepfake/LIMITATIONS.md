@@ -84,6 +84,11 @@ advisory. **Short uploads are outside the validated regime**: clips under
 ~2 s re-enter the low-duration/padding regime where the court may abstain
 or err — in-domain scores are validated at ≥2 s (W2 codec-calibration exam,
 2026-10-19; min-duration guard wired post-ship, ruling (ii)).
+**Accept-list (ruled W2-(ii), wired hop12)**: wav/flac/mp3/ogg decode in-court —
+including ogg-vorbis and opus (hop12 measurement: the court's bundled libsndfile
+1.2.2 decodes both; W2's "system build lacks vorbis" did not bind the serve path).
+Containers the court's libsndfile cannot open fail closed with HTTP 415 (measured:
+aac/m4a). mp3 sources carry a degraded-confidence note.
 
 ### 3.4 Coverage gap: today's most-used generators
 The four most widely deployed commercial generators of 2026 (GPT-Image-2,

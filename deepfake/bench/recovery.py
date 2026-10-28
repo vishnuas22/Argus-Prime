@@ -67,6 +67,10 @@ def _trigger(modality: str, original: dict, extras: dict) -> str:
             return "abstained"
         return "none"
     if modality == "audio":
+        # W3 wiring: short_upload outranks out_of_coverage — the padding
+        # artifact makes the score meaningless regardless of coverage.
+        if original.get("short_upload"):
+            return "short_upload"
         return "out_of_coverage" if original.get("out_of_coverage") else "none"
     if modality == "video":
         route = original.get("route") or extras.get("route")
@@ -387,6 +391,14 @@ def _a2_coverage_vote(scored: dict, steps) -> dict:
 
 def _ladder_audio(trigger, original, extras) -> dict:
     steps, reasons = [], []
+    if trigger == "short_upload":
+        # W3 wiring (ruled W2-(ii)): sub-2s uploads sit in the padding regime
+        # (W2 padprobe 2026-10-19: 1.0s trims median z 75.0, 75% OOC, 25% vote
+        # p>=0.5 on a padding artifact). No ladder step can add duration — the
+        # honest terminal is needs_review at the OOC posture.
+        reasons.append("short_upload_below_2s")
+        return _review(trigger, steps, reasons, original, base=AUDIO_POSTURE_OOC,
+                       verdict_extra={"duration_s": original.get("duration_s")})
     path = extras.get("path")
     cleanup: list = []
     try:

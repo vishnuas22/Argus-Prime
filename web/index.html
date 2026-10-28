@@ -1346,7 +1346,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
 
     <div class="system-release-rail">
       <div class="mini-wave-anim"></div>
-      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop8 · 2026-10-26</span></span>
+      <span>ARGUS PRIME DIGITAL FORENSIC PLATFORM · <span id="releaseTag">court telemetry pending</span> · <span id="buildStamp">build hop12 · 2026-10-28</span></span>
     </div>
   </footer>
 
@@ -1436,7 +1436,7 @@ const RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").m
 /* Build identity + stale-page guard (visual fix pass): a tab holding OLD JS must be
    visibly distinguishable from the served build. The stamp renders in the bottom
    colophon (#buildStamp); a persisted build mismatch raises a reload banner. */
-const BUILD_ID = "hop8-2026-10-26";
+const BUILD_ID = "hop12-2026-10-28";
 try {
   const __seenBuild = localStorage.getItem("argusBuild");
   const __showStaleBanner = () => {
@@ -2306,7 +2306,7 @@ function renderVerdict(v) {
   // actually carries. No EXIF scalars exist in the schema — never invent them. ——
   const metaSet = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   metaSet("mRoute", v.route || "—");
-  metaSet("mDegraded", v.confidence_degraded === true ? "YES" : v.confidence_degraded === false ? "no" : "—");
+  metaSet("mDegraded", v.confidence_degraded === true ? ("YES" + (v.degraded_reason ? " — " + v.degraded_reason : "")) : v.confidence_degraded === false ? "no" : "—");
   metaSet("mAbstain", v.abstained === true ? "YES" : v.abstained === false ? "no" : "—");
   metaSet("mRecovery", v.recovery ? (v.recovery.outcome || "present") : "—");
   metaSet("mFrames", (typeof v.frames_court === "number" && isFinite(v.frames_court))
