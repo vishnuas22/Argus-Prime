@@ -99,3 +99,9 @@ Format: `- YYYY-MM-DD [area] pattern`
 - HUD cluster law: `.stage-status-bar` (top band, straddle −55%) + `.aperture-cta-dock`/`#go` (bottom band, straddle +50%) live inside the ring-locked viewport; prompt bounded `inset:24/10/40`. Armed = `#go.armed` breathing pulse; Enter/Space convene; verdict copy sites: armed headline, stage sub ("PRESS CONVENE COURT TO ADJUDICATE"), retry sub.
 - Kind glyph law: KIND_GLYPHS map (IMA=image/AUD=headphones/VID=film/_=file icons, svg.ic stroke language) + `.thumb-status-tick` 3px verdict tick; replaces raw IMA/AUD/VID text chips everywhere (rail + filmstrip).
 - Font law: UI stack `-apple-system,…` (SF Pro on operator Mac); JetBrains Mono vendored only; Space Grotesk woff2 unreferenced (file remains); 9.5px type floor intact; exhibit `object-fit: contain` is law (never crop evidence).
+
+## hop9 bench patterns (2026-10-28)
+- Bench harness shape (deepfake/scripts/perf_bench.py): pre-registered hypothesis list in R["meta"] BEFORE measurement; val(name, ok, detail) assertion stream → receipts JSON; scenarios dict with per-row status/lat; H2-style db reconciliation in finally; --part2 resume mode writing a SEPARATE receipts file (never clobber part 1); STOP condition as data ("tripped" + user_ruling verbatim) not a bare exit.
+- Concurrency cells: gather-stampede = the arrival pattern under test (label semantics in receipts); health-ping corroboration rides inside every ramp round (2 pings per round, timed separately).
+- Adversarial rubric: oversize refusal graded fast-413-at-TTFB (GOOD) vs full-read-then-refuse (pays transfer + spools RSS) vs hang (FAIL); truncated → clean 400 <1.5s; UI hammer = 2 rapid clicks → exactly one ledger row (sqlite count before/after, NOT /api/history?limit=1 — len() of a 1-row page is always 1).
+- P4 grading table format: item + code-line refs + measured evidence + grade (SAFE-as-deployed / RISKY-as-pattern / CONFIRMED) + fix-pack pointer with effort/risk.

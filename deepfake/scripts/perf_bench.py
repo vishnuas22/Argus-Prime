@@ -207,11 +207,13 @@ async def hammer_same_file(c, rounds=3):
 
 
 async def mixed_k4(c):
-    """2 image + 1 video + 1 audio concurrent (H1/H3 together)."""
+    """2 image + 1 video + 1 audio concurrent (H1/H3 together).
+    Timeouts sized for the serialized regime (video blocks the loop ~25-36s)."""
     t0 = time.perf_counter()
-    tasks = [detect(c, FX_IMAGE, "mixed_img0"), detect(c, FX_IMAGE, "mixed_img1"),
-             detect(c, FX_VIDEO, "mixed_vid", timeout=90.0),
-             detect(c, FX_AUDIO, "mixed_aud")]
+    tasks = [detect(c, FX_IMAGE, "mixed_img0", timeout=120.0),
+             detect(c, FX_IMAGE, "mixed_img1", timeout=120.0),
+             detect(c, FX_VIDEO, "mixed_vid", timeout=180.0),
+             detect(c, FX_AUDIO, "mixed_aud", timeout=120.0)]
     res = await asyncio.gather(*tasks)
     wall = time.perf_counter() - t0
     rows = []
@@ -222,16 +224,16 @@ async def mixed_k4(c):
                      "kind": (v.get("kind") or j.get("kind")) if d["status"] == 200 else None,
                      "pf": v.get("p_fake_fused", j.get("p_fake_fused")) if d["status"] == 200 else None})
     R["scenarios"]["mixed_k4"] = {"rows": rows, "wall": round(wall, 4)}
-    val(not any(r["status"] >= 500 for r in rows), "mixed k=4: zero 5xx", rows)
+    val(not any(isinstance(r["status"], int) and r["status"] >= 500 for r in rows),
+        "mixed k=4: zero 5xx", rows)
     img = [r for r in rows if r["name"].startswith("mixed_img") and r["status"] == 200]
     val(all(r["pf"] is not None and abs(float(r["pf"]) - EXPECT_IMAGE_PF) < 5e-4 for r in img),
         "mixed: both image verdicts exact 0.9009 (no contamination)",
         [r["pf"] for r in img])
     vid = [r for r in rows if r["name"].startswith("mixed_vid")]
     if vid and vid[0]["status"] == 200:
-        vkind = (vid[0]["json"].get("verdict") or {}).get("kind") or vid[0]["json"].get("kind")
-        val(vkind in ("video", "image", "degraded", "abstained") or vkind is None,
-            "mixed: video lane adjudicated (any route)", f"kind={vkind}")
+        val(vid[0]["kind"] in ("video", "image", "degraded", "abstained"),
+            "mixed: video lane adjudicated (any route)", f"kind={vid[0]['kind']}")
     print(f"[bench] mixed_k4 wall={wall:.3f}s "
           f"{[(r['name'], r['status'], r['lat']) for r in rows]}", flush=True)
 
@@ -350,7 +352,7 @@ def find_proc_psutil():
     return None
 
 
-async def main_async(full: bool):
+async def main_async(full: bool, part2: bool = False):
     before_db = db_stats()
     print(f"[bench] db BEFORE: {before_db}", flush=True)
 
@@ -365,6 +367,21 @@ async def main_async(full: bool):
             return
 
         total0 = time.perf_counter()
+
+        if part2:
+            # continuation run after the part-1 instrument crash at mixed_k4:
+            # mixed retry (honest timeouts) + hammer + oversize + truncated + history
+            R["scenarios"]["part2_db_before"] = {"db": before_db}
+            await mixed_k4(c)
+            await hammer_same_file(c, rounds=3)
+            R["meta"]["rss_event_oversize_t"] = time.perf_counter() - total0
+            await oversize_refusal(c)
+            await truncated_lane(c)
+            R["scenarios"]["history_after"] = {"summary": await history_probe(c, rounds=30)}
+            R["meta"]["wall_bench_s"] = round(time.perf_counter() - total0, 2)
+            R["after_db"] = db_stats()
+            print(f"[bench] db AFTER: {R['after_db']}", flush=True)
+            return
 
         # history baseline BEFORE bench adds rows (growth-comparison arm)
         R["scenarios"]["history_before"] = {"summary": await history_probe(c, 20),
@@ -415,7 +432,9 @@ async def main_async(full: bool):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true")
-    full = not ap.parse_args().quick
+    ap.add_argument("--part2", action="store_true")
+    a = ap.parse_args()
+    full = not a.quick
 
     # preflight fixtures (bytes are court-supplied truth)
     for fx in (FX_IMAGE, FX_C2PA, FX_TRUN, FX_VIDEO, FX_AUDIO):
@@ -430,14 +449,14 @@ def main():
     import threading
     stop_ev = threading.Event()
     t_rss = None
-    if pid:
+    if pid and not a.part2:  # part2 uses the standalone watcher already running
         t_rss = threading.Thread(target=rss_sidecar, args=(stop_ev, rss_path, pid),
                                  daemon=True)
         t_rss.start()
         print(f"[bench] rss sidecar on pid {pid}", flush=True)
 
     try:
-        asyncio.run(main_async(full))
+        asyncio.run(main_async(full, part2=a.part2))
     finally:
         stop_ev.set()
         if t_rss:
@@ -453,16 +472,23 @@ def main():
             return n
 
         n200 = count_200()
-        rows_before = R["scenarios"]["history_before"]["db"].get("rows")
+        hb = (R["scenarios"].get("part2_db_before", {})
+              or R["scenarios"].get("history_before", {})).get("db", {})
+        rows_before = hb.get("rows")
         rows_after = db_stats().get("rows")
-        R["H2_reconciliation"] = {"detects_200": n200, "rows_before": rows_before,
-                                  "rows_after": rows_after,
-                                  "row_delta": rows_after - rows_before}
-        val(rows_after - rows_before == n200,
-            "H2 row-loss reconciliation: delta == 200-count",
-            f"delta={rows_after - rows_before} n200={n200}")
+        if rows_before is not None and rows_after is not None:
+            R["H2_reconciliation"] = {"detects_200": n200, "rows_before": rows_before,
+                                      "rows_after": rows_after,
+                                      "row_delta": rows_after - rows_before}
+            val(rows_after - rows_before == n200,
+                "H2 row-loss reconciliation: delta == 200-count",
+                f"delta={rows_after - rows_before} n200={n200}")
+        else:
+            R["H2_reconciliation"] = {"detects_200": n200, "rows_before": rows_before,
+                                      "rows_after": rows_after,
+                                      "note": "bench aborted before history baseline"}
 
-        out = OUT / "bench_results.json"
+        out = OUT / ("bench_results_part2.json" if a.part2 else "bench_results.json")
         out.write_text(json.dumps(R, indent=1))
         n_fail = sum(1 for a in R["assertions"] if not a["ok"])
         print(f"\n[bench] DONE -> {out}  assertions: "
