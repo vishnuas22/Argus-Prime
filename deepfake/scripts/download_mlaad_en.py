@@ -11,15 +11,33 @@ Usage: ./.venv/bin/python deepfake/scripts/download_mlaad_en.py [--workers 16]
 import argparse
 import json
 import sys
+import threading
 import time
 import urllib.parse
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+
+import requests
 
 BASE = "https://huggingface.co/datasets/mueller91/MLAAD/resolve/main/"
 TOKEN = Path.home().joinpath(".cache/huggingface/token").read_text().strip()
 DEST = Path("data/raw/mlaad")
+
+_tls = threading.local()
+
+
+def _session() -> requests.Session:
+    """Thread-local session — keep-alive connection reuse (urllib's per-file
+    TCP+TLS handshake was the bottleneck: 6 files/s at 16 workers, plus local
+    DNS resolver churn)."""
+    s = getattr(_tls, "s", None)
+    if s is None:
+        s = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(pool_connections=2, pool_maxsize=2)
+        s.mount("https://", adapter)
+        s.headers.update({"Authorization": f"Bearer {TOKEN}"})
+        _tls.s = s
+    return s
 
 
 def fetch(item: dict) -> tuple[str, bool, str]:
@@ -28,21 +46,20 @@ def fetch(item: dict) -> tuple[str, bool, str]:
     if out.exists() and out.stat().st_size == want:
         return rel, True, "skip"
     out.parent.mkdir(parents=True, exist_ok=True)
+    url = BASE + urllib.parse.quote(rel)
     for attempt in range(4):
         try:
             done = out.stat().st_size if out.exists() else 0
-            req = urllib.request.Request(
-                BASE + urllib.parse.quote(rel), headers={"Authorization": f"Bearer {TOKEN}",
-                                                         **({"Range": f"bytes={done}-"} if done else {})})
-            with urllib.request.urlopen(req, timeout=60) as r:
-                mode = "ab" if done and r.status == 206 else "wb"
-                if done and r.status != 206:
-                    mode, done = "wb", 0
-                with out.open(mode) as f:
-                    while True:
-                        chunk = r.read(1 << 20)
-                        if not chunk:
-                            break
+            headers = {"Range": f"bytes={done}-"} if done else {}
+            with _session().get(url, headers=headers, timeout=(10, 60), stream=True) as r:
+                # HTTP error statuses must RAISE (the old urllib raised on 4xx/5xx and the
+                # retry logic handled it; without this check a 429/503 error BODY gets
+                # written to disk as if it were content — 15k garbage files caught live).
+                r.raise_for_status()
+                if done and r.status_code != 206:
+                    done = 0  # server ignored Range — restart file
+                with out.open("ab" if done else "wb") as f:
+                    for chunk in r.iter_content(1 << 20):
                         f.write(chunk)
             if out.stat().st_size == want:
                 return rel, True, "ok" if not done else "resumed"
@@ -50,13 +67,13 @@ def fetch(item: dict) -> tuple[str, bool, str]:
         except Exception as e:
             if attempt == 3:
                 return rel, False, f"ERR {type(e).__name__}: {e}"
-            time.sleep(2 * (attempt + 1))
+            time.sleep(min(30, 4 * (attempt + 1)))  # gentler backoff for 429/503 class
     return rel, False, "unreachable"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--workers", type=int, default=16)
+    ap.add_argument("--workers", type=int, default=24)
     args = ap.parse_args()
     items = [json.loads(l) for l in (DEST / "_filelist.jsonl").read_text().splitlines() if l.strip()]
     print(f"{len(items)} files to ensure", flush=True)
