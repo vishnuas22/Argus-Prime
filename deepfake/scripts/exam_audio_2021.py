@@ -90,6 +90,7 @@ def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="audio_exam_")) / "u.wav"
     from PIL import Image  # noqa: F401  (parquet decode parity)
     for lab in (0, 1):
+        idx = 0
         for data in picks[lab]:
             tmp.write_bytes(data)
             try:
@@ -102,7 +103,14 @@ def main() -> int:
             # dataset label: 0=fake, 1=real -> detector label 1=fake
             y.append(1 - lab)
             p.append(score)
-            rows.append({"dataset_label": lab, "p_fake": score})
+            # W8 composition: per-row gate state + stable row identity (additive
+            # columns; metrics.json semantics unchanged — composed runner joins
+            # p4/specialist arms on (dataset_label, idx))
+            rows.append({"dataset_label": lab, "idx": idx, "p_fake": score,
+                         "abstained": bool(res.get("abstained")),
+                         "ooc": bool(res.get("out_of_coverage")),
+                         "znorm": res.get("znorm_mean")})
+            idx += 1
             if len(rows) % 50 == 0:
                 print(f"[{len(rows)}] scored", flush=True)
     shutil.rmtree(tmp.parent, ignore_errors=True)
