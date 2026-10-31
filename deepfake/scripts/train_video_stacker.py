@@ -131,7 +131,9 @@ def main() -> int:
         "embedder": EMBEDDER_NAME,
         "caveat": ("trained on the listed dumps only; FF++ test split and "
                    "Celeb-DF List_of_testing_videos never seen "
-                   "(Celeb-DF train-diet videos ARE in-distribution when provided)"),
+                   "(Celeb-DF train-diet videos ARE in-distribution when provided); "
+                   "DFD exam-split sources (data/raw/ffpp_dfd/split.json) are "
+                   "held out of every dump when the DFD diet is present"),
     }, indent=2))
     print(f"saved {out / 'stacker.joblib'} (val_auc={auc:.4f}, "
           f"drift cal n={cal['n_videos']})")

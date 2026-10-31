@@ -13,10 +13,23 @@ for fakes / "real" for reals (CDF has no method axes). Output lands in
 dump_cdf/ instead of dump_<split>/. CDF videos have zero audio streams, so
 --no-audio is consistent with what the files actually contain (no skew).
 
+--corpus dfd (W4, D-066): the FF++ DeepFakeDetection actor-arm diet. Reads the
+split manifest ONCE produced by ffpp/dfd_prepare.py (data/raw/ffpp_dfd/):
+fakes = mirror fake/DeepFakeDetection files whose (target,sequence) source
+key maps to --split; reals = data/raw/ffpp_actors originals of the SAME
+sources (domain balance — a fake never enters without its source original,
+L-CHANNEL-CONFOUND law). --limit is IGNORED (the manifest determines the
+rows); --smoke caps at 4 fakes + 2 reals per split. Audio is forced OFF
+(audio_present=0 is an explicit feature; the ffprobe receipt must show zero
+audio streams before any dump). Dumps APPEND into dump_<split>/ — every W4
+invocation MUST pass --drift-cal (the train dump's sidecar) so no run refits
+or rewrites existing rows' spike columns; the sidecar's fit_on text then
+states the inheritance honestly.
+
 Usage:
   .venv/bin/python deepfake/scripts/video_dump.py --split train|val \
-      [--corpus ffpp|celebdf] [--frames 12] [--limit 1500] \
-      [--audio-limit 1200] [--no-audio] \
+      [--corpus ffpp|celebdf|dfd] [--frames 12] [--limit 1500] \
+      [--audio-limit 1200] [--no-audio] [--smoke] \
       [--out artifacts/restack_video] [--drift-cal PATH]
 
 Selection is deterministic: sha-sorted within each class, reals first up to
@@ -58,6 +71,10 @@ CDF = WS / "data" / "raw" / "celebdf" / "Celeb-DF-v2"
 CDF_REAL_DIRS = ("Celeb-real", "YouTube-real")
 CDF_FAKE_DIR = "Celeb-synthesis"
 CDF_FAKE_METHOD = "CelebSynthesis"   # method label for CDF fakes (no method axes)
+DFD_MANIFEST = WS / "data" / "raw" / "ffpp_dfd"
+DFD_ACTORS = WS / "data" / "raw" / "ffpp_actors" / "c23" / "videos"
+DFD_METHOD = "DeepFakeDetection"     # mirror dir name; distinct from the 4 methods
+DFD_SMOKE = (4, 2)                   # smoke caps per split: (fakes, reals)
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
 CSV_COLS = ["file", "sha256_12", "label", "method", "split", "route",
             "naive_combined", "identity_video_score", "drift_l2"] + FEATURE_NAMES \
@@ -136,6 +153,38 @@ def enumerate_celebdf(limit: int, progress=print):
     return sel_reals, picked
 
 
+def enumerate_dfd(split: str, smoke: bool = False, progress=print):
+    """W4 DFD actor-arm diet (D-066): (reals, fakes) Path lists for one split.
+
+    Reads the prep manifest (data/raw/ffpp_dfd/) — the law, produced ONCE:
+    fakes = mirror DeepFakeDetection files whose (target,sequence) source is
+    in this split; reals = the SAME sources' actor originals (every fake
+    co-occurs with its own source original as a REAL in the same split).
+    Exam-split rows are never returned (held out entirely). --limit does not
+    apply (the manifest determines the rows); --smoke caps deterministically."""
+    assignment = json.loads((DFD_MANIFEST / "split.json").read_text())
+    sources = json.loads((DFD_MANIFEST / "sources.json").read_text())
+    want = [k for k in sorted(sources) if assignment[k] == split]
+    reals, fakes, missing = [], [], []
+    for k in want:
+        orig = DFD_ACTORS / sources[k]["original"]
+        (reals if orig.exists() else missing).append(orig)
+        for name in sources[k]["fakes"]:
+            fakes.append(MIRROR / "fake" / DFD_METHOD / f"{name}.mp4")
+    if missing:
+        raise SystemExit(
+            f"{len(missing)} actor originals missing from {DFD_ACTORS} "
+            f"(e.g. {missing[:3]}) — run ffpp/download_actors.py first; "
+            f"no fakes-only dump is allowed (L-CHANNEL-CONFOUND)")
+    if smoke:
+        nf, nr = DFD_SMOKE
+        fakes, reals = fakes[:nf], reals[:nr]
+    progress(f"[enum] dfd {split}: {len(reals)} actor reals / {len(fakes)} "
+             f"DFD fakes (manifest-determined; --limit ignored)"
+             + (f" — SMOKE caps {DFD_SMOKE}" if smoke else ""))
+    return reals, fakes
+
+
 def featurize_video(path: Path, frames: int = 12, with_audio: bool = False,
                     spike_thresh: float | None = None):
     """Score one video through visual+drift(+audio) -> flat stacker row.
@@ -187,13 +236,17 @@ def _apply_spikes(rows, spike):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=["train", "val", "test"], required=True)
-    ap.add_argument("--corpus", choices=["ffpp", "celebdf"], default="ffpp",
+    ap.add_argument("--corpus", choices=["ffpp", "celebdf", "dfd"], default="ffpp",
                     help="ffpp = the identity-disjoint split logic; celebdf = "
-                         "the D-021 train diet (official CDF test list excluded)")
+                         "the D-021 train diet (official CDF test list excluded); "
+                         "dfd = the W4 actor-arm diet (manifest-determined, "
+                         "appends into dump_<split>)")
     ap.add_argument("--frames", type=int, default=12)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--audio-limit", type=int, default=1200)
     ap.add_argument("--no-audio", action="store_true")
+    ap.add_argument("--smoke", action="store_true",
+                    help="dfd corpus only: cap at 4 fakes + 2 reals per split")
     ap.add_argument("--out", default=str(WS / "artifacts" / "restack_video"))
     ap.add_argument("--embedder", choices=["sface", "arcface"], default="sface",
                     help="identity embedder (must match at serve time — "
@@ -213,7 +266,14 @@ def main() -> int:
     rows_path = out / "scores.csv"
     noface_path = out / "noface.jsonl"
 
-    if args.corpus == "celebdf":
+    if args.corpus == "dfd":
+        # DFD dumps run with audio OFF by law (spec §2): audio_present=0 is an
+        # explicit feature and the ffprobe receipt must show zero streams.
+        if not args.no_audio:
+            print("[dump] dfd: forcing --no-audio (spec §2 audio law)", flush=True)
+            args.no_audio = True
+        reals, fakes = enumerate_dfd(args.split, smoke=args.smoke)
+    elif args.corpus == "celebdf":
         reals, fakes = enumerate_celebdf(limit)
     else:
         reals, fakes = enumerate_split(args.split, limit)
@@ -289,11 +349,30 @@ def main() -> int:
                 _apply_spikes([r], spike)
                 w.writerow({k: r.get(k, "") for k in CSV_COLS})
     from video_face_track import EMBEDDER_NAME
+    if args.drift_cal:
+        # pass-through law (spec §4.3): this run REFIT NOTHING — the threshold
+        # (and every existing row's spike column) is inherited verbatim.
+        fit_on = (f"inherited spike_thresh from {args.drift_cal} — no refit; "
+                  f"rows appended by this run reuse the inherited threshold")
+    else:
+        fit_on = (f"celebdf train-diet real videos only" if args.corpus == "celebdf"
+                  else f"ffpp {args.split}-split real videos only")
     (out / "drift_spike.json").write_text(json.dumps(
         {"spike_thresh": round(float(spike), 6),
-         "fit_on": (f"celebdf train-diet real videos only" if args.corpus == "celebdf"
-                    else f"ffpp {args.split}-split real videos only"),
+         "fit_on": fit_on,
          "embedder": EMBEDDER_NAME}, indent=2))
+    if args.corpus == "dfd":
+        import pandas as pd
+        df = pd.read_csv(rows_path)
+        dups = int(df.duplicated(subset=["method", "file"]).sum())
+        assert dups == 0, (f"dfd dump dedup assert FAILED: {dups} duplicated "
+                           f"(method,file) rows in {rows_path}")
+        n_nf = sum(1 for l in noface_path.read_text().splitlines() if l.strip()) \
+            if noface_path.exists() else 0
+        n_rows = len(df)
+        print(f"[dump:dfd] dedup assert clean (0 duplicated (method,file)); "
+              f"noface rows so far: {n_nf} "
+              f"(rate {n_nf / max(1, n_rows + n_nf):.4f} of attempted)", flush=True)
     n_audio = sum(int(r.get("audio_present", 0) or 0) for r in rows)
     print(f"[dump:{args.split}] done: {len(rows)} rows "
           f"({sum(1 for r in rows if int(r['label'])==0)} real / "

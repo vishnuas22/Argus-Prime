@@ -4,6 +4,11 @@
           plus the D-021 domain diet: dump_cdf = --corpus celebdf (limit 1000,
           official CDF test list excluded — 5b.5); audio on a deterministic
           200-video subsample only (decision #3)
+          W4 (D-066): --bootstrap-from (default artifacts/restack_video_v2)
+          byte-preserves the incumbent FF++/CDF dumps instead of re-dumping
+          (sha + rowcount receipts; law §4.4), then stage_dump_dfd appends
+          the DeepFakeDetection actor-arm diet (fakes + their actor-original
+          reals together, manifest-determined, --drift-cal pass-through).
   TRAIN   train_video_stacker on dump_train + dump_val + dump_cdf ->
           work/candidate/{stacker.joblib, stacker_meta.json,
           drift_calibration.json}
@@ -12,15 +17,19 @@
             (Deepfakes/Face2Face/FaceSwap >= 0.88, NeuralTextures >= 0.60)
           B: leave-one-method-out (4 feature-level retrains) >= 0.70 each
           C: Celeb-DF cross-dataset stacked >= 0.75 (0.70-0.75 = escalate)
-  VERDICT PROMOTE iff A and B and C; --promote --promote-to <tag> copies the
-          candidate to artifacts/<tag>/ (explicit tag required, never
+          D: exam_video_dfd on held-out DFD sources (W4, D-066) — stacked
+            >= 0.85 AND exam-real mean pf <= 0.35 AND frac(pf>0.5) <= 0.25
+            (the L-CHANNEL-CONFOUND guard)
+  VERDICT PROMOTE iff A and B and C and D; --promote --promote-to <tag> copies
+          the candidate to artifacts/<tag>/ (explicit tag required, never
           auto-wired). A gate miss ESCALATES to the user — no autonomous
-          waiver file is ever written (decision #2).
+          waiver file is ever written (decision #2 / D-046).
 
 Usage:
   .venv/bin/python deepfake/scripts/restack_video.py [--stage all|dump|train|gate|verdict]
-      [--smoke] [--work artifacts/restack_video_v2] [--embedder arcface]
-      [--promote --promote-to p6vid_v2]
+      [--smoke] [--work artifacts/restack_video_v3] [--embedder arcface]
+      [--bootstrap-from artifacts/restack_video_v2 | --no-bootstrap]
+      [--promote --promote-to p6vid_v3]
 """
 import argparse
 import json
@@ -46,8 +55,17 @@ GATES = {
     "lomo": {"min_auc": 0.70},          # per held-out method (4 folds)
     "celebdf": {"min_auc": 0.75, "warn_auc": 0.70},
     # <0.75 = FAIL, 0.70-0.75 = escalate to the user (decision #2 — no auto-waive)
+    # W4 (D-066) gate D: held-out DFD sources; D2 is the L-CHANNEL-CONFOUND
+    # guard — if the diet taught "actor domain = fake", held-out actor reals
+    # read fake-ward and D2 fires.
+    "dfd": {"min_auc": 0.85, "max_real_mean_pf": 0.35,
+            "max_real_frac_gt_half": 0.25},
 }
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
+DFD_SPLIT_MANIFEST = "data/raw/ffpp_dfd/split.json"
+BOOTSTRAP_DEFAULT = WS / "artifacts" / "restack_video_v2"
+BOOTSTRAP_DUMPS = ("dump_train", "dump_val", "dump_cdf")
+BOOTSTRAP_ROWS = {"dump_train": 1500, "dump_val": 300, "dump_cdf": 1000}
 ESCALATE_BAND = (0.85, 0.90)            # FF++ stacked in this band => escalate
 
 
@@ -59,7 +77,172 @@ def run(cmd, **kw):
     return r
 
 
-def stage_dump(work, smoke, embedder):
+def _sha256(path: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _manifest_append(work: Path, lines: list):
+    mp = work / "MANIFEST.md"
+    with open(mp, "a") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def bootstrap_dumps(work: Path, src: Path) -> None:
+    """W4 law §4.4: byte-preserve the incumbent's FF++/CDF diet rows.
+
+    Copies dump_train/dump_val/dump_cdf from the bootstrap source verbatim
+    (sha256 receipts pre/post; the pre-append receipt MUST equal 1500/300/1000
+    rows — clean attribution: the only diet delta is DFD+actors, and dump
+    re-scoring is not bit-guaranteed across runs). On any receipt failure this
+    STOPS — a fresh full re-dump (~1.5h) is the user's fallback decision."""
+    import json as _json
+    receipt = {"source": str(src), "created": time.strftime("%Y-%m-%d %H:%M:%S"),
+               "dumps": {}}
+    lines = ["## Bootstrap — byte-preserved diet rows (W4 law §4.4)", ""]
+    for name in BOOTSTRAP_DUMPS:
+        dst = work / name
+        if (dst / "scores.csv").exists():
+            print(f"[bootstrap] {name}: exists, skipped", flush=True)
+            continue
+        s_csv = src / name / "scores.csv"
+        if not s_csv.exists():
+            raise SystemExit(f"bootstrap source missing {s_csv} — cannot "
+                             f"byte-preserve; STOP (fallback = fresh full "
+                             f"re-dump, a user decision)")
+        pre_sha = _sha256(s_csv)
+        n_rows = len(s_csv.read_text().splitlines()) - 1
+        if n_rows != BOOTSTRAP_ROWS[name]:
+            raise SystemExit(f"bootstrap receipt FAILED: {name} has {n_rows} "
+                             f"rows, expected {BOOTSTRAP_ROWS[name]} — STOP")
+        dst.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(s_csv, dst / "scores.csv")
+        if _sha256(dst / "scores.csv") != pre_sha:
+            raise SystemExit(f"bootstrap copy sha mismatch for {name} — STOP")
+        sidecar = {}
+        for extra in ("drift_spike.json", "noface.jsonl"):
+            if (src / name / extra).exists():
+                shutil.copy2(src / name / extra, dst / extra)
+                if extra == "drift_spike.json":
+                    sidecar = _json.loads((dst / extra).read_text())
+        import pandas as pd
+        pre_df = pd.read_csv(dst / "scores.csv")
+        receipt["dumps"][name] = {
+            "rows": n_rows, "sha256": pre_sha, "sidecar": sidecar,
+            "n_reals": int((pre_df["label"] == 0).sum()),
+            "n_fakes": int((pre_df["label"] == 1).sum()),
+            "per_method": {m: int((pre_df["method"] == m).sum())
+                           for m in sorted(pre_df["method"].unique())}}
+        lines.append(f"- {name}: {n_rows} rows, sha256 {pre_sha}, "
+                     f"sidecar spike={sidecar.get('spike_thresh')} "
+                     f"fit_on='{sidecar.get('fit_on')}' "
+                     f"embedder={sidecar.get('embedder')}")
+        print(f"[bootstrap] {name}: {n_rows} rows byte-preserved "
+              f"(sha {pre_sha[:16]}…)", flush=True)
+    (work / "bootstrap_receipt.json").write_text(_json.dumps(receipt, indent=2))
+    _manifest_append(work, lines)
+
+
+def stage_dump_dfd(work, smoke, embedder):
+    """W4 (D-066): append the DFD actor-arm diet into dump_<split>/.
+
+    Fakes and their actor-original reals enter TOGETHER per source (same
+    split; L-CHANNEL-CONFOUND law). Every invocation passes the TRAIN dump's
+    sidecar as --drift-cal (spike pass-through law §4.3 — no run refits or
+    rewrites existing rows). Row-count deltas are reconciled against the
+    split manifest + noface.jsonl and receipted into MANIFEST.md."""
+    cal = work / "dump_train" / "drift_spike.json"
+    if not cal.exists():
+        raise SystemExit(f"missing {cal} — bootstrap the dumps first")
+    for split in ("train", "val"):
+        cmd = [PY, SCRIPTS / "video_dump.py", "--split", split,
+               "--corpus", "dfd", "--no-audio", "--out", work,
+               "--embedder", embedder, "--drift-cal", cal]
+        if smoke:
+            cmd.append("--smoke")
+        run(cmd)
+    _dfd_receipts(work, smoke)
+
+
+def _dfd_receipts(work: Path, smoke: bool) -> None:
+    """Reconcile appended rows against the split manifest + noface.jsonl."""
+    import json as _json
+    import pandas as pd
+    sources = _json.loads(
+        (WS / "data" / "raw" / "ffpp_dfd" / "sources.json").read_text())
+    boot = _json.loads((work / "bootstrap_receipt.json").read_text())
+    cap = {"fakes": 4, "reals": 2} if smoke else None
+    expected = {}
+    for split in ("train", "val"):
+        n_fakes = sum(len(r["fakes"]) for r in sources.values()
+                      if r["split"] == split)
+        n_reals = sum(1 for r in sources.values() if r["split"] == split)
+        expected[split] = {
+            "fakes": min(n_fakes, cap["fakes"]) if cap else n_fakes,
+            "reals": min(n_reals, cap["reals"]) if cap else n_reals}
+    receipt = {"smoke": bool(smoke), "splits": {}}
+    lines = ["## DFD diet append receipts (W4 stage_dump_dfd)", ""]
+    for split in ("train", "val"):
+        d = work / f"dump_{split}"
+        df = pd.read_csv(d / "scores.csv")
+        dups = int(df.duplicated(subset=["method", "file"]).sum())
+        assert dups == 0, f"{d}: {dups} duplicated (method,file) rows"
+        pre = boot["dumps"][f"dump_{split}"]
+        noface = {"0": 0, "1": 0}
+        nf_path = d / "noface.jsonl"
+        if nf_path.exists():
+            seen_nf = set()
+            for l in nf_path.read_text().splitlines():
+                if l.strip():
+                    r = _json.loads(l)
+                    k = (r.get("method", ""), r["file"])
+                    if k in seen_nf:
+                        continue          # re-attempted on resume; count once
+                    seen_nf.add(k)
+                    noface[str(int(r["label"]))] += 1
+        got_fakes = int((df["label"] == 1).sum()) - pre["n_fakes"]
+        got_reals = int((df["label"] == 0).sum()) - pre["n_reals"]
+        exp = expected[split]
+        ok = (got_fakes + noface["1"] == exp["fakes"]
+              and got_reals + noface["0"] == exp["reals"])
+        per_method = {m: int((df["method"] == m).sum())
+                      for m in sorted(df["method"].unique())}
+        receipt["splits"][split] = {
+            "appended_fakes": got_fakes, "appended_reals": got_reals,
+            "noface_fakes": noface["1"], "noface_reals": noface["0"],
+            "expected_fakes": exp["fakes"], "expected_reals": exp["reals"],
+            "reconciled": bool(ok), "total_rows": len(df),
+            "per_method": per_method}
+        lines.append(
+            f"- dump_{split}: appended {got_fakes} fakes + {got_reals} reals "
+            f"(noface {noface['1']}/{noface['0']}) vs manifest-expected "
+            f"{exp['fakes']}/{exp['reals']} -> "
+            f"{'RECONCILED' if ok else 'MISMATCH'}; total rows {len(df)}; "
+            f"per-method {per_method}")
+        print(f"[dfd-receipt] {split}: fakes+{got_fakes} reals+{got_reals} "
+              f"noface {noface['1']}+{noface['0']} vs expected "
+              f"{exp['fakes']}/{exp['reals']} -> "
+              f"{'OK' if ok else 'MISMATCH'}", flush=True)
+        if not ok:
+            raise SystemExit(f"dfd append receipt MISMATCH for {split} — STOP")
+    (work / "dfd_dump_receipt.json").write_text(_json.dumps(receipt, indent=2))
+    _manifest_append(work, lines)
+
+
+def stage_dump(work, smoke, embedder, bootstrap_from=None):
+    src = Path(bootstrap_from) if bootstrap_from else None
+    if src is not None and src.exists():
+        # W4 (D-066): byte-preserve the incumbent diet, then append DFD.
+        bootstrap_dumps(work, src)
+        stage_dump_dfd(work, smoke, embedder)
+        return
+    if src is not None:
+        print(f"[dump] bootstrap source {src} not found — legacy dump path",
+              flush=True)
     limits = (40, 20) if smoke else (1500, 300)
     audio = 0 if smoke else 200
     for split, lim in zip(("train", "val"), limits):
@@ -196,7 +379,40 @@ def stage_gate(work, smoke, embedder):
              "warn": c_verdict == "WARN_ESCALATE"}
     print(f"[gate] celebdf: stacked={c_auc} -> {c_verdict}", flush=True)
 
-    gates = {"ffpp": g_ffpp, "lomo": g_lomo, "celebdf": g_cdf,
+    # --- Gate D: held-out DFD sources (W4, D-066) ---------------------------
+    dfd = _gate_exam(work / "gate_dfd", smoke, lambda o: [
+        PY, SCRIPTS / "exam_video_dfd.py", "--frames", 12,
+        "--video-stacker", cand, "--drift-cal", cal, "--embedder", embedder,
+        *(["--limit", "4"] if smoke else []), "--out", o])
+    d_auc = (dfd.get("auc") or {}).get("stacked")
+    d_real_mean = dfd.get("real_mean_pf")
+    d_real_frac = dfd.get("real_frac_gt_half")
+    bars_d = GATES["dfd"]
+    dfd_pass = bool(d_auc is not None and d_real_mean is not None
+                    and d_real_frac is not None
+                    and d_auc >= bars_d["min_auc"]
+                    and d_real_mean <= bars_d["max_real_mean_pf"]
+                    and d_real_frac <= bars_d["max_real_frac_gt_half"])
+    g_dfd = {"auc_stacked": d_auc,
+             "auc_naive": (dfd.get("auc") or {}).get("naive_combined"),
+             "auc_identity": (dfd.get("auc") or {}).get("identity_video_score"),
+             "real_mean_pf": d_real_mean,
+             "real_frac_gt_half": d_real_frac,
+             "n_fakes": dfd.get("n_fakes"), "n_reals": dfd.get("n_reals"),
+             "n_sources": dfd.get("n_sources"),
+             "split_manifest": DFD_SPLIT_MANIFEST,
+             "min_auc": bars_d["min_auc"],
+             "max_real_mean_pf": bars_d["max_real_mean_pf"],
+             "max_real_frac_gt_half": bars_d["max_real_frac_gt_half"],
+             "embedder": dfd.get("embedder"),
+             "pass": dfd_pass}
+    print(f"[gate] dfd: stacked={d_auc} real_mean_pf={d_real_mean} "
+          f"real_frac_gt_half={d_real_frac} "
+          f"(n_fakes={dfd.get('n_fakes')} n_reals={dfd.get('n_reals')} "
+          f"n_sources={dfd.get('n_sources')}) -> "
+          f"{'PASS' if dfd_pass else 'FAIL'}", flush=True)
+
+    gates = {"ffpp": g_ffpp, "lomo": g_lomo, "celebdf": g_cdf, "dfd": g_dfd,
              "gates_spec": GATES, "smoke": bool(smoke),
              "embedder": embedder,
              "created": time.strftime("%Y-%m-%d %H:%M:%S")}
@@ -213,11 +429,36 @@ def stage_verdict(work, promote, promote_to):
         print("[verdict] gates.json is from a --smoke run — verdict skipped "
               "(run the full gate stage before any verdict)", flush=True)
         return 0
-    a, b, c = (gates["ffpp"]["pass"], gates["lomo"]["pass"], gates["celebdf"]["pass"])
+    a, b, c = (gates["ffpp"]["pass"], gates["lomo"]["pass"],
+               gates["celebdf"]["pass"])
+    d = gates.get("dfd", {}).get("pass")
     stacked = gates["ffpp"]["auc_stacked"]
-    print(f"\nVERDICT: {'PROMOTE' if (a and b and c) else 'HOLD'}  "
+    all_pass = bool(a and b and c and d)
+    missed = []
+    if not a:
+        f = gates["ffpp"]
+        missed.append({"gate": "ffpp", "stacked": f.get("auc_stacked"),
+                       "bar": 0.90, "delta_vs_naive": f.get("delta_vs_naive"),
+                       "delta_bar": -0.005, "per_method": f.get("per_method")})
+    if not b:
+        missed.append({"gate": "lomo", "per_method_auc":
+                       gates["lomo"].get("per_method_auc"), "bar": 0.70})
+    if not c:
+        missed.append({"gate": "celebdf", "stacked":
+                       gates["celebdf"].get("auc_stacked"), "bar": 0.75})
+    if not d:
+        g = gates.get("dfd", {})
+        missed.append({"gate": "dfd", "auc_stacked": g.get("auc_stacked"),
+                       "bar": 0.85, "real_mean_pf": g.get("real_mean_pf"),
+                       "real_mean_bar": 0.35,
+                       "real_frac_gt_half": g.get("real_frac_gt_half"),
+                       "real_frac_bar": 0.25})
+    print(f"\nVERDICT: {'PROMOTE' if all_pass else 'HOLD'}  "
           f"(ffpp={a} [stacked={stacked}, naive={gates['ffpp']['auc_naive']}], "
-          f"lomo={b}, celebdf={c} [{gates['celebdf']['verdict']}])", flush=True)
+          f"lomo={b}, celebdf={c} [{gates['celebdf']['verdict']}], "
+          f"dfd={d} [stacked={gates.get('dfd', {}).get('auc_stacked')}, "
+          f"real_mean_pf={gates.get('dfd', {}).get('real_mean_pf')}])",
+          flush=True)
     if stacked is not None and ESCALATE_BAND[0] <= stacked < ESCALATE_BAND[1]:
         print(f"  ESCALATE: FF++ stacked AUC {stacked} is in the "
               f"{ESCALATE_BAND[0]}-{ESCALATE_BAND[1]} waiver band — per user "
@@ -226,9 +467,21 @@ def stage_verdict(work, promote, promote_to):
     if gates["celebdf"]["warn"]:
         print(f"  ESCALATE: Celeb-DF stacked AUC {gates['celebdf']['auc_stacked']} "
               f"is in the 0.70-0.75 warn band — user decides.", flush=True)
-    if not (a and b and c):
-        print("  HOLD: gates incomplete/failed — no promotion, no waiver written.",
-              flush=True)
+    if not all_pass:
+        print("  HOLD: gates incomplete/failed — no promotion, no waiver "
+              "written. Missed bar(s) per D-046:", flush=True)
+        for m in missed:
+            print(f"    - {json.dumps(m)}", flush=True)
+    receipt = {"decision": "PROMOTE" if all_pass else "HOLD",
+               "exit_code": 0 if all_pass else 2,
+               "gates": {k: gates[k].get("pass") for k in
+                         ("ffpp", "lomo", "celebdf", "dfd")},
+               "missed": missed,
+               "smoke": bool(gates.get("smoke")),
+               "created": time.strftime("%Y-%m-%d %H:%M:%S")}
+    (work / "verdict.json").write_text(json.dumps(receipt, indent=2))
+    print(f"verdict receipt: {work / 'verdict.json'}", flush=True)
+    if not all_pass:
         return 2
     if promote:
         if not promote_to:
@@ -253,6 +506,12 @@ def main() -> int:
                          "and stage_dump skips existing scores)")
     ap.add_argument("--promote", action="store_true")
     ap.add_argument("--promote-to", default=None)
+    ap.add_argument("--bootstrap-from", default=str(BOOTSTRAP_DEFAULT),
+                    help="W4: byte-preserve this run's dump_train/dump_val/"
+                         "dump_cdf instead of re-dumping (law §4.4)")
+    ap.add_argument("--no-bootstrap", action="store_true",
+                    help="disable the byte-preserve bootstrap (legacy "
+                         "from-scratch dump path)")
     ap.add_argument("--embedder", choices=["sface", "arcface"], default="arcface",
                     help="identity embedder for ALL stages — dump/train/gate "
                          "must match, and the serve path reads it from "
@@ -264,11 +523,12 @@ def main() -> int:
     work = Path(args.work) if args.work else (WS / "artifacts" /
         ("restack_video_v2_smoke" if args.smoke else "restack_video_v2"))
     work.mkdir(parents=True, exist_ok=True)
+    bootstrap_from = None if args.no_bootstrap else args.bootstrap_from
     stages = (["dump", "train", "gate", "verdict"] if args.stage == "all"
               else [args.stage])
     for st in stages:
         if st == "dump":
-            stage_dump(work, args.smoke, args.embedder)
+            stage_dump(work, args.smoke, args.embedder, bootstrap_from)
         elif st == "train":
             stage_train(work, args.embedder)
         elif st == "gate":
