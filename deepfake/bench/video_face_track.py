@@ -195,7 +195,7 @@ def _detect_faces(img: np.ndarray) -> np.ndarray:
 
 
 def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
-                  with_scores: bool = False):
+                  with_scores: bool = False, keep_frames: bool = False):
     """Decode the sampled frames ONCE and observe every face on every frame.
 
     Returns (obs, stats):
@@ -206,11 +206,17 @@ def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
                 "scores_spec" : np.ndarray (len(obs),) FF++-specialist p_fake
                                 per face (same CLIP forward, second head)
                 "largest_idx" : list[int] obs index of the largest face per frame
+              plus, when keep_frames=True:
+                "frames"      : {frame_idx: prepared BGR frame} for every
+                                successfully decoded sampled frame (deduped by
+                                index — sample_frame_indices may produce
+                                duplicate ints on short videos)
     """
     cap = cv2.VideoCapture(str(path))
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
     idxs = sample_frame_indices(total, n_frames)
     obs, scores, scores_spec, largest_idx = [], [], [], []
+    kept_frames: dict = {}
     frames_decoded = 0
     for fi in idxs:
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(fi))
@@ -219,6 +225,8 @@ def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
             continue
         frames_decoded += 1
         img = prepare_frame(frame)
+        if keep_frames:
+            kept_frames[int(fi)] = img
         faces = _detect_faces(img)
         if len(faces) == 0:
             continue
@@ -245,6 +253,8 @@ def observe_video(path: Path, n_frames: int = FRAME_BUDGET_DEFAULT,
     cap.release()
     stats = {"frames_sampled": int(len(idxs)), "frames_decoded": frames_decoded,
              "faces_detected": len(obs)}
+    if keep_frames:
+        stats["frames"] = kept_frames
     if with_scores:
         stats["scores"] = np.asarray(scores, dtype=np.float32)
         stats["scores_spec"] = np.asarray(scores_spec, dtype=np.float32)

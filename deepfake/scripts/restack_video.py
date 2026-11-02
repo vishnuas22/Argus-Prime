@@ -51,15 +51,21 @@ GATES = {
              # visible forgeries must clear 0.88; NeuralTextures (mouth-
              # reenactment, weakest identity signal) keeps the 0.60 floor.
              "min_per_method": {"Deepfakes": 0.88, "Face2Face": 0.88,
-                                "FaceSwap": 0.88, "NeuralTextures": 0.60}},
+                                "FaceSwap": 0.88, "NeuralTextures": 0.60},
+             # W4b D4 elevation guard (user-sealed X=0.10, 2026-10-31):
+             # stacked real-mean may exceed the naive real-mean by at most X
+             # over this gate's features.csv real rows.
+             "max_real_elevation": 0.10},
     "lomo": {"min_auc": 0.70},          # per held-out method (4 folds)
-    "celebdf": {"min_auc": 0.75, "warn_auc": 0.70},
+    "celebdf": {"min_auc": 0.75, "warn_auc": 0.70,
+                "max_real_elevation": 0.10},
     # <0.75 = FAIL, 0.70-0.75 = escalate to the user (decision #2 — no auto-waive)
     # W4 (D-066) gate D: held-out DFD sources; D2 is the L-CHANNEL-CONFOUND
     # guard — if the diet taught "actor domain = fake", held-out actor reals
     # read fake-ward and D2 fires.
     "dfd": {"min_auc": 0.85, "max_real_mean_pf": 0.35,
-            "max_real_frac_gt_half": 0.25},
+            "max_real_frac_gt_half": 0.25,
+            "max_real_elevation": 0.10},
 }
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
 DFD_SPLIT_MANIFEST = "data/raw/ffpp_dfd/split.json"
@@ -233,7 +239,7 @@ def _dfd_receipts(work: Path, smoke: bool) -> None:
     _manifest_append(work, lines)
 
 
-def stage_dump(work, smoke, embedder, bootstrap_from=None):
+def stage_dump(work, smoke, embedder, bootstrap_from=None, full_redump=False):
     src = Path(bootstrap_from) if bootstrap_from else None
     if src is not None and src.exists():
         # W4 (D-066): byte-preserve the incumbent diet, then append DFD.
@@ -258,6 +264,41 @@ def stage_dump(work, smoke, embedder, bootstrap_from=None):
         if split == "train":
             # D-021 diet stage BETWEEN the train-dump and the val-dump (5b.6)
             stage_dump_cdf(work, smoke, embedder)
+    if full_redump:
+        # W4c §3: the fresh ffpp/cdf dumps are receipted as the pre-append
+        # state, then the DFD diet appends exactly as in the bootstrap path
+        # (same stage_dump_dfd, same receipts; §3 order preserved).
+        _fresh_dump_receipt(work)
+        stage_dump_dfd(work, smoke, embedder)
+
+
+def _fresh_dump_receipt(work: Path) -> None:
+    """W4c §3 full-redump pre-receipt: snapshot the freshly dumped ffpp/cdf
+    CSVs into the bootstrap_receipt.json schema so stage_dump_dfd's append
+    reconciliation has its pre-state. No byte-preservation happened — the
+    mode field says so, and the MANIFEST section is labeled accordingly."""
+    import json as _json
+    import pandas as pd
+    receipt = {"mode": "full-redump fresh-dump pre-receipt (W4c §3 — no "
+               "bootstrap source; counts snapshot the fresh ffpp/cdf dumps "
+               "before the DFD append)",
+               "created": time.strftime("%Y-%m-%d %H:%M:%S"), "dumps": {}}
+    lines = ["## Full re-dump pre-receipt (W4c §3 — fresh dumps, no bootstrap)", ""]
+    for name in BOOTSTRAP_DUMPS:
+        p = work / name / "scores.csv"
+        if not p.exists():
+            raise SystemExit(f"full-redump pre-receipt: missing {p}")
+        df = pd.read_csv(p)
+        receipt["dumps"][name] = {
+            "rows": int(len(df)),
+            "n_reals": int((df["label"] == 0).sum()),
+            "n_fakes": int((df["label"] == 1).sum()),
+            "per_method": {m: int((df["method"] == m).sum())
+                           for m in sorted(df["method"].unique())}}
+        lines.append(f"- {name}: {len(df)} rows (fresh dump, pre-DFD-append)")
+        print(f"[full-redump] pre-receipt {name}: {len(df)} rows", flush=True)
+    (work / "bootstrap_receipt.json").write_text(_json.dumps(receipt, indent=2))
+    _manifest_append(work, lines)
 
 
 def stage_dump_cdf(work, smoke, embedder):
@@ -301,6 +342,23 @@ def _gate_exam(out_dir, smoke, build_cmd):
     return json.loads((out_dir / "metrics.json").read_text())
 
 
+def _real_elevation(features_csv: Path) -> dict:
+    """W4b lever B — D4 elevation guard: how far the stacker shifts REAL rows
+    fake-ward relative to the naive channel, per gate. Computed over the
+    label==0 rows of the gate's features.csv; recorded per gate in gates.json
+    and enforced against GATES[<gate>]["max_real_elevation"] (smoke runs
+    record but do not enforce)."""
+    import pandas as pd
+    df = pd.read_csv(features_csv)
+    reals = df[df["label"] == 0]
+    naive = float(reals["naive_combined"].mean())
+    stacked = float(reals["stacked"].mean())
+    return {"naive_real_mean": round(naive, 4),
+            "stacked_real_mean": round(stacked, 4),
+            "real_elevation": round(stacked - naive, 4),
+            "n_reals": int(len(reals))}
+
+
 def stage_gate(work, smoke, embedder):
     cand = work / "candidate"
     cal = cand / "drift_calibration.json"
@@ -321,24 +379,35 @@ def stage_gate(work, smoke, embedder):
         (ffpp.get("per_method", {}).get(m, {}).get("stacked") or 0)
         >= bars[m] for m in METHODS) if not smoke else True
     delta = None if (stacked is None or naive is None) else stacked - naive
+    elev_ffpp = _real_elevation(gate_dir / "features.csv")
+    elev_ok = (elev_ffpp["real_elevation"] <= GATES["ffpp"]["max_real_elevation"]
+               if not smoke else True)
     ffpp_pass = bool(stacked is not None and naive is not None
                      and stacked >= GATES["ffpp"]["min_auc"]
-                     and delta >= GATES["ffpp"]["vs_naive_tol"] and per_meth_ok)
+                     and delta >= GATES["ffpp"]["vs_naive_tol"] and per_meth_ok
+                     and elev_ok)
     g_ffpp = {"auc_stacked": stacked, "auc_naive": naive,
               "auc_identity": auc.get("identity_video_score"),
               "delta_vs_naive": None if delta is None else round(delta, 4),
               "per_method": ffpp.get("per_method", {}),
               "min_per_method": bars,
+              "naive_real_mean": elev_ffpp["naive_real_mean"],
+              "stacked_real_mean": elev_ffpp["stacked_real_mean"],
+              "real_elevation": elev_ffpp["real_elevation"],
+              "n_reals": elev_ffpp["n_reals"],
+              "max_real_elevation": GATES["ffpp"]["max_real_elevation"],
               "embedder": ffpp.get("embedder"),
               "n": ffpp.get("n_scored"),
               "pass": ffpp_pass}
     print(f"[gate] ffpp: stacked={stacked} naive={naive} delta={delta} "
+          f"elevation={elev_ffpp['real_elevation']} "
+          f"(max {GATES['ffpp']['max_real_elevation']}) "
           f"-> {'PASS' if ffpp_pass else 'FAIL'}", flush=True)
 
     # --- Gate B: leave-one-method-out (pure feature-level) -----------------
     import pandas as pd
     from train_video_stacker import fit_stacker
-    from video_features import row_to_X
+    from video_features import FEATURE_NAMES_FULL, row_to_X
     train_df = pd.read_csv(work / "dump_train" / "scores.csv")
     test_df = pd.read_csv(gate_dir / "features.csv")
     reals = test_df[test_df["label"] == 0]
@@ -350,7 +419,8 @@ def stage_gate(work, smoke, embedder):
             held = held.head(8)
         eval_df = pd.concat([held, reals], ignore_index=True)
         clf, _va, _X, _y = fit_stacker(sub)
-        X = np.vstack([row_to_X(r) for r in eval_df.to_dict("records")])
+        X = np.vstack([row_to_X(r, FEATURE_NAMES_FULL)
+                       for r in eval_df.to_dict("records")])
         p = clf.predict_proba(X)[:, 1]
         y = eval_df["label"].astype(int).to_numpy()
         from sklearn.metrics import roc_auc_score
@@ -369,15 +439,31 @@ def stage_gate(work, smoke, embedder):
         "--stacker", cand, "--drift-cal", cal, "--embedder", embedder, *(
             ["--limit", cdf_lim] if cdf_lim else []), "--out", o])
     c_auc = cdf.get("auc", {}).get("stacked")
-    c_verdict = ("PASS" if c_auc is not None and c_auc >= GATES["celebdf"]["min_auc"]
-                 else "WARN_ESCALATE" if c_auc is not None
-                 and c_auc >= GATES["celebdf"]["warn_auc"] else "FAIL")
+    elev_cdf = _real_elevation(work / "gate_celebdf" / "features.csv")
+    c_elev_ok = (elev_cdf["real_elevation"]
+                 <= GATES["celebdf"]["max_real_elevation"] if not smoke else True)
+    if c_auc is None or c_auc < GATES["celebdf"]["warn_auc"]:
+        c_verdict = "FAIL"
+    elif c_auc < GATES["celebdf"]["min_auc"]:
+        c_verdict = "WARN_ESCALATE"
+    elif c_elev_ok:
+        c_verdict = "PASS"
+    else:
+        c_verdict = "FAIL"              # D4 elevation miss at passing AUC
     g_cdf = {"auc_stacked": c_auc, "auc_naive": cdf.get("auc", {}).get("naive"),
              "auc_identity": cdf.get("auc", {}).get("identity"), "n": cdf.get("n"),
+             "naive_real_mean": elev_cdf["naive_real_mean"],
+             "stacked_real_mean": elev_cdf["stacked_real_mean"],
+             "real_elevation": elev_cdf["real_elevation"],
+             "n_reals": elev_cdf["n_reals"],
+             "max_real_elevation": GATES["celebdf"]["max_real_elevation"],
              "embedder": cdf.get("embedder"),
              "verdict": c_verdict, "pass": c_verdict == "PASS",
              "warn": c_verdict == "WARN_ESCALATE"}
-    print(f"[gate] celebdf: stacked={c_auc} -> {c_verdict}", flush=True)
+    print(f"[gate] celebdf: stacked={c_auc} "
+          f"elevation={elev_cdf['real_elevation']} "
+          f"(max {GATES['celebdf']['max_real_elevation']}) -> {c_verdict}",
+          flush=True)
 
     # --- Gate D: held-out DFD sources (W4, D-066) ---------------------------
     dfd = _gate_exam(work / "gate_dfd", smoke, lambda o: [
@@ -388,16 +474,24 @@ def stage_gate(work, smoke, embedder):
     d_real_mean = dfd.get("real_mean_pf")
     d_real_frac = dfd.get("real_frac_gt_half")
     bars_d = GATES["dfd"]
+    elev_dfd = _real_elevation(work / "gate_dfd" / "features.csv")
+    d_elev_ok = (elev_dfd["real_elevation"] <= bars_d["max_real_elevation"]
+                 if not smoke else True)
     dfd_pass = bool(d_auc is not None and d_real_mean is not None
                     and d_real_frac is not None
                     and d_auc >= bars_d["min_auc"]
                     and d_real_mean <= bars_d["max_real_mean_pf"]
-                    and d_real_frac <= bars_d["max_real_frac_gt_half"])
+                    and d_real_frac <= bars_d["max_real_frac_gt_half"]
+                    and d_elev_ok)
     g_dfd = {"auc_stacked": d_auc,
              "auc_naive": (dfd.get("auc") or {}).get("naive_combined"),
              "auc_identity": (dfd.get("auc") or {}).get("identity_video_score"),
              "real_mean_pf": d_real_mean,
              "real_frac_gt_half": d_real_frac,
+             "naive_real_mean": elev_dfd["naive_real_mean"],
+             "stacked_real_mean": elev_dfd["stacked_real_mean"],
+             "real_elevation": elev_dfd["real_elevation"],
+             "max_real_elevation": bars_d["max_real_elevation"],
              "n_fakes": dfd.get("n_fakes"), "n_reals": dfd.get("n_reals"),
              "n_sources": dfd.get("n_sources"),
              "split_manifest": DFD_SPLIT_MANIFEST,
@@ -408,6 +502,8 @@ def stage_gate(work, smoke, embedder):
              "pass": dfd_pass}
     print(f"[gate] dfd: stacked={d_auc} real_mean_pf={d_real_mean} "
           f"real_frac_gt_half={d_real_frac} "
+          f"elevation={elev_dfd['real_elevation']} "
+          f"(max {bars_d['max_real_elevation']}) "
           f"(n_fakes={dfd.get('n_fakes')} n_reals={dfd.get('n_reals')} "
           f"n_sources={dfd.get('n_sources')}) -> "
           f"{'PASS' if dfd_pass else 'FAIL'}", flush=True)
@@ -439,20 +535,33 @@ def stage_verdict(work, promote, promote_to):
         f = gates["ffpp"]
         missed.append({"gate": "ffpp", "stacked": f.get("auc_stacked"),
                        "bar": 0.90, "delta_vs_naive": f.get("delta_vs_naive"),
-                       "delta_bar": -0.005, "per_method": f.get("per_method")})
+                       "delta_bar": -0.005, "per_method": f.get("per_method"),
+                       "naive_real_mean": f.get("naive_real_mean"),
+                       "stacked_real_mean": f.get("stacked_real_mean"),
+                       "real_elevation": f.get("real_elevation"),
+                       "max_real_elevation": f.get("max_real_elevation")})
     if not b:
         missed.append({"gate": "lomo", "per_method_auc":
                        gates["lomo"].get("per_method_auc"), "bar": 0.70})
     if not c:
-        missed.append({"gate": "celebdf", "stacked":
-                       gates["celebdf"].get("auc_stacked"), "bar": 0.75})
+        g = gates["celebdf"]
+        missed.append({"gate": "celebdf", "stacked": g.get("auc_stacked"),
+                       "bar": 0.75,
+                       "naive_real_mean": g.get("naive_real_mean"),
+                       "stacked_real_mean": g.get("stacked_real_mean"),
+                       "real_elevation": g.get("real_elevation"),
+                       "max_real_elevation": g.get("max_real_elevation")})
     if not d:
         g = gates.get("dfd", {})
         missed.append({"gate": "dfd", "auc_stacked": g.get("auc_stacked"),
                        "bar": 0.85, "real_mean_pf": g.get("real_mean_pf"),
                        "real_mean_bar": 0.35,
                        "real_frac_gt_half": g.get("real_frac_gt_half"),
-                       "real_frac_bar": 0.25})
+                       "real_frac_bar": 0.25,
+                       "naive_real_mean": g.get("naive_real_mean"),
+                       "stacked_real_mean": g.get("stacked_real_mean"),
+                       "real_elevation": g.get("real_elevation"),
+                       "max_real_elevation": g.get("max_real_elevation")})
     print(f"\nVERDICT: {'PROMOTE' if all_pass else 'HOLD'}  "
           f"(ffpp={a} [stacked={stacked}, naive={gates['ffpp']['auc_naive']}], "
           f"lomo={b}, celebdf={c} [{gates['celebdf']['verdict']}], "
@@ -512,6 +621,11 @@ def main() -> int:
     ap.add_argument("--no-bootstrap", action="store_true",
                     help="disable the byte-preserve bootstrap (legacy "
                          "from-scratch dump path)")
+    ap.add_argument("--full-redump", action="store_true",
+                    help="W4c §3: ignore --bootstrap-from and re-dump ALL "
+                         "corpora from scratch (ffpp train + cdf + ffpp val, "
+                         "then the DFD appends via stage_dump_dfd — the exact "
+                         "v3b provenance sequence, extended featurizer)")
     ap.add_argument("--embedder", choices=["sface", "arcface"], default="arcface",
                     help="identity embedder for ALL stages — dump/train/gate "
                          "must match, and the serve path reads it from "
@@ -523,12 +637,14 @@ def main() -> int:
     work = Path(args.work) if args.work else (WS / "artifacts" /
         ("restack_video_v2_smoke" if args.smoke else "restack_video_v2"))
     work.mkdir(parents=True, exist_ok=True)
-    bootstrap_from = None if args.no_bootstrap else args.bootstrap_from
+    bootstrap_from = None if (args.no_bootstrap or args.full_redump) \
+        else args.bootstrap_from
     stages = (["dump", "train", "gate", "verdict"] if args.stage == "all"
               else [args.stage])
     for st in stages:
         if st == "dump":
-            stage_dump(work, args.smoke, args.embedder, bootstrap_from)
+            stage_dump(work, args.smoke, args.embedder, bootstrap_from,
+                       full_redump=args.full_redump)
         elif st == "train":
             stage_train(work, args.embedder)
         elif st == "gate":

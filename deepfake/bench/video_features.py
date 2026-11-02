@@ -33,6 +33,18 @@ FEATURE_NAMES: list = [
 
 AUDIO_FEATURES = ("audio_pfake", "audio_present", "audio_in_coverage")
 
+# SCENE family (W4c §2) — full-frame/context features computed from the SAME
+# 12-frame decode + existing FaceObs boxes (deepfake/bench/scene_features.py).
+# FEATURE_NAMES stays the deployed 24 until the promotion flip; FEATURE_NAMES_
+# FULL is what the W4c dump/train/exam machinery reads pre-flip. At the flip
+# FEATURE_NAMES is redefined to the 32-list and FEATURE_NAMES_FULL aliases it.
+SCENE_FEATURES = ("scene_face_area_mean", "scene_face_area_p90",
+                  "scene_seam_delta", "scene_color_delta", "scene_freq_ratio",
+                  "scene_flicker_delta", "scene_context_sharp",
+                  "scene_present")
+
+FEATURE_NAMES_FULL: list = FEATURE_NAMES + list(SCENE_FEATURES)
+
 
 def _g(d, k, default=0.0):
     v = (d or {}).get(k, default)
@@ -40,12 +52,16 @@ def _g(d, k, default=0.0):
 
 
 def compute_row(visual: dict, drift: dict, audio: dict | None) -> dict:
-    """Flatten one video's channel outputs into the 24-feature stacker row.
+    """Flatten one video's channel outputs into the stacker feature row.
 
+    The row carries the 24 deployed features plus the 8 SCENE features
+    (FEATURE_NAMES_FULL); row_to_X orders whichever space the caller names.
     audio=None (or a dict without a scored probe) => audio_present=0,
     audio_pfake=0.0, audio_in_coverage=0 — the flag carries the missingness,
     an explicit train/serve contract with no silent skew. A missing
-    visual["spec"] block (legacy rows) zero-fills the 8 spec features."""
+    visual["spec"] block (legacy rows) zero-fills the 8 spec features; a
+    missing visual["scene"] block zero-fills the 8 scene features the same
+    way (scene_present=0 documents the legacy/absent path)."""
     v, d = visual or {}, drift or {}
     ids = list(v.get("identities") or [])
     id1 = ids[0] if len(ids) > 0 else {}
@@ -53,6 +69,7 @@ def compute_row(visual: dict, drift: dict, audio: dict | None) -> dict:
     spec = v.get("spec") or {}
     sids = list(spec.get("identities") or [])
     sid1 = sids[0] if len(sids) > 0 else {}
+    scene = v.get("scene") or {}
 
     present = 1 if (isinstance(audio, dict) and "p_fake_audio_mean" in audio) else 0
     in_cov = 1 if (present and not audio.get("out_of_coverage", False)) else 0
@@ -83,11 +100,26 @@ def compute_row(visual: dict, drift: dict, audio: dict | None) -> dict:
         "audio_pfake": float(audio["p_fake_audio_mean"]) if present else 0.0,
         "audio_present": present,
         "audio_in_coverage": in_cov,
+        # SCENE missingness contract mirrors AUDIO_FEATURES: block absent =>
+        # all 7 floats 0.0 + scene_present=0 (the spec zero-fill precedent).
+        "scene_face_area_mean": _g(scene, "scene_face_area_mean"),
+        "scene_face_area_p90": _g(scene, "scene_face_area_p90"),
+        "scene_seam_delta": _g(scene, "scene_seam_delta"),
+        "scene_color_delta": _g(scene, "scene_color_delta"),
+        "scene_freq_ratio": _g(scene, "scene_freq_ratio"),
+        "scene_flicker_delta": _g(scene, "scene_flicker_delta"),
+        "scene_context_sharp": _g(scene, "scene_context_sharp"),
+        "scene_present": int(scene.get("scene_present", 0) or 0),
     }
     return row
 
 
-def row_to_X(row: dict) -> np.ndarray:
-    """Row dict -> feature vector, order = FEATURE_NAMES exactly."""
-    return np.asarray([float(row.get(name, 0.0) or 0.0) for name in FEATURE_NAMES],
+def row_to_X(row: dict, names=None) -> np.ndarray:
+    """Row dict -> feature vector, order = the given names exactly.
+
+    Default names=None keeps the deployed FEATURE_NAMES order (the serve path
+    is untouched by construction); the W4c dump/train/exam machinery passes
+    FEATURE_NAMES_FULL or the candidate's meta names explicitly."""
+    ns = FEATURE_NAMES if names is None else names
+    return np.asarray([float(row.get(name, 0.0) or 0.0) for name in ns],
                       dtype=np.float64)

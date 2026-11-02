@@ -100,7 +100,7 @@ def main() -> int:
     from argus_detect import STACKER, VIDEO_STACKER
     stacker_spec = args.video_stacker if args.video_stacker is not None else (
         str(VIDEO_STACKER) if VIDEO_STACKER.exists() else None)
-    stacker, stacker_tag = load_stacker(stacker_spec, args.embedder)
+    stacker, stacker_tag, names = load_stacker(stacker_spec, args.embedder)
 
     cal_path = args.drift_cal
     if cal_path is None:
@@ -153,8 +153,9 @@ def main() -> int:
                       f"route=image_court (no face)", flush=True)
                 continue
             flat = res["row"]
-            stacked = (float(stacker.predict_proba(row_to_X(flat).reshape(1, -1))[0, 1])
-                       if stacker is not None else None)
+            stacked = (float(stacker.predict_proba(
+                row_to_X(flat, names).reshape(1, -1))[0, 1])
+                if stacker is not None else None)
             row = {"file": vid.name, "sha256_12": flat["sha256_12"],
                    "label": label, "method": method, "source": src_key,
                    "route": "video_face", "visual": res["visual"],

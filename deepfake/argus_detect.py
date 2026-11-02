@@ -178,7 +178,8 @@ def _route_image_court(path: Path, k: int = 4, alpha: float | None = None) -> di
             "abstained": abstained, "trust": trust, "risk": risk}
 
 
-_VID_STACKER_CACHE = {"loaded": False, "clf": None, "embedder": None}
+_VID_STACKER_CACHE = {"loaded": False, "clf": None, "embedder": None,
+                      "names": None}
 
 
 def _load_video_stacker():
@@ -221,6 +222,7 @@ def _load_video_stacker():
                     f"while the trained model expects calibrated spikes "
                     f"(D-040); refusing to serve (fail closed)")
             _VID_STACKER_CACHE["clf"] = joblib.load(VIDEO_STACKER)
+            _VID_STACKER_CACHE["names"] = meta.get("feature_names")
             try:
                 emb = meta.get("embedder")
                 if emb in ("sface", "arcface"):
@@ -257,7 +259,13 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
     # would be featurized with the default (sface) and scored by an
     # arcface-trained model.
     clf = _load_video_stacker()
-    vis, tracks, _per_track, _obs = visual_channel_bundle(path, n_frames)
+    # W4c meta-gate: the SCENE block is computed ONLY when the loaded stacker
+    # was trained in the extended space (sentinel = the family's first name).
+    # Pre-flip the deployed v2 meta lacks the sentinel -> want_scene False ->
+    # zero-cost legacy path. Load-order law preserved: the stacker loads FIRST.
+    want_scene = "scene_face_area_mean" in (_VID_STACKER_CACHE["names"] or [])
+    vis, tracks, _per_track, _obs = visual_channel_bundle(path, n_frames,
+                                                          with_scene=want_scene)
     if vis is None:
         court = _route_image_court(path, alpha=alpha)
         court.update({
@@ -304,6 +312,9 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
     else:
         p = combined(vis, aud)          # documented naive fallback (pre-promotion)
         stacker_tag = None
+    # Strip law (W4c): the scene block is featurizer-internal — the response
+    # NEVER carries it, so the top-level schema is byte-stable across the flip.
+    vis.pop("scene", None)
     scored = p is not None
     result = {
         "route": "video_face",

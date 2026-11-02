@@ -155,18 +155,24 @@ def _aggregate(scores: np.ndarray, tracks, obs) -> tuple:
     return agg, voting, per_track
 
 
-def visual_channel_bundle(path: Path, n_frames: int = 12):
+def visual_channel_bundle(path: Path, n_frames: int = 12,
+                          with_scene: bool = False):
     """visual_channel + the observation bundle the drift module needs.
 
     Returns (visual dict | None, tracks, per-track gen CLIP scores, obs).
     Single decode pass; every face's CLIP scores (gen AND spec heads) are
     shared between the identity stats and the legacy largest-face stats.
     visual["spec"] mirrors the identity/robust-stat block on the FF++
-    specialist verdict space (5b.2) — same tracks, second head."""
+    specialist verdict space (5b.2) — same tracks, second head.
+    with_scene (W4c): also computes the 8-feature SCENE block from the SAME
+    decode (observe_video keep_frames=True) into visual["scene"]; on any
+    scene_block exception the block is absent (zeros downstream) and a loud
+    stderr line names the video. The return shape is UNCHANGED — the block
+    rides inside the visual dict."""
     from video_face_track import (FRAME_BUDGET_DEFAULT, cluster_identities,
                                   observe_video)
     obs, stats = observe_video(path, n_frames or FRAME_BUDGET_DEFAULT,
-                               with_scores=True)
+                               with_scores=True, keep_frames=with_scene)
     if not obs:
         return None, [], {}, []
     scores = np.asarray(stats["scores"], dtype=np.float32)
@@ -206,6 +212,13 @@ def visual_channel_bundle(path: Path, n_frames: int = 12):
         "_drift": drift_features(tracks, spike_thresh=spike),
         "spec": spec,
     }
+    if with_scene:
+        try:
+            from scene_features import scene_block
+            visual["scene"] = scene_block(stats.get("frames") or {}, obs)
+        except Exception as e:
+            print(f"[scene] scene_block FAILED on {path.name}: {e} — "
+                  f"block absent (zeros downstream)", file=sys.stderr, flush=True)
     return visual, tracks, per_track, obs
 
 

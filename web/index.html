@@ -739,6 +739,35 @@ svg.ic {
 .channel-pill.warn .ch-status { color: var(--red); }
 .channel-pill.analyzing .ch-status { color: var(--gold-bright); }
 
+/* W-UI: N/A pill state — completed non-image verdicts (image court did not vote) */
+.channel-pill.na { opacity: .55; }
+.channel-pill.na .ch-icon-circle {
+  border-color: var(--panel-border-subtle);
+  color: var(--txt-dimmer);
+  box-shadow: none;
+}
+.channel-pill.na .ch-status { color: var(--txt-dimmer); }
+.channel-pill.na:hover {
+  border-color: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+}
+
+/* W-UI: per-modality instrument strip (video/audio verdicts) */
+.modality-strip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(212,175,55,0.25);
+  border-radius: 8px;
+  margin-top: 2px;
+}
+.modality-strip[hidden] { display: none; }
+.strip-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  color: var(--txt-dim); letter-spacing: .12em; margin-right: 4px;
+  white-space: nowrap;
+}
+.strip-ch { min-width: 84px; }
+
 /* QUAD ANALYTIC PANELS DECK */
 .quad-analytic-deck {
   display: grid;
@@ -1249,7 +1278,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
         <div class="polyhedron-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20"/><path d="M8.5 3L7 9l5 12"/><path d="M15.5 3L17 9l-5 12"/></svg></div>
         <div>
           <div class="matrix-title">11 FORENSIC CHANNELS</div>
-          <div class="matrix-sub">Cross-verifying evidence across all physical & learned dimensions</div>
+          <div class="matrix-sub" id="matrixSub">Cross-verifying evidence across all physical & learned dimensions</div>
         </div>
       </div>
       
@@ -1257,6 +1286,9 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
         <!-- 11 Channel Badges dynamically rendered -->
       </div>
     </div>
+
+    <!-- W-UI: per-modality instrument strip — video/audio verdicts only, hidden otherwise -->
+    <div class="modality-strip" id="modalityStrip" hidden></div>
 
     <!-- Quad Analytic Deck -->
     <div class="quad-analytic-deck">
@@ -1671,15 +1703,36 @@ let currentVisMode = "heatmap";
 let activeObjectUrl = null; // audit B14: object URLs are revoked on next intake — no leak-per-drop
 
 /* Render 11 Channel Badges */
-function renderChannelPills(activeModules = null) {
+function renderChannelPills(activeModules = null, naMode = false) {
   const row = document.getElementById("channelPillsRow");
   row.innerHTML = "";
-  
+  // W-UI caption/strip fold: this function owns the matrix sub-label and the
+  // modality strip state — every reset path already calls it, so restores are
+  // self-healing with zero extra call sites. D-074 (user word, 2026-11-02):
+  // the strip is ALWAYS visible — amends sealed NA3/IMG1 hiding. Standby and
+  // image-verdict calls render the roster here; video/audio verdicts re-render
+  // it with live values immediately after via renderModalityStrip in renderVerdict.
+  const sub = document.getElementById("matrixSub");
+  if (sub) sub.textContent = naMode
+    ? "11-channel panel = image court; audio/video verdicts use their own instruments (see notes)"
+    : "Cross-verifying evidence across all physical & learned dimensions";
+  const strip = document.getElementById("modalityStrip");
+  if (strip) {
+    if (naMode) {
+      strip.hidden = true; // renderModalityStrip(v) re-shows with live values right after
+    } else {
+      renderModalityStrip(null); // STANDBY roster (image verdicts get route N/A on the next line)
+    }
+  }
+
   CHANNELS_11.forEach((ch, idx) => {
     let cls = "channel-pill";
     let statusText = "STANDBY";
     
-    if (activeModules) {
+    if (naMode) {
+      cls = "channel-pill na";
+      statusText = "N/A";
+    } else if (activeModules) {
       const match = activeModules.find(m => m.id === ch.id);
       if (match) {
         if (match.direction === "synthetic") {
@@ -1710,6 +1763,154 @@ function renderChannelPills(activeModules = null) {
     row.appendChild(div);
   });
 }
+
+/* W-UI: per-modality instrument strips — pure projections of payload fields
+   (spec §2.4 binding tables). Strips recompute NOTHING: every state/word below
+   relabels a server-emitted value. V3/A3 are Neutral-capped diagnostics; only
+   channels carrying a p_fake can WARN, always on the UI's existing 0.5 line. */
+const DFD_STACKER_TAGS = ["p6vid_v3", "p6vid_v3b", "p6vid_v4", "p6vid_v5"];
+const STRIP_FAKE_LINE = 0.5;
+
+const finNum = x => (typeof x === "number" && isFinite(x)) ? x : null;
+
+function stripProbVerdict(p) {
+  if (finNum(p) == null) return { state: "na", text: "N/A" };
+  return p < STRIP_FAKE_LINE
+    ? { state: "ok", text: p.toFixed(2) + " OK" }
+    : { state: "warn", text: p.toFixed(2) + " FAKE" };
+}
+
+const STRIP_RULES = {
+  video: [
+    { id: "V1", num: "V1", name: "Generalist", icon: "target",
+      eval: v => stripProbVerdict(
+        (v.visual && finNum(v.visual.video_score)) ?? finNum(v.largest_face_mean)) },
+    { id: "V2", num: "V2", name: "FF++-Spec", icon: "video",
+      eval: v => {
+        const spec = v.visual && v.visual.spec;
+        return stripProbVerdict(spec ? (finNum(spec.video_score) ?? finNum(spec.mean)) : null);
+      } },
+    { id: "V3", num: "V3", name: "Identity Drift", icon: "user",
+      eval: v => {
+        const d = v.drift;
+        if (!d || d.unavailable_reason) return { state: "", text: "UNAVAIL" };
+        const s = finNum(d.spikes);
+        if (s == null) return { state: "", text: "UNAVAIL" };
+        if (s >= 2) return { state: "warn", text: s + " SPIKES" };
+        if (s === 1) return { state: "", text: "1 SPIKE" };
+        return { state: "ok", text: "STABLE" };
+      } },
+    { id: "V4", num: "V4", name: "Audio (adv.)", icon: "wave",
+      eval: v => {
+        const p = v.audio ? finNum(v.audio.p_fake_audio_mean) : null;
+        if (p == null) return { state: "na", text: "N/A" };
+        if (v.audio_out_of_coverage) return { state: "", text: "OOC" };
+        return stripProbVerdict(p);
+      } },
+    { id: "V5", num: "V5", name: "DFD Gate", icon: "shield",
+      eval: v => {
+        if (v.stacker && DFD_STACKER_TAGS.includes(v.stacker)) {
+          const f = finNum(v.p_fake_fused);
+          return f != null ? stripProbVerdict(f) : { state: "", text: "UNAVAIL" };
+        }
+        return { state: "na", text: "N/A · PENDING W4" };
+      } }
+  ],
+  audio: [
+    { id: "A1", num: "A1", name: "Probe Verdict", icon: "wave",
+      eval: v => stripProbVerdict(v.audio ? finNum(v.audio.p_fake_audio_mean) : null) },
+    { id: "A2", num: "A2", name: "Coverage Gate", icon: "target",
+      eval: v => {
+        const a = v.audio;
+        if (!a) return { state: "na", text: "N/A" };
+        // verdict-level gate (server.py): ooc = out_of_coverage OR short_upload
+        if (a.out_of_coverage || a.short_upload) return { state: "", text: "OOC" };
+        const th = finNum(a.coverage_threshold);
+        const z = finNum(a.znorm_mean);
+        if (th == null || z == null) return { state: "", text: "UNAVAIL" };
+        return z <= th ? { state: "ok", text: "IN COV" } : { state: "", text: "OOC" };
+      } },
+    { id: "A3", num: "A3", name: "Segment Spread", icon: "sliders",
+      eval: v => {
+        const a = v.audio;
+        const list = a && Array.isArray(a.per_segment_znorm)
+          ? a.per_segment_znorm.map(finNum).filter(x => x != null)
+          : null;
+        const th = a ? finNum(a.coverage_threshold) : null;
+        if (!list || !list.length || th == null) return { state: "na", text: "N/A" };
+        const spread = Math.max(...list) - Math.min(...list);
+        return spread > 0.5 * th ? { state: "", text: "UNEVEN" } : { state: "ok", text: "STABLE" };
+      } }
+  ]
+};
+
+function stripChannelEl(rule, v) {
+  const res = rule.eval(v);
+  const div = document.createElement("div");
+  div.className = "channel-pill strip-ch" + (res.state ? " " + res.state : "");
+  div.tabIndex = 0; // audit B5 pattern: strip channels are keyboard reachable
+  div.innerHTML = `
+    <div class="ch-icon-circle">${CHANNEL_ICONS[rule.icon] || ""}</div>
+    <div class="ch-num">${rule.num} ${rule.name}</div>
+    <div class="ch-status">${res.text}</div>
+  `;
+  div.addEventListener("click", () => showChannelDeepDive(rule.id));
+  div.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showChannelDeepDive(rule.id); }
+  });
+  return div;
+}
+
+/* D-074: static instrument card for the STANDBY / route-N/A roster states */
+function stripStaticEl(rule, fixed) {
+  const div = document.createElement("div");
+  div.className = "channel-pill strip-ch" + (fixed.state ? " " + fixed.state : "");
+  div.tabIndex = 0; // audit B5 pattern: strip channels are keyboard reachable
+  div.innerHTML = `
+    <div class="ch-icon-circle">${CHANNEL_ICONS[rule.icon] || ""}</div>
+    <div class="ch-num">${rule.num} ${rule.name}</div>
+    <div class="ch-status">${fixed.text}</div>
+  `;
+  div.addEventListener("click", () => showChannelDeepDive(rule.id));
+  div.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showChannelDeepDive(rule.id); }
+  });
+  return div;
+}
+
+function renderModalityStrip(v) {
+  const strip = document.getElementById("modalityStrip");
+  if (!strip) return;
+  const kind = v && v.kind;
+  strip.innerHTML = "";
+  const label = document.createElement("div");
+  label.className = "strip-label";
+  if (kind === "video" || kind === "audio") {
+    label.textContent = kind === "video"
+      ? "VIDEO INSTRUMENTS · route " + (v.route || "—")
+      : "AUDIO INSTRUMENTS";
+    strip.appendChild(label);
+    STRIP_RULES[kind].forEach(rule => strip.appendChild(stripChannelEl(rule, v)));
+  } else {
+    // D-074 (user word, 2026-11-02): always-visible instrument roster — amends
+    // sealed NA3/IMG1. Truth law preserved: pre-verdict renders STANDBY;
+    // image-court verdicts render N/A (video/audio instruments did not run
+    // on this route). Video/audio verdicts render live values above.
+    const onImageRoute = kind === "image";
+    label.textContent = onImageRoute
+      ? "VIDEO + AUDIO INSTRUMENTS · route " + (v.route || "image_court")
+      : "VIDEO + AUDIO INSTRUMENTS · STANDBY";
+    strip.appendChild(label);
+    const fixed = onImageRoute ? { state: "na", text: "N/A" } : { state: "", text: "STANDBY" };
+    STRIP_RULES.video.concat(STRIP_RULES.audio)
+      .forEach(rule => strip.appendChild(stripStaticEl(rule, fixed)));
+  }
+  strip.hidden = false;
+}
+
+// D-074: initial standby render now lives AFTER the strip machinery — the
+// standby roster render reads STRIP_RULES, which is declared above the old
+// top-level call site (TDZ crash on load otherwise).
 renderChannelPills();
 
 /* ================= 4. CLIENT-SIDE FORENSIC COMPUTERS ================= */
@@ -1942,6 +2143,11 @@ function resetVerdictPanel() {
 }
 function resetVerdictPanelArmed() {
   resetVerdictPanel();
+  // W-UI: the armed path is a reset too — retire the previous verdict's pill
+  // states/caption/strip so no N/A or instrument strip survives beside a NEW
+  // artefact (B2 no-stale-judgments law; truth-law :2052 says STANDBY here).
+  renderChannelPills(null);
+  renderInsightsList([]);
   // CTA law: the armed state's instruction lives IN the headline — the judge must
   // never read the pending bench as a stall (user ruling 2026-10-21, fix UX-1).
   document.getElementById("verdictText").textContent = "ARTEFACT ARMED — CONVENE THE COURT TO BEGIN";
@@ -2376,11 +2582,13 @@ function renderVerdict(v) {
     ? "High-frequency structure visible at the loupe — visualization only"
     : "Loupe is a magnifier only — the verdict lives at the bench";
 
-  // Update 11-Channel status matrix
-  renderChannelPills(v.modules || []);
+  // Update 11-Channel status matrix — N/A matrix iff a completed non-image
+  // verdict is on the bench (W-UI §2.1); image verdicts light from modules.
+  renderChannelPills(v.modules || [], v.kind !== "image");
+  renderModalityStrip(v);
 
-  // Update Channel Insights list
-  renderInsightsList(v.modules || []);
+  // Update Channel Insights list — kind-aware empty state (W-UI §4)
+  renderInsightsList(v.modules || [], v.kind);
 
   // Refresh History
   loadHistoryLedger();
@@ -2392,12 +2600,21 @@ function renderVerdict(v) {
 }
 window.__renderVerdict = renderVerdict;
 
-function renderInsightsList(modules) {
+function renderInsightsList(modules, kind = null) {
   const container = document.getElementById("insightsList");
   container.innerHTML = "";
   
   if (!modules || !modules.length) {
-    container.innerHTML = `<div style="color:var(--txt-dim);font-size:9px;padding:8px">— No per-module claims for this media type</div>`;
+    // W-UI: kind-aware honesty — a completed non-image verdict empties this
+    // panel because the image court did not vote; say where the instruments
+    // live instead of a generic "no claims" line. kind null/else keeps the
+    // exact pre-W-UI text.
+    const emptyText = kind === "video"
+      ? "— Video verdicts are judged by the video instrument strip above; the 11 image-court modules do not apply."
+      : kind === "audio"
+      ? "— Audio verdicts are judged by the audio instrument strip above; the 11 image-court modules do not apply."
+      : "— No per-module claims for this media type";
+    container.innerHTML = `<div style="color:var(--txt-dim);font-size:9px;padding:8px">${emptyText}</div>`;
     return;
   }
 
@@ -2626,6 +2843,14 @@ function openEvidenceBreakdown(channelId) {
   const ctxHtml = ctx.length
     ? `<div style="grid-column:1/-1;font-size:10px;color:var(--txt-dim);border-top:1px dotted rgba(212,175,55,0.25);padding-top:10px;line-height:1.6">${ctx.map(c => "· " + String(c).replace(/</g, "&lt;")).join("<br>")}</div>`
     : "";
+
+  // W-UI: non-image verdicts carry no image-court modules (server guarantees
+  // modules [] on video/audio, so shown is empty after the M6 filter) — render
+  // the honest note instead of an empty grid. Image behavior byte-identical.
+  if ((currentVerdict.kind === "video" || currentVerdict.kind === "audio") && !shown.length) {
+    body.innerHTML = `<p style="color:var(--txt-dim)">This artefact was judged by the ${currentVerdict.kind} instrument strip — 11-channel image-court telemetry does not apply.</p>`;
+    return;
+  }
 
   body.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">

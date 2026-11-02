@@ -26,28 +26,30 @@ sys.path.insert(0, str(WS / "deepfake"))
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
 sys.path.insert(0, str(WS / "deepfake" / "scripts"))
 from video_dump import featurize_video  # noqa: E402
-from video_features import FEATURE_NAMES, compute_row, row_to_X  # noqa: E402
+from video_features import (FEATURE_NAMES, FEATURE_NAMES_FULL, compute_row,
+                            row_to_X)  # noqa: E402
 
 CDF = WS / "data" / "raw" / "celebdf" / "Celeb-DF-v2"
 LIST = CDF / "List_of_testing_videos.txt"
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
 FEAT_COLS = ["file", "sha256_12", "label", "method", "split", "route",
-             "naive_combined", "identity_video_score", "stacked"] + FEATURE_NAMES
+             "naive_combined", "identity_video_score", "stacked"] \
+    + FEATURE_NAMES_FULL
 
 
 def load_stacker(spec, embedder):
-    """None when absent/unwired; hard-fail on (a) embedder mismatch and
-    (b) feature-space mismatch (D-040 skew class — identity clustering and
-    drift features are embedder-dependent, and a stale candidate must never
-    score a new dump in the wrong feature space; same shape as
-    argus_detect._load_video_stacker)."""
+    """(clf, tag, names) — same guards as exam_video_ffpp.load_stacker
+    (embedder + feature space; names threads into every row_to_X call).
+    Accepts the deployed FEATURE_NAMES or the W4c FEATURE_NAMES_FULL meta
+    space; anything else fail-closes (D-040 skew class)."""
     if not spec:
-        return None, None
+        return None, None, None
     p = Path(spec)
     if p.is_dir():
         p = p / "stacker.joblib"
     if not p.exists():
-        return None, None
+        return None, None, None
+    names = FEATURE_NAMES
     meta_p = p.with_name("stacker_meta.json")
     if meta_p.exists():
         meta = json.loads(meta_p.read_text())
@@ -55,15 +57,19 @@ def load_stacker(spec, embedder):
         if dumped and dumped != embedder:
             raise SystemExit(f"embedder mismatch: stacker trained with '{dumped}' "
                              f"but --embedder {embedder} — re-train or match")
-        names = meta.get("feature_names")
-        if names is not None and names != FEATURE_NAMES:
+        meta_names = meta.get("feature_names")
+        if meta_names is not None and meta_names not in (FEATURE_NAMES,
+                                                         FEATURE_NAMES_FULL):
             raise SystemExit(
-                f"feature-space mismatch: stacker_meta.feature_names != "
-                f"video_features.FEATURE_NAMES ({len(names)} vs "
-                f"{len(FEATURE_NAMES)} dims) — this stacker was trained in a "
-                f"different feature space (D-040 skew class); re-train or match")
+                f"feature-space mismatch: stacker_meta.feature_names is "
+                f"{len(meta_names)} dims, expected the deployed "
+                f"{len(FEATURE_NAMES)} or the W4c extended "
+                f"{len(FEATURE_NAMES_FULL)} space (D-040 skew class); "
+                f"re-train or match")
+        if meta_names is not None:
+            names = meta_names
     import joblib
-    return joblib.load(p), p.parent.name
+    return joblib.load(p), p.parent.name, names
 
 
 def write_features_csv(rows_path: Path, feat_path: Path, sha_of: dict) -> int:
@@ -139,7 +145,7 @@ def main() -> int:
     from argus_detect import VIDEO_STACKER
     spec = args.stacker if args.stacker is not None else (
         str(VIDEO_STACKER) if VIDEO_STACKER.exists() else None)
-    stacker, stacker_tag = load_stacker(spec, args.embedder)
+    stacker, stacker_tag, names = load_stacker(spec, args.embedder)
     cal_path = args.drift_cal
     if cal_path is None:
         guess = VIDEO_STACKER.parent / "drift_calibration.json"
@@ -199,8 +205,9 @@ def main() -> int:
                 print(f"[{i+1}/{len(jobs)}] {vid.name} route=image_court", flush=True)
                 continue
             flat = res["row"]
-            stacked = (float(stacker.predict_proba(row_to_X(flat).reshape(1, -1))[0, 1])
-                       if stacker is not None else None)
+            stacked = (float(stacker.predict_proba(
+                row_to_X(flat, names).reshape(1, -1))[0, 1])
+                if stacker is not None else None)
             row = {"file": vid.name, "sha256_12": flat["sha256_12"],
                    "label": label, "method": vid.parts[-2],
                    "route": "video_face", "visual": res["visual"], "drift": res["drift"],

@@ -33,26 +33,55 @@ from sklearn.model_selection import train_test_split
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bench"))
 from video_channels import fit_drift_calibration  # noqa: E402
-from video_features import FEATURE_NAMES, row_to_X  # noqa: E402
+from video_features import FEATURE_NAMES_FULL, row_to_X  # noqa: E402
+
+WS = Path(__file__).resolve().parents[2]
+DFD_SPLIT_MANIFEST = WS / "data" / "raw" / "ffpp_dfd" / "split.json"
+# W4b lever A (pre-registered, user-sealed 2026-10-31): the exact rational
+# n_DFD-fakes/n_DFD-reals from the receipted W4 train append — up-weights
+# DFD-family real rows to balance the family the stacker actually sees.
+DFD_REAL_WEIGHT = 593 / 191
+
+
+def dfd_weights(df: pd.DataFrame):
+    """Per-row sample weights (W4b §2): DFD-family real rows carry
+    DFD_REAL_WEIGHT, every other row 1.0. Family rule is a pure function of
+    the row + the split-law artifact; call only AFTER the dedupe + sha-sort
+    so the weight vector stays index-aligned with X/y by construction.
+    Returns (w, audit) — audit carries the family-match counts the weight
+    receipt needs."""
+    dfd_sources = set(json.loads(DFD_SPLIT_MANIFEST.read_text()))
+    is_dfd = (df["method"] == "DeepFakeDetection") | (
+        df["file"].map(lambda f: Path(f).stem).isin(dfd_sources))
+    y = df["label"].astype(int)
+    w = np.where((y == 0) & is_dfd, DFD_REAL_WEIGHT, 1.0)
+    audit = {"n_dfd_fakes": int((is_dfd & (y == 1)).sum()),
+             "n_dfd_reals_weighted": int((is_dfd & (y == 0)).sum())}
+    return w, audit
 
 
 def fit_stacker(df: pd.DataFrame):
     """Rows -> (calibrated clf fit on ALL rows, val_auc, X, y).
 
     The single recipe used by train_video_stacker AND restack_video's LOMO
-    retrains (leave-one-method-out gate) — one recipe, one feature space."""
-    X = np.vstack([row_to_X(r) for r in df.to_dict("records")])
+    retrains (leave-one-method-out gate) — one recipe, one feature space.
+    W4c: the trainer builds X in the FULL space (FEATURE_NAMES_FULL — the
+    24 deployed features + the 8 SCENE features)."""
+    X = np.vstack([row_to_X(r, FEATURE_NAMES_FULL)
+                   for r in df.to_dict("records")])
     y = df["label"].astype(int).to_numpy()
-    X_tr, X_va, y_tr, y_va = train_test_split(X, y, test_size=0.2, stratify=y,
-                                              random_state=11)
+    w, _audit = dfd_weights(df)
+    X_tr, X_va, y_tr, y_va, w_tr, _w_va = train_test_split(
+        X, y, w, test_size=0.2, stratify=y, random_state=11)
     base = HistGradientBoostingClassifier(max_iter=200, learning_rate=0.08,
                                           random_state=11)
-    clf = CalibratedClassifierCV(base, method="sigmoid", cv=3).fit(X_tr, y_tr)
+    clf = CalibratedClassifierCV(base, method="sigmoid", cv=3).fit(
+        X_tr, y_tr, sample_weight=w_tr)
     auc = float(roc_auc_score(y_va, clf.predict_proba(X_va)[:, 1]))
     final = CalibratedClassifierCV(
         HistGradientBoostingClassifier(max_iter=200, learning_rate=0.08,
                                        random_state=11),
-        method="sigmoid", cv=3).fit(X, y)
+        method="sigmoid", cv=3).fit(X, y, sample_weight=w)
     return final, auc, X, y
 
 
@@ -87,12 +116,31 @@ def main() -> int:
         dfs.append(d)
         print(f"{p}: {len(d)} rows")
     df = pd.concat(dfs, ignore_index=True)
+    _w_raw, raw_audit = dfd_weights(df)
+    n_raw = len(df)
     df = df.drop_duplicates(subset=["sha256_12"])
+    n_dropped = n_raw - len(df)
     df = df.sort_values("sha256_12", kind="mergesort").reset_index(drop=True)
-    missing = [c for c in FEATURE_NAMES if c not in df.columns]
+    missing = [c for c in FEATURE_NAMES_FULL if c not in df.columns]
     if missing:
         raise SystemExit(f"dump CSVs lack feature columns {missing} — re-dump")
     print(f"video stacker dataset: {df.shape}, fakes={int(df['label'].sum())}")
+    _w, audit = dfd_weights(df)
+    reconciled = (n_raw == len(df) + n_dropped
+                  and audit["n_dfd_fakes"] <= raw_audit["n_dfd_fakes"]
+                  and audit["n_dfd_reals_weighted"]
+                  <= raw_audit["n_dfd_reals_weighted"])
+    print(f"weight audit: weight_rule=dfd_real_upweight k={DFD_REAL_WEIGHT} "
+          f"n_rows={len(df)} n_dropped_dupes={n_dropped} "
+          f"n_dfd_fakes={audit['n_dfd_fakes']} "
+          f"(pre-dedupe {raw_audit['n_dfd_fakes']}) "
+          f"n_dfd_reals_weighted={audit['n_dfd_reals_weighted']} "
+          f"(pre-dedupe {raw_audit['n_dfd_reals_weighted']}) -> "
+          f"{'RECONCILED' if reconciled else 'UNRECONCILED'}", flush=True)
+    if audit["n_dfd_reals_weighted"] == 0 or not reconciled:
+        raise SystemExit("weight audit FAILED — STOP (W4b: a silent-empty or "
+                         "unreconciled DFD family match makes the retrain a "
+                         "no-op)")
 
     # --- drift calibration from TRAIN-REAL rows only (D-035 law) -----------
     cal_df = pd.read_csv(cal_csv)
@@ -121,9 +169,14 @@ def main() -> int:
     (out / "drift_calibration.json").write_text(json.dumps(cal, indent=2))
     (out / "stacker_meta.json").write_text(json.dumps({
         "model": "HistGradientBoosting+sigmoid calibration",
-        "feature_names": FEATURE_NAMES,
-        "feature_space": "video",
+        "feature_names": FEATURE_NAMES_FULL,
+        "feature_space": "video_scene",
         "n_rows": int(len(X)), "val_auc": round(float(auc), 4),
+        "weight_rule": "dfd_real_upweight",
+        "k": DFD_REAL_WEIGHT,
+        "n_dropped_dupes": int(n_dropped),
+        "n_dfd_fakes": audit["n_dfd_fakes"],
+        "n_dfd_reals_weighted": audit["n_dfd_reals_weighted"],
         "trained_on": args.csv,
         "drift_calibration": str(out / "drift_calibration.json"),
         "drift_calibration_fit": cal,
@@ -133,7 +186,10 @@ def main() -> int:
                    "Celeb-DF List_of_testing_videos never seen "
                    "(Celeb-DF train-diet videos ARE in-distribution when provided); "
                    "DFD exam-split sources (data/raw/ffpp_dfd/split.json) are "
-                   "held out of every dump when the DFD diet is present"),
+                   "held out of every dump when the DFD diet is present; "
+                   "feature space = video_scene (W4c): the 24 deployed "
+                   "features + the 8 SCENE full-frame/context features — "
+                   "CANNOT serve until the FEATURE_NAMES flip"),
     }, indent=2))
     print(f"saved {out / 'stacker.joblib'} (val_auc={auc:.4f}, "
           f"drift cal n={cal['n_videos']})")

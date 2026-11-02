@@ -63,7 +63,7 @@ WS = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
 sys.path.insert(0, str(WS / "deepfake" / "scripts"))
 from video_channels import drift_features  # noqa: E402
-from video_features import FEATURE_NAMES, compute_row  # noqa: E402
+from video_features import FEATURE_NAMES_FULL, compute_row  # noqa: E402
 
 MIRROR = WS / "data" / "raw" / "ffpp_mirror" / "FaceForensics++_C23"
 SPLITS = WS / "data" / "raw" / "ffpp"
@@ -77,8 +77,8 @@ DFD_METHOD = "DeepFakeDetection"     # mirror dir name; distinct from the 4 meth
 DFD_SMOKE = (4, 2)                   # smoke caps per split: (fakes, reals)
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
 CSV_COLS = ["file", "sha256_12", "label", "method", "split", "route",
-            "naive_combined", "identity_video_score", "drift_l2"] + FEATURE_NAMES \
-    + ["n_drift_tracks"]     # non-feature: drift-calibration row filter (5b.3)
+            "naive_combined", "identity_video_score", "drift_l2"] \
+    + FEATURE_NAMES_FULL + ["n_drift_tracks"]     # non-feature: drift-calibration row filter (5b.3)
 
 
 def sha12(path: Path) -> str:
@@ -186,13 +186,17 @@ def enumerate_dfd(split: str, smoke: bool = False, progress=print):
 
 
 def featurize_video(path: Path, frames: int = 12, with_audio: bool = False,
-                    spike_thresh: float | None = None):
+                    spike_thresh: float | None = None,
+                    with_scene: bool = True):
     """Score one video through visual+drift(+audio) -> flat stacker row.
 
+    with_scene (W4c): dumps/exams always compute the SCENE block (it rides
+    the visual channel's single decode — compute_row reads visual["scene"]).
     Returns None when zero faces are detected (the no-face route; these rows
     never train the stacker — the serve path routes them to the image court)."""
     from video_score import audio_channel, combined, visual_channel_bundle
-    vis, tracks, _per_track, _obs = visual_channel_bundle(path, frames)
+    vis, tracks, _per_track, _obs = visual_channel_bundle(path, frames,
+                                                          with_scene=with_scene)
     if vis is None:
         return None
     d = drift_features(tracks, spike_thresh=spike_thresh)
@@ -304,6 +308,7 @@ def main() -> int:
               flush=True)
 
     t0 = time.time()
+    scene_failures = 0
     with open(rows_path, "a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=CSV_COLS)
         if not rows_path.exists() or rows_path.stat().st_size == 0:
@@ -322,6 +327,8 @@ def main() -> int:
                 done.add((method, vid.name))
                 continue
             r = res["row"]
+            if "scene" not in (res.get("visual") or {}):
+                scene_failures += 1
             r.update(label=label, method=method, split=args.split,
                      drift_l2=" ".join(str(x) for x in res["l2"]))
             if spike:
@@ -378,6 +385,7 @@ def main() -> int:
           f"({sum(1 for r in rows if int(r['label'])==0)} real / "
           f"{sum(1 for r in rows if int(r['label'])==1)} fake), "
           f"audio rows={n_audio}, spike_thresh={spike:.6f}, "
+          f"scene_failures={scene_failures}, "
           f"{(time.time()-t0)/60:.1f}min", flush=True)
     return 0
 
