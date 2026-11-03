@@ -43,34 +43,43 @@ DFD_SPLIT_MANIFEST = WS / "data" / "raw" / "ffpp_dfd" / "split.json"
 DFD_REAL_WEIGHT = 593 / 191
 
 
-def dfd_weights(df: pd.DataFrame):
+def dfd_weights(df: pd.DataFrame, mult: float = 1.0):
     """Per-row sample weights (W4b §2): DFD-family real rows carry
     DFD_REAL_WEIGHT, every other row 1.0. Family rule is a pure function of
     the row + the split-law artifact; call only AFTER the dedupe + sha-sort
     so the weight vector stays index-aligned with X/y by construction.
     Returns (w, audit) — audit carries the family-match counts the weight
-    receipt needs."""
+    receipt needs.
+    W4d lever A' (opt-in): `mult` scales the sealed family weight — the
+    DFD-real OVER-WEIGHT iteration beyond balance. mult=1.0 (the default
+    everywhere) is bit-identical to the sealed W4b behaviour. Motivated by
+    the W4c dfd D4 miss: row duplication is impossible (sha-dedupe law) and
+    the family is already balance-neutral, so over-weight is the only
+    composition lever. Receipted in stacker_meta."""
     dfd_sources = set(json.loads(DFD_SPLIT_MANIFEST.read_text()))
     is_dfd = (df["method"] == "DeepFakeDetection") | (
         df["file"].map(lambda f: Path(f).stem).isin(dfd_sources))
     y = df["label"].astype(int)
-    w = np.where((y == 0) & is_dfd, DFD_REAL_WEIGHT, 1.0)
+    w = np.where((y == 0) & is_dfd, DFD_REAL_WEIGHT * mult, 1.0)
     audit = {"n_dfd_fakes": int((is_dfd & (y == 1)).sum()),
              "n_dfd_reals_weighted": int((is_dfd & (y == 0)).sum())}
     return w, audit
 
 
-def fit_stacker(df: pd.DataFrame):
+def fit_stacker(df: pd.DataFrame, weight_mult: float = 1.0):
     """Rows -> (calibrated clf fit on ALL rows, val_auc, X, y).
 
     The single recipe used by train_video_stacker AND restack_video's LOMO
     retrains (leave-one-method-out gate) — one recipe, one feature space.
     W4c: the trainer builds X in the FULL space (FEATURE_NAMES_FULL — the
-    24 deployed features + the 8 SCENE features)."""
+    24 deployed features + the 8 SCENE features).
+    weight_mult: W4d lever A' pass-through to dfd_weights (default 1.0 =
+    sealed W4b behaviour; the LOMO gate passes the candidate's recorded
+    multiplier so the gate retrains mirror the candidate's recipe)."""
     X = np.vstack([row_to_X(r, FEATURE_NAMES_FULL)
                    for r in df.to_dict("records")])
     y = df["label"].astype(int).to_numpy()
-    w, _audit = dfd_weights(df)
+    w, _audit = dfd_weights(df, weight_mult)
     X_tr, X_va, y_tr, y_va, w_tr, _w_va = train_test_split(
         X, y, w, test_size=0.2, stratify=y, random_state=11)
     base = HistGradientBoostingClassifier(max_iter=200, learning_rate=0.08,
@@ -95,6 +104,9 @@ def main() -> int:
     ap.add_argument("--embedder", choices=["sface", "arcface"], default="sface",
                     help="must match the embedder the dump used (recorded in "
                          "the sidecar; the serve path reads stacker_meta)")
+    ap.add_argument("--dfd-weight-mult", type=float, default=1.0,
+                    help="W4d lever A': multiplier on the sealed DFD-real "
+                         "family weight (1.0 = the sealed W4b balance)")
     args = ap.parse_args()
     from video_face_track import set_embedder
     # guard: the dump's embedder must be the train's embedder — drift features
@@ -131,6 +143,8 @@ def main() -> int:
                   and audit["n_dfd_reals_weighted"]
                   <= raw_audit["n_dfd_reals_weighted"])
     print(f"weight audit: weight_rule=dfd_real_upweight k={DFD_REAL_WEIGHT} "
+          f"mult={args.dfd_weight_mult} "
+          f"effective_real_weight={DFD_REAL_WEIGHT * args.dfd_weight_mult} "
           f"n_rows={len(df)} n_dropped_dupes={n_dropped} "
           f"n_dfd_fakes={audit['n_dfd_fakes']} "
           f"(pre-dedupe {raw_audit['n_dfd_fakes']}) "
@@ -155,7 +169,7 @@ def main() -> int:
     if not cal["p50"] < cal["p90"]:
         raise SystemExit(f"drift calibration invalid: p50={cal['p50']} p90={cal['p90']}")
 
-    final, auc, X, _y = fit_stacker(df)
+    final, auc, X, _y = fit_stacker(df, weight_mult=args.dfd_weight_mult)
     fpr, tpr, _ = roc_curve(df["label"].astype(int),
                             final.predict_proba(X)[:, 1])
     i = int(np.argmin(np.abs(fpr - (1 - tpr))))
@@ -174,6 +188,7 @@ def main() -> int:
         "n_rows": int(len(X)), "val_auc": round(float(auc), 4),
         "weight_rule": "dfd_real_upweight",
         "k": DFD_REAL_WEIGHT,
+        "dfd_weight_mult": args.dfd_weight_mult,
         "n_dropped_dupes": int(n_dropped),
         "n_dfd_fakes": audit["n_dfd_fakes"],
         "n_dfd_reals_weighted": audit["n_dfd_reals_weighted"],

@@ -16,6 +16,18 @@ import numpy as np
 WS = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
 
+# SCENE family (W4c §2) — full-frame/context features computed from the SAME
+# 12-frame decode + existing FaceObs boxes (deepfake/bench/scene_features.py).
+SCENE_FEATURES = ("scene_face_area_mean", "scene_face_area_p90",
+                  "scene_seam_delta", "scene_color_delta", "scene_freq_ratio",
+                  "scene_flicker_delta", "scene_context_sharp",
+                  "scene_present")
+
+# W4e promotion flip (2026-11-03): FEATURE_NAMES is now the 32-list — the 24
+# deployed features + the 8 SCENE features — matching the promoted p6vid_v4
+# stacker's stacker_meta.feature_names (the serve path's fail-closed contract
+# requires the equality). FEATURE_NAMES_FULL aliases it (historical pre-flip
+# name; all dump/train/exam machinery keeps working unchanged).
 FEATURE_NAMES: list = [
     # GEN — court-generalist verdict space (12)
     "vid_video_score", "vid_mean_all", "vid_p90_all", "vid_frac_gt_half",
@@ -29,21 +41,13 @@ FEATURE_NAMES: list = [
     "drift_p95_max",
     # advisory audio (D-035-consistent missingness modeling)
     "audio_pfake", "audio_present", "audio_in_coverage",
+    # SCENE (W4c §2) — promoted with p6vid_v4
+    *SCENE_FEATURES,
 ]
 
 AUDIO_FEATURES = ("audio_pfake", "audio_present", "audio_in_coverage")
 
-# SCENE family (W4c §2) — full-frame/context features computed from the SAME
-# 12-frame decode + existing FaceObs boxes (deepfake/bench/scene_features.py).
-# FEATURE_NAMES stays the deployed 24 until the promotion flip; FEATURE_NAMES_
-# FULL is what the W4c dump/train/exam machinery reads pre-flip. At the flip
-# FEATURE_NAMES is redefined to the 32-list and FEATURE_NAMES_FULL aliases it.
-SCENE_FEATURES = ("scene_face_area_mean", "scene_face_area_p90",
-                  "scene_seam_delta", "scene_color_delta", "scene_freq_ratio",
-                  "scene_flicker_delta", "scene_context_sharp",
-                  "scene_present")
-
-FEATURE_NAMES_FULL: list = FEATURE_NAMES + list(SCENE_FEATURES)
+FEATURE_NAMES_FULL: list = FEATURE_NAMES  # alias post-flip
 
 
 def _g(d, k, default=0.0):

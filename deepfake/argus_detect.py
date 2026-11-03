@@ -40,7 +40,7 @@ STACKER = WS / "artifacts" / "p6v11" / "stacker.joblib"
 # FF++ 0.9016/LOMO 4-of-4/Celeb-DF 0.9411, F2F 0.8760 vs 0.88 bar). Loaded
 # ONLY if the file exists — a missing bundle means detect_video serves the
 # documented naive fallback with stacker=null.
-VIDEO_STACKER = WS / "artifacts" / "p6vid_v2" / "stacker.joblib"
+VIDEO_STACKER = WS / "artifacts" / "p6vid_v4" / "stacker.joblib"
 AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
 
 # B3 conformal-alpha precedence state: an explicitly requested operator alpha

@@ -408,6 +408,11 @@ def stage_gate(work, smoke, embedder):
     import pandas as pd
     from train_video_stacker import fit_stacker
     from video_features import FEATURE_NAMES_FULL, row_to_X
+    # W4d: the LOMO retrains mirror the CANDIDATE's recipe — its recorded
+    # dfd_weight_mult (lever A'), defaulting to the sealed 1.0 for pre-W4d
+    # candidates. One recipe, one feature space, gates included.
+    _wmult = float(json.loads(
+        (cand / "stacker_meta.json").read_text()).get("dfd_weight_mult", 1.0))
     train_df = pd.read_csv(work / "dump_train" / "scores.csv")
     test_df = pd.read_csv(gate_dir / "features.csv")
     reals = test_df[test_df["label"] == 0]
@@ -418,7 +423,7 @@ def stage_gate(work, smoke, embedder):
         if smoke:
             held = held.head(8)
         eval_df = pd.concat([held, reals], ignore_index=True)
-        clf, _va, _X, _y = fit_stacker(sub)
+        clf, _va, _X, _y = fit_stacker(sub, weight_mult=_wmult)
         X = np.vstack([row_to_X(r, FEATURE_NAMES_FULL)
                        for r in eval_df.to_dict("records")])
         p = clf.predict_proba(X)[:, 1]
