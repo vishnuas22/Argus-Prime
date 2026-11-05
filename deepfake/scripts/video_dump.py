@@ -26,6 +26,21 @@ invocation MUST pass --drift-cal (the train dump's sidecar) so no run refits
 or rewrites existing rows' spike columns; the sidecar's fit_on text then
 states the inheritance honestly.
 
+--corpus av (W-AV, D-076): the av_diet matched-pair corpus. Reads
+data/raw/av_diet/{split.json,gen_receipt.json} + the generated files under
+data/raw/av_diet/gen/{fakes,reals,narration,music}/: fakes = Wav2Lip outputs
+(method "Wav2Lip"), reals = matched source re-encodes through the IDENTICAL
+ffmpeg output stage (method "real"), narration/music = train+exam confound
+strata (methods "narration"/"music"). Every fake co-occurs with its own
+source real in the SAME split; a missing pair refuses the dump. Audio is
+forced ON for EVERY row (the audio-bearing corpus; --no-audio is refused).
+--drift-cal is REQUIRED (appends into the spliced incumbent CSV). The AV
+channel runs for every row: a two-pass design fits av_calibration.json on
+TRAIN-SPLIT REALS ONLY (D-035) before any row is written; the val dump reads
+the train-fitted file. AV results are cached per work dir (av_cache/, keyed
+by sha12 + extractor version) so the calibration pass never doubles the
+SyncNet work.
+
 Usage:
   .venv/bin/python deepfake/scripts/video_dump.py --split train|val \
       [--corpus ffpp|celebdf|dfd] [--frames 12] [--limit 1500] \
@@ -76,6 +91,10 @@ DFD_ACTORS = WS / "data" / "raw" / "ffpp_actors" / "c23" / "videos"
 DFD_METHOD = "DeepFakeDetection"     # mirror dir name; distinct from the 4 methods
 DFD_SMOKE = (4, 2)                   # smoke caps per split: (fakes, reals)
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
+AV_DIET = WS / "data" / "raw" / "av_diet"
+AV_GEN = AV_DIET / "gen"             # generation-driver output (Step 3 layout)
+AV_METHOD = "Wav2Lip"                # fake method label (spec §3)
+AV_SMOKE = (2, 2, 2, 2)              # smoke caps: (fakes, reals, narr, music)
 CSV_COLS = ["file", "sha256_12", "label", "method", "split", "route",
             "naive_combined", "identity_video_score", "drift_l2"] \
     + FEATURE_NAMES_FULL + ["n_drift_tracks"]     # non-feature: drift-calibration row filter (5b.3)
@@ -185,13 +204,71 @@ def enumerate_dfd(split: str, smoke: bool = False, progress=print):
     return reals, fakes
 
 
+def enumerate_av(split: str, smoke: bool = False, progress=print):
+    """W-AV diet (D-076 §3): (reals, fakes, narration, music) for one split.
+
+    Reads the diet manifests ONCE produced by build_av_diet.py
+    (data/raw/av_diet/{split.json,sources.json}) plus the generation driver's
+    gen_receipt.json (which sources got narration/music muxes, and which
+    sources FAILED generation — no-face honesty §5.5: failed sources never
+    enter the diet). Every fake co-occurs with its own source real in the
+    SAME split (matched-pairs law); a split with any missing pair that is NOT
+    receipted as failed refuses to dump (L-CHANNEL-CONFOUND).
+    Narration/music are TRAIN and EXAM strata only — val never carries them.
+    --limit does not apply (the manifests determine the rows)."""
+    splitj = json.loads((AV_DIET / "split.json").read_text())
+    receipt_path = AV_DIET / "gen_receipt.json"
+    if not receipt_path.exists():
+        raise SystemExit(f"{receipt_path} missing — run the W-AV generation "
+                         f"driver first (Step 3); the dump reads its receipts")
+    genr = json.loads(receipt_path.read_text())
+    failed = genr.get("failed", {})
+    reals, fakes, missing, failed_here = [], [], [], 0
+    for k in splitj["splits"][split]:
+        if k in failed:
+            failed_here += 1
+            continue                      # receipted failure: never trains
+        f, r = AV_GEN / "fakes" / f"{k}.mp4", AV_GEN / "reals" / f"{k}.mp4"
+        if f.exists() and r.exists():
+            fakes.append(f)
+            reals.append(r)
+        else:
+            missing.append(k)
+    if missing:
+        raise SystemExit(
+            f"{len(missing)} av sources lack generated pairs in {AV_GEN} "
+            f"(e.g. {missing[:3]}) and are NOT receipted as failed — no "
+            f"fakes-only dump is allowed (L-CHANNEL-CONFOUND); run the "
+            f"generation driver to completion")
+    narr = [AV_GEN / "narration" / k
+            for k in genr.get("narration", {}).get(split, [])
+            if (AV_GEN / "narration" / k).exists()]
+    music = [AV_GEN / "music" / k
+             for k in genr.get("music", {}).get(split, [])
+             if (AV_GEN / "music" / k).exists()]
+    if smoke:
+        nf, nr, nn, nm = AV_SMOKE
+        fakes, reals, narr, music = fakes[:nf], reals[:nr], narr[:nn], music[:nm]
+    progress(f"[enum] av {split}: {len(reals)} matched reals / {len(fakes)} "
+             f"Wav2Lip fakes / {len(narr)} narration / {len(music)} music "
+             f"({failed_here} sources receipted-failed; --limit ignored)"
+             + (f" — SMOKE caps {AV_SMOKE}" if smoke else ""))
+    return reals, fakes, narr, music
+
+
 def featurize_video(path: Path, frames: int = 12, with_audio: bool = False,
                     spike_thresh: float | None = None,
-                    with_scene: bool = True):
-    """Score one video through visual+drift(+audio) -> flat stacker row.
+                    with_scene: bool = True,
+                    with_av: bool = False, av_calib: dict | None = None,
+                    av_cache_dir: Path | None = None):
+    """Score one video through visual+drift(+audio)(+AV) -> flat stacker row.
 
     with_scene (W4c): dumps/exams always compute the SCENE block (it rides
     the visual channel's single decode — compute_row reads visual["scene"]).
+    with_av (W-AV §2): the 6 AV features ride the SAME bundle — the tracks
+    from this decode drive the SyncNet window selection (D-040 law: one
+    featurizer). avs=None (with_av=False) zero-fills the AV columns under the
+    missingness contract; a populated avs carries all 6 values verbatim.
     Returns None when zero faces are detected (the no-face route; these rows
     never train the stacker — the serve path routes them to the image court)."""
     from video_score import audio_channel, combined, visual_channel_bundle
@@ -202,8 +279,14 @@ def featurize_video(path: Path, frames: int = 12, with_audio: bool = False,
     d = drift_features(tracks, spike_thresh=spike_thresh)
     l2 = _pooled_l2(tracks)
     aud = audio_channel(path) if with_audio else None
+    avs, av_diag = None, None
+    if with_av:
+        from av_sync import cached_extract
+        avres = cached_extract(path, tracks, av_calib, av_cache_dir)
+        avs = avres.row()
+        av_diag = avres.diagnostics
     row = {"file": path.name, "sha256_12": sha12(path), "route": "video_face",
-           **compute_row(vis, d, aud),
+           **compute_row(vis, d, aud, avs),
            # NON-FEATURE column: the drift-calibration row filters (this file
            # and train_video_stacker) read it straight from the CSV (5b.3)
            "n_drift_tracks": d.get("n_drift_tracks", 0)}
@@ -211,7 +294,8 @@ def featurize_video(path: Path, frames: int = 12, with_audio: bool = False,
     row["identity_video_score"] = vis.get("video_score")
     return {"row": row, "visual": vis, "drift": d, "audio": aud,
             "l2": [round(float(x), 6) for x in l2],
-            "naive_combined": row["naive_combined"]}
+            "naive_combined": row["naive_combined"],
+            "av_diagnostics": av_diag}
 
 
 def _pooled_l2(tracks) -> list:
@@ -220,6 +304,34 @@ def _pooled_l2(tracks) -> list:
     pools = [track_l2(t) for t in tracks if t.n >= MIN_TRACK_OBS]
     pools = [p for p in pools if len(p)]
     return np.concatenate(pools).tolist() if pools else []
+
+
+def _fit_av_calibration_pass(reals, frames, cache_dir, cal_path, smoke=False):
+    """Diagnostics pass over TRAIN-split reals ONLY (D-035): extract_av without
+    a calibration, collect the per-video diagnostics, fit the 10th-percentile
+    thresholds. Fail-closed below 20 usable rows — EXCEPT smoke, which stubs
+    the thresholds to 0.0 (mechanics only, never evidence; receipted)."""
+    from av_sync import cached_extract, fit_av_calibration
+    from video_score import visual_channel_bundle
+    rows, skipped = [], 0
+    for p in reals:
+        vis, tracks, _, _ = visual_channel_bundle(p, frames, with_scene=False)
+        if vis is None or not tracks:
+            skipped += 1
+            continue
+        res = cached_extract(p, tracks, None, cache_dir)
+        if res.features.get("avs_present"):
+            rows.append(res.diagnostics)
+    print(f"[dump:av] calibration pass: {len(rows)} usable train reals "
+          f"({skipped} no-face/no-track skipped)", flush=True)
+    if smoke and len(rows) < 20:
+        cal = {"tau_voice": 0.0, "rms_floor": 0.0, "motion_floor": 0.0,
+               "n_videos": len(rows), "fit_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+               "source": "SMOKE STUB — thresholds zeroed; never evidence"}
+        cal_path.write_text(json.dumps(cal, indent=2))
+        print("[dump:av] SMOKE stub calibration written (not evidence)", flush=True)
+        return cal
+    return fit_av_calibration(rows, cal_path)
 
 
 def _spike_from_rows(rows) -> float | None:
@@ -240,11 +352,13 @@ def _apply_spikes(rows, spike):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=["train", "val", "test"], required=True)
-    ap.add_argument("--corpus", choices=["ffpp", "celebdf", "dfd"], default="ffpp",
+    ap.add_argument("--corpus", choices=["ffpp", "celebdf", "dfd", "av"], default="ffpp",
                     help="ffpp = the identity-disjoint split logic; celebdf = "
                          "the D-021 train diet (official CDF test list excluded); "
                          "dfd = the W4 actor-arm diet (manifest-determined, "
-                         "appends into dump_<split>)")
+                         "appends into dump_<split>); av = the W-AV diet "
+                         "(D-076: matched pairs + narration/music strata, "
+                         "manifest-determined, appends into dump_<split>)")
     ap.add_argument("--frames", type=int, default=12)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--audio-limit", type=int, default=1200)
@@ -277,13 +391,31 @@ def main() -> int:
             print("[dump] dfd: forcing --no-audio (spec §2 audio law)", flush=True)
             args.no_audio = True
         reals, fakes = enumerate_dfd(args.split, smoke=args.smoke)
+    elif args.corpus == "av":
+        # W-AV dumps run WITH audio for EVERY row (the corpus is the
+        # audio-bearing corpus; avs features require the audio stream).
+        if args.no_audio:
+            print("[dump] av: refusing --no-audio (audio-bearing corpus; "
+                  "avs_present=1 rows are the law)", flush=True)
+            args.no_audio = False
+        if not args.drift_cal:
+            raise SystemExit("av dumps APPEND to the spliced incumbent CSV — "
+                             "--drift-cal is REQUIRED so appended rows reuse the "
+                             "inherited spike threshold (dfd pass-through law)")
+        reals, fakes, narr, music = enumerate_av(args.split, smoke=args.smoke)
     elif args.corpus == "celebdf":
         reals, fakes = enumerate_celebdf(limit)
     else:
         reals, fakes = enumerate_split(args.split, limit)
-    jobs = [(v, 0, "real") for v in reals] + \
-           [(v, 1, CDF_FAKE_METHOD if args.corpus == "celebdf" else v.parent.name)
-            for v in fakes]
+    if args.corpus == "av":
+        jobs = ([(v, 0, "real") for v in reals]
+                + [(v, 0, "narration") for v in narr]
+                + [(v, 0, "music") for v in music]
+                + [(v, 1, AV_METHOD) for v in fakes])
+    else:
+        jobs = [(v, 0, "real") for v in reals] + \
+               [(v, 1, CDF_FAKE_METHOD if args.corpus == "celebdf" else v.parent.name)
+                for v in fakes]
     jobs = sorted(jobs, key=lambda j: (j[1] != 0, j[0].parent.name, j[0].name))
     # keys are (method, filename): FF++ method dirs REUSE filenames across
     # methods (220 of 780 train-fake names collide), so a bare-filename key
@@ -291,12 +423,35 @@ def main() -> int:
     # label (dir name for FF++, CDF_FAKE_METHOD/"real" for celebdf) so the
     # membership test below matches exactly.
     sha_of = {(method, v.name): sha12(v) for v, _, method in jobs}
-    audio_set = set(sorted(sha_of, key=lambda k: sha_of[k])
-                    [: 0 if args.no_audio else args.audio_limit])
+    if args.corpus == "av":
+        audio_set = set(sha_of)          # every av row carries audio (law)
+    else:
+        audio_set = set(sorted(sha_of, key=lambda k: sha_of[k])
+                        [: 0 if args.no_audio else args.audio_limit])
 
     spike = None
     if args.drift_cal:
         spike = float(json.loads(Path(args.drift_cal).read_text())["spike_thresh"])
+
+    # W-AV two-pass calibration (D-035): fit tau_voice/rms_floor/motion_floor
+    # on TRAIN-SPLIT REALS ONLY, once, before any row is written; the val dump
+    # (and every later consumer) reads the train-fitted file.
+    av_calib, av_cache_dir = None, None
+    if args.corpus == "av":
+        av_cache_dir = Path(args.out) / "av_cache"
+        av_cache_dir.mkdir(parents=True, exist_ok=True)
+        cal_path = Path(args.out) / "av_calibration.json"
+        if cal_path.exists():
+            av_calib = json.loads(cal_path.read_text())
+            print(f"[dump:av] av_calibration loaded (n={av_calib.get('n_videos')}, "
+                  f"fit {av_calib.get('fit_at')})", flush=True)
+        elif args.split == "train":
+            av_calib = _fit_av_calibration_pass(reals, args.frames, av_cache_dir,
+                                                cal_path, smoke=args.smoke)
+        else:
+            raise SystemExit(f"{cal_path} missing and --split {args.split} != "
+                             f"train — the calibration is fit on train reals "
+                             f"only (D-035); run the train dump first")
 
     done, rows = set(), []
     if rows_path.exists():
@@ -318,7 +473,10 @@ def main() -> int:
                 continue
             res = featurize_video(vid, args.frames,
                                   with_audio=((method, vid.name) in audio_set),
-                                  spike_thresh=spike)
+                                  spike_thresh=spike,
+                                  with_av=args.corpus == "av",
+                                  av_calib=av_calib,
+                                  av_cache_dir=av_cache_dir)
             if res is None:
                 with open(noface_path, "a") as nf:
                     nf.write(json.dumps({"file": vid.name, "label": label,
@@ -368,16 +526,16 @@ def main() -> int:
         {"spike_thresh": round(float(spike), 6),
          "fit_on": fit_on,
          "embedder": EMBEDDER_NAME}, indent=2))
-    if args.corpus == "dfd":
+    if args.corpus in ("dfd", "av"):
         import pandas as pd
         df = pd.read_csv(rows_path)
         dups = int(df.duplicated(subset=["method", "file"]).sum())
-        assert dups == 0, (f"dfd dump dedup assert FAILED: {dups} duplicated "
-                           f"(method,file) rows in {rows_path}")
+        assert dups == 0, (f"{args.corpus} dump dedup assert FAILED: {dups} "
+                           f"duplicated (method,file) rows in {rows_path}")
         n_nf = sum(1 for l in noface_path.read_text().splitlines() if l.strip()) \
             if noface_path.exists() else 0
         n_rows = len(df)
-        print(f"[dump:dfd] dedup assert clean (0 duplicated (method,file)); "
+        print(f"[dump:{args.corpus}] dedup assert clean (0 duplicated (method,file)); "
               f"noface rows so far: {n_nf} "
               f"(rate {n_nf / max(1, n_rows + n_nf):.4f} of attempted)", flush=True)
     n_audio = sum(int(r.get("audio_present", 0) or 0) for r in rows)

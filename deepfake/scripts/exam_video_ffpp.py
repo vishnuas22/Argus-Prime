@@ -103,7 +103,11 @@ def write_features_csv(rows_path: Path, feat_path: Path, sha_of: dict,
             if r.get("route") != "video_face":
                 n_noface += 1
                 continue
-            flat = compute_row(r.get("visual"), r.get("drift"), r.get("audio"))
+            # avs (W-AV): rows scored through the AV channel carry their avs
+            # dict in scores.jsonl; older rows lack the key -> None -> the
+            # missingness zero-fill (identical to their dump-time values).
+            flat = compute_row(r.get("visual"), r.get("drift"), r.get("audio"),
+                               r.get("avs"))
             w.writerow({"file": r["file"],
                         "sha256_12": r.get("sha256_12") or sha_of.get(
                             (r.get("method", ""), r["file"]), ""),

@@ -47,7 +47,16 @@ FEATURE_NAMES: list = [
 
 AUDIO_FEATURES = ("audio_pfake", "audio_present", "audio_in_coverage")
 
-FEATURE_NAMES_FULL: list = FEATURE_NAMES  # alias post-flip
+# AV family (W-AV §2, D-076): SyncNet-driven lip-sync features. The tuple is
+# OWNED here (the feature contract) and imported by av_sync.py — one source
+# of truth for the 6 names, like AUDIO_FEATURES.
+AV_FEATURES = ("avs_syncnet_mindist", "avs_syncnet_conf", "avs_syncnet_offset_abs",
+               "avs_lipenv_corr", "avs_present", "avs_in_coverage")
+
+# W-AV pre-flip: FULL = the deployed 32 + the 6 AV features (38). At the W-AV
+# promotion flip, FEATURE_NAMES is redefined to include *AV_FEATURES and FULL
+# aliases it again — consumers never change (same law as the W4c flip).
+FEATURE_NAMES_FULL: list = FEATURE_NAMES + list(AV_FEATURES)
 
 
 def _g(d, k, default=0.0):
@@ -55,17 +64,21 @@ def _g(d, k, default=0.0):
     return default if v is None else v
 
 
-def compute_row(visual: dict, drift: dict, audio: dict | None) -> dict:
+def compute_row(visual: dict, drift: dict, audio: dict | None,
+                avs: dict | None = None) -> dict:
     """Flatten one video's channel outputs into the stacker feature row.
 
-    The row carries the 24 deployed features plus the 8 SCENE features
-    (FEATURE_NAMES_FULL); row_to_X orders whichever space the caller names.
-    audio=None (or a dict without a scored probe) => audio_present=0,
-    audio_pfake=0.0, audio_in_coverage=0 — the flag carries the missingness,
-    an explicit train/serve contract with no silent skew. A missing
-    visual["spec"] block (legacy rows) zero-fills the 8 spec features; a
-    missing visual["scene"] block zero-fills the 8 scene features the same
-    way (scene_present=0 documents the legacy/absent path)."""
+    The row carries the 24 deployed features + the 8 SCENE features + the 6
+    AV features (FEATURE_NAMES_FULL); row_to_X orders whichever space the
+    caller names. audio=None (or a dict without a scored probe) =>
+    audio_present=0, audio_pfake=0.0, audio_in_coverage=0 — the flag carries
+    the missingness, an explicit train/serve contract with no silent skew.
+    avs=None (or an empty dict) => avs_present=0, the 4 AV floats 0.0,
+    avs_in_coverage=0 — the SAME missingness contract mirrored for the AV
+    channel (W-AV §2). A missing visual["spec"] block (legacy rows) zero-fills
+    the 8 spec features; a missing visual["scene"] block zero-fills the 8
+    scene features the same way (scene_present=0 documents the legacy/absent
+    path)."""
     v, d = visual or {}, drift or {}
     ids = list(v.get("identities") or [])
     id1 = ids[0] if len(ids) > 0 else {}
@@ -115,6 +128,17 @@ def compute_row(visual: dict, drift: dict, audio: dict | None) -> dict:
         "scene_context_sharp": _g(scene, "scene_context_sharp"),
         "scene_present": int(scene.get("scene_present", 0) or 0),
     }
+    # AV missingness contract (W-AV §2): avs=None/empty => present=0, floats
+    # 0.0, in_coverage=0. A populated dict carries all 6 values verbatim
+    # (av_sync.AVResult.row() is the only producer).
+    a = avs or {}
+    have_avs = bool(a) and "avs_present" in a
+    row["avs_syncnet_mindist"] = float(a.get("avs_syncnet_mindist", 0.0)) if have_avs else 0.0
+    row["avs_syncnet_conf"] = float(a.get("avs_syncnet_conf", 0.0)) if have_avs else 0.0
+    row["avs_syncnet_offset_abs"] = float(a.get("avs_syncnet_offset_abs", 0.0)) if have_avs else 0.0
+    row["avs_lipenv_corr"] = float(a.get("avs_lipenv_corr", 0.0)) if have_avs else 0.0
+    row["avs_present"] = int(a.get("avs_present", 0)) if have_avs else 0
+    row["avs_in_coverage"] = int(a.get("avs_in_coverage", 0)) if have_avs else 0
     return row
 
 

@@ -1,5 +1,5 @@
 {
- "as_of": "2026-10-19",
+ "as_of": "2026-11-04",
  "court": "p6v11 (11 channels)",
  "note": "Curated scope-labeled snapshot of verified exam results. Every number carries its measurement scope. Regenerate from artifacts/exam_* after each restack.",
  "image": {
@@ -96,7 +96,7 @@
   }
  },
  "video": {
-  "status": "Phase-5b PROMOTED as p6vid_v2 under documented user-authorized Face2Face waiver (2026-10-12, artifacts/p6vid_v2/WAIVER.md): FF++ official test split n=700 stacked AUC 0.9016 (bar 0.90 PASS; naive 0.7487, naive_spec 0.8977, delta +0.1529), per-method Deepfakes 0.9849 / Face2Face 0.8760 WAIVED vs 0.88 bar (miss 0.004, within retraining-noise sd 0.0076) / FaceSwap 0.9730 / NeuralTextures 0.7726; LOMO 4/4 PASS (0.9774/0.8716/0.9518/0.7713); Celeb-DF cross-dataset 0.9411 PASS (n=518, naive 0.9232). Serve now uses p6vid_v2 (24-feature dual-probe space: p3_full generalist + p3_ffpp specialist, arcface). UNTRUSTED for in-the-wild video (no wild-video corpus examined; Deepfake-Eval-2024 exam still blocked on user registration).",
+  "status": "Phase-5c PROMOTED as p6vid_v4e (2026-11-03, user-authorized full promotion \"Activate \u2014 full promotion\"; verdict artifacts/restack_video_v4e/verdict.json PROMOTE 4/4 gates, zero waivers): FF++ official test split n=700 stacked AUC 0.9121 (bar >=0.90 AND >=0.9071 vs v4 baseline PASS; naive 0.7487, delta +0.1634), per-method Deepfakes 0.9884 / Face2Face 0.8938 / FaceSwap 0.9745 / NeuralTextures 0.7917 all >= bars (0.88x3 / 0.60), real_elevation 0.018 <= 0.10; LOMO 4/4 PASS (0.9824/0.8838/0.9638/0.7758); Celeb-DF 0.9482 PASS (n=518); DFD gate PASS (stacked 0.8857 >= 0.85, real_mean_pf 0.1723 <= 0.35, real_frac>0.5 0.0506 <= 0.25). 32-feature space (W4c), dfd-weight-mult 4.0. UNTRUSTED for in-the-wild video (no wild-video corpus examined; Deepfake-Eval-2024 exam still blocked on user registration).",
   "scope_legacy": {
    "claim": "detects face-swap video forgeries (DeepfakeTIMIT/CDF era)",
    "verified": {
@@ -232,6 +232,56 @@
    },
    "root_cause_fixed": "Phase-5 video path scored FF++ frames with the court-generalist probe p3_full (zero-shot FF++ 0.728) instead of the FF++ specialist p3_ffpp (0.8885 in-domain); 5b wired BOTH probes as separate stacker features (single CLIP forward, two heads) + 1000-video Celeb-DF diet for probe arbitration (D-021)",
    "work_dir": "artifacts/restack_video_v2"
+  },
+  "phase5c": {
+   "as_of": "2026-11-03",
+   "verdict": "PROMOTED to p6vid_v4e (user-authorized full promotion, no waivers)",
+   "candidate": "artifacts/restack_video_v4e/candidate",
+   "feature_space": 32,
+   "embedder": "arcface",
+   "frame_budget": 12,
+   "gates": {
+    "ffpp_test_split": {
+     "n": 700,
+     "stacked": 0.9121,
+     "naive": 0.7487,
+     "delta_vs_naive": 0.1634,
+     "per_method_stacked": {
+      "Deepfakes": 0.9884,
+      "Face2Face": 0.8938,
+      "FaceSwap": 0.9745,
+      "NeuralTextures": 0.7917
+     },
+     "real_elevation": 0.018,
+     "requirement": ">=0.90 AND >=0.9071 (v4 baseline), per-method 0.88x3+0.60, real_elevation <=0.10",
+     "pass": true
+    },
+    "lomo": {
+     "per_method_auc": {
+      "Deepfakes": 0.9824,
+      "Face2Face": 0.8838,
+      "FaceSwap": 0.9638,
+      "NeuralTextures": 0.7758
+     },
+     "requirement": "all >=0.70",
+     "pass": true
+    },
+    "celebdf": {
+     "n": 518,
+     "stacked": 0.9482,
+     "naive": 0.9232,
+     "requirement": ">=0.75",
+     "pass": true
+    },
+    "dfd": {
+     "stacked": 0.8857,
+     "real_mean_pf": 0.1723,
+     "real_frac_gt_half": 0.0506,
+     "requirement": ">=0.85 / <=0.35 / <=0.25",
+     "pass": true
+    }
+   },
+   "work_dir": "artifacts/restack_video_v4e"
   }
  }
 }

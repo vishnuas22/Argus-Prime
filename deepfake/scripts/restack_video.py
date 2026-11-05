@@ -20,16 +20,32 @@
           D: exam_video_dfd on held-out DFD sources (W4, D-066) — stacked
             >= 0.85 AND exam-real mean pf <= 0.35 AND frac(pf>0.5) <= 0.25
             (the L-CHANNEL-CONFOUND guard)
-  VERDICT PROMOTE iff A and B and C and D; --promote --promote-to <tag> copies
-          the candidate to artifacts/<tag>/ (explicit tag required, never
-          auto-wired). A gate miss ESCALATES to the user — no autonomous
-          waiver file is ever written (decision #2 / D-046).
+          W-AV (--av, D-076): dump stage bootstraps restack_video_v4's dumps
+            byte-verbatim, text-splices the 6 AV columns (zeros — those rows
+            predate the AV channel; NO pandas round-trip), then appends the
+            av diet (matched Wav2Lip pairs + narration/music strata, audio
+            ON, av-calibrated). Gates gain:
+          E: exam_video_av — self-gen held-out stacked >= 0.85 (D1) AND
+            AVLips-val external stacked >= 0.70 (D2) AND integrity clean
+            (D3 hard stop: zero source straddles, ffprobe pair parity,
+            dedup, license receipts complete)
+          F: exam_video_av_confound — narration/music issued-fake FPR
+            <= 0.10 (D4)
+          NR1 (with --av): ffpp stacked must ALSO clear the incumbent
+            baseline - 0.005 (v4e receipt), fail-closed if the receipt is
+            missing.
+  VERDICT PROMOTE iff A and B and C and D (and E and F with --av); --promote
+          --promote-to <tag> copies the candidate to artifacts/<tag>/
+          (explicit tag required, never auto-wired; --av adds
+          av_calibration.json to the promoted bundle). A gate miss ESCALATES
+          to the user — no autonomous waiver file is ever written (decision
+          #2 / D-046).
 
 Usage:
   .venv/bin/python deepfake/scripts/restack_video.py [--stage all|dump|train|gate|verdict]
       [--smoke] [--work artifacts/restack_video_v3] [--embedder arcface]
       [--bootstrap-from artifacts/restack_video_v2 | --no-bootstrap]
-      [--promote --promote-to p6vid_v3]
+      [--av] [--promote --promote-to p6vid_v5]
 """
 import argparse
 import json
@@ -66,6 +82,13 @@ GATES = {
     "dfd": {"min_auc": 0.85, "max_real_mean_pf": 0.35,
             "max_real_frac_gt_half": 0.25,
             "max_real_elevation": 0.10},
+    # W-AV (D-076 §6, user-sealed 2026-11-02): D1 self-gen held-out
+    # (Wav2Lip matched pairs) + D2 AVLips-val external; D3 integrity is a
+    # hard stop folded into av.pass (no numeric bar — any violation fails).
+    "av": {"min_auc": 0.85, "avlips_min_auc": 0.70},
+    # D4 confound guard: narration/music exam reals at the deployed operating
+    # point must not read fake-ward above this issued-fake FPR.
+    "av_confound": {"max_fpr_issued": 0.10},
 }
 METHODS = ["Deepfakes", "Face2Face", "FaceSwap", "NeuralTextures"]
 DFD_SPLIT_MANIFEST = "data/raw/ffpp_dfd/split.json"
@@ -73,6 +96,22 @@ BOOTSTRAP_DEFAULT = WS / "artifacts" / "restack_video_v2"
 BOOTSTRAP_DUMPS = ("dump_train", "dump_val", "dump_cdf")
 BOOTSTRAP_ROWS = {"dump_train": 1500, "dump_val": 300, "dump_cdf": 1000}
 ESCALATE_BAND = (0.85, 0.90)            # FF++ stacked in this band => escalate
+# W-AV (D-076): the av bootstrap source is PINNED to the v4 work dir (the
+# incumbent being extended); its expected counts are read from the source's
+# OWN receipts (dfd_dump_receipt totals + bootstrap_receipt cdf rows) — never
+# hardcoded here.
+AV_BOOTSTRAP_SOURCE = WS / "artifacts" / "restack_video_v4"
+# NR1 (D-076): the candidate's ffpp stacked AUC may not drop more than this
+# below the incumbent's receipted ffpp auc_stacked (v4e = 0.9121 -> bar
+# max(0.90, 0.9071)).
+NR1_BASELINE_WORK = AV_BOOTSTRAP_SOURCE
+NR1_DELTA = -0.005
+# D-076: the W4e recipe carries forward — the v5 candidate trains with lever
+# A' (dfd sample-weight multiplier 4.0). The chain passes it explicitly;
+# train_video_stacker.py defaults to 1.0 (pre-W4d behavior), which would
+# silently train off-recipe. The W4d/W4e manual runs masked this gap because
+# they invoked train_video_stacker.py directly with the flag.
+DFD_WEIGHT_MULT_SEALED = 4.0
 
 
 def run(cmd, **kw):
@@ -150,6 +189,117 @@ def bootstrap_dumps(work: Path, src: Path) -> None:
         print(f"[bootstrap] {name}: {n_rows} rows byte-preserved "
               f"(sha {pre_sha[:16]}…)", flush=True)
     (work / "bootstrap_receipt.json").write_text(_json.dumps(receipt, indent=2))
+    _manifest_append(work, lines)
+
+
+def _splice_av_columns(csv_path: Path, av_names: list) -> dict:
+    """Text-level splice (W-AV D-076): insert the 6 AV columns (zeros) into a
+    bootstrapped 42-col CSV, BEFORE the trailing n_drift_tracks column.
+
+    Byte law: NO pandas round-trip — the 38 non-AV values must pass through
+    as written (a pandas read->write cycle re-formats floats and would break
+    byte-attribution for rows that never re-featurize). Each data line is
+    split on commas, the prefix (all fields but the last) is rejoined
+    verbatim, the six zeros are inserted, and the original last field is
+    appended; per-row prefix equality holds by construction and is asserted
+    via field counts. A pandas read-back (read-only) verifies the shape."""
+    import pandas as pd
+    from video_features import AV_FEATURES
+    assert av_names == list(AV_FEATURES), "splice order must match AV_FEATURES"
+    zeros = ",".join(["0"] * len(av_names))
+    lines = csv_path.read_text().splitlines()
+    hdr = lines[0].split(",")
+    assert hdr[-1] == "n_drift_tracks", f"unexpected trailing column: {hdr[-1]}"
+    assert len(hdr) == 42, f"expected 42-col incumbent CSV, got {len(hdr)}"
+    new_hdr = hdr[:-1] + av_names + [hdr[-1]]
+    out = [",".join(new_hdr)]
+    for ln in lines[1:]:
+        if not ln.strip():
+            continue
+        f = ln.split(",")
+        assert len(f) == 42, f"row field count {len(f)} != 42 in {csv_path}"
+        # prefix (fields 0..40) verbatim + 6 zeros + original last field
+        out.append(",".join(f[:-1]) + "," + zeros + "," + f[-1])
+    csv_path.write_text("\n".join(out) + "\n")
+    df = pd.read_csv(csv_path)          # read-only post-condition check
+    assert list(df.columns) == new_hdr, "spliced header mismatch"
+    assert len(df) == len(out) - 1, "spliced row count mismatch"
+    return {"rows": len(out) - 1, "cols": len(new_hdr)}
+
+
+def bootstrap_dumps_av(work: Path, src: Path) -> None:
+    """W-AV (D-076): byte-preserve the v4 dumps, then splice the 6 AV columns.
+
+    Expected counts are read from the SOURCE's own receipts (dfd receipt
+    totals for dump_train/dump_val; the bootstrap receipt's cdf rows) — never
+    hardcoded. The splice inserts the AV columns as ZEROS: those rows predate
+    the AV channel, and the missingness contract (avs absent -> zeros) is
+    exactly what the stacker trained on for them. Receipts record pre/post
+    sha256 per dump; any mismatch STOPS."""
+    import json as _json
+    import pandas as pd
+    import sys as _sys
+    _sys.path.insert(0, str(WS / "deepfake" / "bench"))
+    from video_features import AV_FEATURES
+    dfd_rcp = src / "dfd_dump_receipt.json"
+    boot_rcp = src / "bootstrap_receipt.json"
+    if not dfd_rcp.exists() or not boot_rcp.exists():
+        raise SystemExit(f"av bootstrap source receipts missing in {src} "
+                         f"(dfd_dump_receipt.json / bootstrap_receipt.json) "
+                         f"— expected counts must come from the source's own "
+                         f"receipts; STOP")
+    dfd_r = _json.loads(dfd_rcp.read_text())
+    boot_r = _json.loads(boot_rcp.read_text())
+    for split in ("train", "val"):
+        if not dfd_r["splits"][split].get("reconciled"):
+            raise SystemExit(f"av bootstrap source {src}: dfd receipt for "
+                             f"{split} is not reconciled — STOP")
+    expected = {
+        "dump_train": int(dfd_r["splits"]["train"]["total_rows"]),
+        "dump_val": int(dfd_r["splits"]["val"]["total_rows"]),
+        "dump_cdf": int(boot_r["dumps"]["dump_cdf"]["rows"]),
+    }
+    receipt = {"source": str(src), "created": time.strftime("%Y-%m-%d %H:%M:%S"),
+               "av_columns": list(AV_FEATURES), "dumps": {}}
+    lines = ["## AV bootstrap — byte-preserved v4 rows + AV-column splice "
+             "(W-AV D-076)", ""]
+    for name in BOOTSTRAP_DUMPS:
+        dst = work / name
+        if (dst / "scores.csv").exists():
+            print(f"[bootstrap-av] {name}: exists, skipped", flush=True)
+            continue
+        s_csv = src / name / "scores.csv"
+        if not s_csv.exists():
+            raise SystemExit(f"av bootstrap source missing {s_csv} — STOP")
+        pre_sha = _sha256(s_csv)
+        n_rows = len(s_csv.read_text().splitlines()) - 1
+        if n_rows != expected[name]:
+            raise SystemExit(f"av bootstrap receipt FAILED: {name} has "
+                             f"{n_rows} rows, source receipt says "
+                             f"{expected[name]} — STOP")
+        dst.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(s_csv, dst / "scores.csv")
+        if _sha256(dst / "scores.csv") != pre_sha:
+            raise SystemExit(f"av bootstrap copy sha mismatch for {name} — STOP")
+        for extra in ("drift_spike.json", "noface.jsonl"):
+            if (src / name / extra).exists():
+                shutil.copy2(src / name / extra, dst / extra)
+        spliced = _splice_av_columns(dst / "scores.csv", list(AV_FEATURES))
+        df = pd.read_csv(dst / "scores.csv")
+        receipt["dumps"][name] = {
+            "rows": n_rows, "sha256_pre_splice": pre_sha,
+            "sha256_post_splice": _sha256(dst / "scores.csv"),
+            "cols_after_splice": spliced["cols"],
+            "n_reals": int((df["label"] == 0).sum()),
+            "n_fakes": int((df["label"] == 1).sum()),
+            "per_method": {m: int((df["method"] == m).sum())
+                           for m in sorted(df["method"].unique())}}
+        lines.append(f"- {name}: {n_rows} rows byte-preserved from v4 "
+                     f"(pre-splice sha {pre_sha[:16]}…), spliced to "
+                     f"{spliced['cols']} cols with 6 zeroed AV columns")
+        print(f"[bootstrap-av] {name}: {n_rows} rows byte-preserved + "
+              f"spliced to {spliced['cols']} cols", flush=True)
+    (work / "av_bootstrap_receipt.json").write_text(_json.dumps(receipt, indent=2))
     _manifest_append(work, lines)
 
 
@@ -239,6 +389,102 @@ def _dfd_receipts(work: Path, smoke: bool) -> None:
     _manifest_append(work, lines)
 
 
+def stage_dump_av(work, smoke, embedder):
+    """W-AV (D-076): bootstrap v4 byte-verbatim + AV splice, then append the
+    av diet into dump_<split>/.
+
+    Matched Wav2Lip fakes + their source reals enter TOGETHER per source
+    (same split; L-CHANNEL-CONFOUND law), narration/music confound strata on
+    train (+exam, which the confound exam reads directly). Audio is ON for
+    every av row; the av dump fits av_calibration.json on TRAIN reals only
+    (D-035) before writing rows. --drift-cal pass-through: appended rows
+    reuse the bootstrapped train sidecar's spike threshold."""
+    cal = work / "dump_train" / "drift_spike.json"
+    if not cal.exists():
+        # D-076: the av bootstrap (byte-preserved v4 dumps + AV splice) is the
+        # step that materializes the sidecars this stage consumes. Invoke it
+        # here so --stage all and --stage dump are both self-contained — the
+        # bootstrap is idempotent (existing dumps are skipped, sha-receipted).
+        bootstrap_dumps_av(work, AV_BOOTSTRAP_SOURCE)
+    if not cal.exists():
+        raise SystemExit(f"missing {cal} — av bootstrap did not produce it; STOP")
+    for split in ("train", "val"):
+        cmd = [PY, SCRIPTS / "video_dump.py", "--split", split,
+               "--corpus", "av", "--out", work,
+               "--embedder", embedder, "--drift-cal", cal]
+        if smoke:
+            cmd.append("--smoke")
+        run(cmd)
+    _av_receipts(work, smoke)
+
+
+def _av_receipts(work: Path, smoke: bool) -> None:
+    """Reconcile the av append against the diet manifests + gen receipts."""
+    import json as _json
+    import pandas as pd
+    diet = WS / "data" / "raw" / "av_diet"
+    splitj = _json.loads((diet / "split.json").read_text())
+    genr = _json.loads((diet / "gen_receipt.json").read_text())
+    boot = _json.loads((work / "av_bootstrap_receipt.json").read_text())
+    av_methods = ("Wav2Lip", "real", "narration", "music")
+    exp_key = {"Wav2Lip": "fakes", "real": "reals", "narration": "narration",
+               "music": "music"}
+    failed = genr.get("failed", {})
+    expected = {}
+    for split in ("train", "val"):
+        keys = [k for k in splitj["splits"][split] if k not in failed]
+        expected[split] = {
+            "fakes": len(keys), "reals": len(keys),
+            "narration": len(genr.get("narration", {}).get(split, [])),
+            "music": len(genr.get("music", {}).get(split, []))}
+    receipt = {"smoke": bool(smoke), "splits": {}}
+    lines = ["## AV diet append receipts (W-AV stage_dump_av)", ""]
+    for split in ("train", "val"):
+        d = work / f"dump_{split}"
+        df = pd.read_csv(d / "scores.csv")
+        dups = int(df.duplicated(subset=["method", "file"]).sum())
+        assert dups == 0, f"{d}: {dups} duplicated (method,file) rows"
+        pre = boot["dumps"][f"dump_{split}"]
+        noface = {m: 0 for m in av_methods}
+        nf_path = d / "noface.jsonl"
+        if nf_path.exists():
+            seen_nf = set()
+            for l in nf_path.read_text().splitlines():
+                if l.strip():
+                    r = _json.loads(l)
+                    k = (r.get("method", ""), r["file"])
+                    if k in seen_nf or r.get("method") not in noface:
+                        continue      # bootstrapped rows / re-attempted resume
+                    seen_nf.add(k)
+                    noface[r["method"]] += 1
+        got = {m: int((df["method"] == m).sum()) - pre["per_method"].get(m, 0)
+               for m in av_methods}
+        exp = expected[split]
+        ok = all(got[m] + noface[m] == exp[exp_key[m]] for m in av_methods)
+        receipt["splits"][split] = {
+            "appended": got, "noface": noface, "expected": exp,
+            "reconciled": bool(ok), "total_rows": len(df),
+            "per_method": {m: int((df["method"] == m).sum())
+                           for m in sorted(df["method"].unique())}}
+        lines.append(
+            f"- dump_{split}: appended fakes {got['Wav2Lip']}/{exp['fakes']}, "
+            f"reals {got['real']}/{exp['reals']}, narration "
+            f"{got['narration']}/{exp['narration']}, music "
+            f"{got['music']}/{exp['music']} (noface "
+            f"{sum(noface.values())}) -> "
+            f"{'RECONCILED' if ok else 'MISMATCH'}; total rows {len(df)}")
+        print(f"[av-receipt] {split}: fakes {got['Wav2Lip']}/{exp['fakes']} "
+              f"reals {got['real']}/{exp['reals']} narr "
+              f"{got['narration']}/{exp['narration']} music "
+              f"{got['music']}/{exp['music']} noface "
+              f"{sum(noface.values())} -> {'OK' if ok else 'MISMATCH'}",
+              flush=True)
+        if not ok:
+            raise SystemExit(f"av append receipt MISMATCH for {split} — STOP")
+    (work / "av_dump_receipt.json").write_text(_json.dumps(receipt, indent=2))
+    _manifest_append(work, lines)
+
+
 def stage_dump(work, smoke, embedder, bootstrap_from=None, full_redump=False):
     src = Path(bootstrap_from) if bootstrap_from else None
     if src is not None and src.exists():
@@ -315,7 +561,7 @@ def stage_dump_cdf(work, smoke, embedder):
          "--limit", lim, "--no-audio", "--out", work, "--embedder", embedder])
 
 
-def stage_train(work, embedder):
+def stage_train(work, embedder, av=False):
     out = work / "candidate"
     if (out / "stacker.joblib").exists():
         print("[train] candidate exists, skipped", flush=True)
@@ -329,10 +575,45 @@ def stage_train(work, embedder):
             raise SystemExit(f"missing {p} — run the dump stage first")
         csvs.append(str(p))
     run([PY, SCRIPTS / "train_video_stacker.py",
-         "--csv", *csvs, "--out", out, "--embedder", embedder])
+         "--csv", *csvs, "--out", out, "--embedder", embedder,
+         "--dfd-weight-mult", str(DFD_WEIGHT_MULT_SEALED)])
+    if av:
+        # W-AV (D-076): the AV coverage calibration rides the bundle — the
+        # serve path derives it from VIDEO_STACKER.parent (same law as the
+        # drift calibration). Fail-closed: no av_calibration, no candidate.
+        av_cal = work / "av_calibration.json"
+        if not av_cal.exists():
+            raise SystemExit(f"missing {av_cal} — the av dump stage fits it "
+                             f"on train reals (D-035); run the dump stage first")
+        shutil.copy(av_cal, out / "av_calibration.json")
+        n_cal = json.loads(av_cal.read_text()).get("n_videos")
+        print(f"[train] av_calibration.json -> candidate "
+              f"(fit on {n_cal} train reals)", flush=True)
     meta = json.loads((out / "stacker_meta.json").read_text())
+    if av:
+        # D-046 tripwire (2026-11-05): the artifact must match the seal
+        # BEFORE any gate burns compute — an off-recipe candidate (e.g.
+        # dfd_weight_mult drifting from the sealed value) silently
+        # invalidates every downstream gate. Catch it seconds after train,
+        # not hours later at verdict read.
+        if meta.get("dfd_weight_mult") != DFD_WEIGHT_MULT_SEALED:
+            raise SystemExit(
+                f"off-recipe candidate: stacker_meta dfd_weight_mult="
+                f"{meta.get('dfd_weight_mult')} != sealed "
+                f"{DFD_WEIGHT_MULT_SEALED} (D-076) — STOP before gates")
+        import sys as _sys
+        _sys.path.insert(0, str(WS / "deepfake" / "bench"))
+        from video_features import AV_FEATURES
+        names = meta.get("feature_names", [])
+        if len(names) != 32 + len(AV_FEATURES) or \
+                names[-len(AV_FEATURES):] != list(AV_FEATURES):
+            raise SystemExit(
+                f"off-recipe candidate: feature_names tail is not the "
+                f"sealed 32+{len(AV_FEATURES)} AV append (D-076) — "
+                f"STOP before gates")
     print(f"[train] candidate: val_auc={meta['val_auc']} "
-          f"features={len(meta['feature_names'])} embedder={embedder}", flush=True)
+          f"features={len(meta['feature_names'])} embedder={embedder} "
+          f"dfd_weight_mult={meta.get('dfd_weight_mult')}", flush=True)
 
 
 def _gate_exam(out_dir, smoke, build_cmd):
@@ -359,7 +640,7 @@ def _real_elevation(features_csv: Path) -> dict:
             "n_reals": int(len(reals))}
 
 
-def stage_gate(work, smoke, embedder):
+def stage_gate(work, smoke, embedder, av=False):
     cand = work / "candidate"
     cal = cand / "drift_calibration.json"
     # full = the official FF++ test split: 140 reals + 4x140 fakes = 700.
@@ -382,10 +663,24 @@ def stage_gate(work, smoke, embedder):
     elev_ffpp = _real_elevation(gate_dir / "features.csv")
     elev_ok = (elev_ffpp["real_elevation"] <= GATES["ffpp"]["max_real_elevation"]
                if not smoke else True)
+    nr1_base = nr1_min = None
+    if av:
+        # NR1 (D-076): stacked must ALSO clear the incumbent baseline - 0.005
+        # (v4e receipt 0.9121 -> bar max(0.90, 0.9071)). Fail-closed without
+        # the incumbent's gates receipt.
+        nr1_path = NR1_BASELINE_WORK / "gates.json"
+        if not nr1_path.exists():
+            raise SystemExit(f"NR1 baseline missing: {nr1_path} — the --av "
+                             f"run requires the incumbent's gates receipt "
+                             f"(fail-closed)")
+        nr1_base = float(json.loads(nr1_path.read_text())["ffpp"]["auc_stacked"])
+        nr1_min = max(GATES["ffpp"]["min_auc"], nr1_base + NR1_DELTA)
+    nr1_ok = (stacked is not None and nr1_min is not None
+              and stacked >= nr1_min) if av else True
     ffpp_pass = bool(stacked is not None and naive is not None
                      and stacked >= GATES["ffpp"]["min_auc"]
                      and delta >= GATES["ffpp"]["vs_naive_tol"] and per_meth_ok
-                     and elev_ok)
+                     and elev_ok and nr1_ok)
     g_ffpp = {"auc_stacked": stacked, "auc_naive": naive,
               "auc_identity": auc.get("identity_video_score"),
               "delta_vs_naive": None if delta is None else round(delta, 4),
@@ -396,13 +691,15 @@ def stage_gate(work, smoke, embedder):
               "real_elevation": elev_ffpp["real_elevation"],
               "n_reals": elev_ffpp["n_reals"],
               "max_real_elevation": GATES["ffpp"]["max_real_elevation"],
+              "nr1_baseline": nr1_base, "nr1_min": nr1_min,
               "embedder": ffpp.get("embedder"),
               "n": ffpp.get("n_scored"),
               "pass": ffpp_pass}
     print(f"[gate] ffpp: stacked={stacked} naive={naive} delta={delta} "
           f"elevation={elev_ffpp['real_elevation']} "
-          f"(max {GATES['ffpp']['max_real_elevation']}) "
-          f"-> {'PASS' if ffpp_pass else 'FAIL'}", flush=True)
+          f"(max {GATES['ffpp']['max_real_elevation']})"
+          + (f" nr1_min={nr1_min} (baseline {nr1_base})" if av else "")
+          + f" -> {'PASS' if ffpp_pass else 'FAIL'}", flush=True)
 
     # --- Gate B: leave-one-method-out (pure feature-level) -----------------
     import pandas as pd
@@ -513,7 +810,85 @@ def stage_gate(work, smoke, embedder):
           f"n_sources={dfd.get('n_sources')}) -> "
           f"{'PASS' if dfd_pass else 'FAIL'}", flush=True)
 
+    # --- Gate E: W-AV self-gen held-out + AVLips external (D-076 §6) --------
+    g_av = g_avc = None
+    if av:
+        av_ex = _gate_exam(work / "gate_av", smoke, lambda o: [
+            PY, SCRIPTS / "exam_video_av.py", "--corpus", "av", "--frames", 12,
+            "--video-stacker", cand, "--drift-cal", cal, "--embedder", embedder,
+            "--av-cache", str(work / "av_cache"),
+            "--out", o])
+        av_auc = (av_ex.get("auc") or {}).get("stacked")
+        avlips_ex, avlips_auc = None, None
+        avlips_dir = WS / "data" / "raw" / "avlips"
+        if avlips_dir.exists() and any(avlips_dir.iterdir()):
+            avlips_ex = _gate_exam(work / "gate_avlips", smoke, lambda o: [
+                PY, SCRIPTS / "exam_video_av.py", "--corpus", "avlips",
+                "--frames", 12, "--video-stacker", cand, "--drift-cal", cal,
+                "--embedder", embedder,
+                "--av-cache", str(work / "av_cache"),
+                "--out", o])
+            avlips_auc = (avlips_ex.get("auc") or {}).get("stacked")
+        elif not smoke:
+            raise SystemExit(f"AVLips val data missing at {avlips_dir} — D2 is "
+                             f"a sealed bar (>= 0.70); download + receipt it "
+                             f"first (fail-closed)")
+        else:
+            print("[gate] avlips: SKIPPED (smoke run, no AVLips val data)",
+                  flush=True)
+        integ = av_ex.get("integrity") or {}
+        integ_ok = all([
+            integ.get("straddle_violations") == 0,
+            integ.get("ffprobe_parity_violations") == 0,
+            integ.get("dedup_clean") is True,
+            integ.get("license_complete") is True])
+        bars_av = GATES["av"]
+        avlips_ok = (avlips_auc is not None
+                     and avlips_auc >= bars_av["avlips_min_auc"])
+        if smoke and avlips_auc is None:
+            avlips_ok = True       # smoke: D2 skipped mechanics-only; the full
+                                   # run fail-closes above when data is missing
+        av_pass = bool(av_auc is not None and av_auc >= bars_av["min_auc"]
+                       and avlips_ok and integ_ok)
+        g_av = {"auc_stacked": av_auc,
+                "auc_naive": (av_ex.get("auc") or {}).get("naive_combined"),
+                "auc_identity": (av_ex.get("auc") or {}).get("identity_video_score"),
+                "n_fakes": av_ex.get("n_fakes"), "n_reals": av_ex.get("n_reals"),
+                "n_sources": av_ex.get("n_sources"),
+                "manifest": av_ex.get("manifest"),
+                "integrity": integ,
+                "in_coverage_rate": av_ex.get("in_coverage_rate"),
+                "avlips_auc_stacked": avlips_auc,
+                "avlips_n": (avlips_ex or {}).get("n_scored"),
+                "min_auc": bars_av["min_auc"],
+                "avlips_min_auc": bars_av["avlips_min_auc"],
+                "embedder": av_ex.get("embedder"),
+                "pass": av_pass}
+        print(f"[gate] av: stacked={av_auc} (bar {bars_av['min_auc']}) "
+              f"avlips={avlips_auc} (bar {bars_av['avlips_min_auc']}) "
+              f"integrity_clean={integ_ok} -> {'PASS' if av_pass else 'FAIL'}",
+              flush=True)
+
+        # --- Gate F: narration/music confound (D4) --------------------------
+        avc = _gate_exam(work / "gate_av_confound", smoke, lambda o: [
+            PY, SCRIPTS / "exam_video_av_confound.py", "--frames", 12,
+            "--video-stacker", cand, "--drift-cal", cal, "--embedder", embedder,
+            "--av-cache", str(work / "av_cache"),
+            "--out", o])
+        fpr = avc.get("fpr_issued")
+        bars_avc = GATES["av_confound"]
+        avc_pass = bool(fpr is not None and fpr <= bars_avc["max_fpr_issued"])
+        g_avc = {"fpr_issued": fpr,
+                 "in_coverage_rate": avc.get("in_coverage_rate"),
+                 "mean_pf": avc.get("mean_pf"), "n_rows": avc.get("n_rows"),
+                 "max_fpr_issued": bars_avc["max_fpr_issued"],
+                 "embedder": avc.get("embedder"), "pass": avc_pass}
+        print(f"[gate] av_confound: fpr_issued={fpr} "
+              f"(max {bars_avc['max_fpr_issued']}) -> "
+              f"{'PASS' if avc_pass else 'FAIL'}", flush=True)
+
     gates = {"ffpp": g_ffpp, "lomo": g_lomo, "celebdf": g_cdf, "dfd": g_dfd,
+             "av": g_av, "av_confound": g_avc,
              "gates_spec": GATES, "smoke": bool(smoke),
              "embedder": embedder,
              "created": time.strftime("%Y-%m-%d %H:%M:%S")}
@@ -521,7 +896,7 @@ def stage_gate(work, smoke, embedder):
     return gates
 
 
-def stage_verdict(work, promote, promote_to):
+def stage_verdict(work, promote, promote_to, av=False):
     gp = work / "gates.json"
     if not gp.exists():
         raise SystemExit("no gate results — run the gate stage first")
@@ -533,8 +908,13 @@ def stage_verdict(work, promote, promote_to):
     a, b, c = (gates["ffpp"]["pass"], gates["lomo"]["pass"],
                gates["celebdf"]["pass"])
     d = gates.get("dfd", {}).get("pass")
+    e = gates.get("av", {}).get("pass") if av else None
+    f = gates.get("av_confound", {}).get("pass") if av else None
+    if av and (e is None or f is None):
+        raise SystemExit("gates.json lacks av/av_confound results — run the "
+                         "gate stage of this --av run first (fail-closed)")
     stacked = gates["ffpp"]["auc_stacked"]
-    all_pass = bool(a and b and c and d)
+    all_pass = bool(a and b and c and d and (not av or (e and f)))
     missed = []
     if not a:
         f = gates["ffpp"]
@@ -567,12 +947,29 @@ def stage_verdict(work, promote, promote_to):
                        "stacked_real_mean": g.get("stacked_real_mean"),
                        "real_elevation": g.get("real_elevation"),
                        "max_real_elevation": g.get("max_real_elevation")})
+    if av and not e:
+        g = gates.get("av", {})
+        missed.append({"gate": "av", "auc_stacked": g.get("auc_stacked"),
+                       "bar": GATES["av"]["min_auc"],
+                       "avlips_auc_stacked": g.get("avlips_auc_stacked"),
+                       "avlips_bar": GATES["av"]["avlips_min_auc"],
+                       "integrity": g.get("integrity"),
+                       "in_coverage_rate": g.get("in_coverage_rate")})
+    if av and not f:
+        g = gates.get("av_confound", {})
+        missed.append({"gate": "av_confound", "fpr_issued": g.get("fpr_issued"),
+                       "max_fpr_issued": GATES["av_confound"]["max_fpr_issued"],
+                       "mean_pf": g.get("mean_pf"), "n_rows": g.get("n_rows")})
     print(f"\nVERDICT: {'PROMOTE' if all_pass else 'HOLD'}  "
           f"(ffpp={a} [stacked={stacked}, naive={gates['ffpp']['auc_naive']}], "
           f"lomo={b}, celebdf={c} [{gates['celebdf']['verdict']}], "
           f"dfd={d} [stacked={gates.get('dfd', {}).get('auc_stacked')}, "
-          f"real_mean_pf={gates.get('dfd', {}).get('real_mean_pf')}])",
-          flush=True)
+          f"real_mean_pf={gates.get('dfd', {}).get('real_mean_pf')}]"
+          + (f", av={e} [stacked={gates.get('av', {}).get('auc_stacked')}, "
+             f"avlips={gates.get('av', {}).get('avlips_auc_stacked')}, "
+             f"av_confound={f} "
+             f"[fpr_issued={gates.get('av_confound', {}).get('fpr_issued')}]]"
+             if av else "") + ")", flush=True)
     if stacked is not None and ESCALATE_BAND[0] <= stacked < ESCALATE_BAND[1]:
         print(f"  ESCALATE: FF++ stacked AUC {stacked} is in the "
               f"{ESCALATE_BAND[0]}-{ESCALATE_BAND[1]} waiver band — per user "
@@ -589,7 +986,8 @@ def stage_verdict(work, promote, promote_to):
     receipt = {"decision": "PROMOTE" if all_pass else "HOLD",
                "exit_code": 0 if all_pass else 2,
                "gates": {k: gates[k].get("pass") for k in
-                         ("ffpp", "lomo", "celebdf", "dfd")},
+                         ("ffpp", "lomo", "celebdf", "dfd")
+                         + (("av", "av_confound") if av else ())},
                "missed": missed,
                "smoke": bool(gates.get("smoke")),
                "created": time.strftime("%Y-%m-%d %H:%M:%S")}
@@ -602,7 +1000,11 @@ def stage_verdict(work, promote, promote_to):
             raise SystemExit("--promote requires --promote-to <tag>")
         dst = WS / "artifacts" / promote_to
         dst.mkdir(parents=True, exist_ok=True)
-        for name in ("stacker.joblib", "stacker_meta.json", "drift_calibration.json"):
+        names = ["stacker.joblib", "stacker_meta.json",
+                 "drift_calibration.json"]
+        if av:
+            names.append("av_calibration.json")   # rides VIDEO_STACKER.parent
+        for name in names:
             shutil.copy(work / "candidate" / name, dst / name)
         print(f"promoted -> {dst} (wire argus_detect.VIDEO_STACKER = "
               f"artifacts/{promote_to}/stacker.joblib to activate)", flush=True)
@@ -635,12 +1037,21 @@ def main() -> int:
                     help="identity embedder for ALL stages — dump/train/gate "
                          "must match, and the serve path reads it from "
                          "stacker_meta.embedder (phase default: arcface, D-042)")
+    ap.add_argument("--av", action="store_true",
+                    help="W-AV (D-076): bootstrap restack_video_v4 byte-verbatim, "
+                         "splice the 6 AV columns (zeros), append the av diet, "
+                         "and run the 6-gate verdict (adds av + av_confound; "
+                         "NR1 incumbent baseline enforced). Default work "
+                         "artifacts/restack_video_v5[_smoke]")
     args = ap.parse_args()
     if args.promote and not args.promote_to:
         raise SystemExit("--promote requires --promote-to <tag>")
 
-    work = Path(args.work) if args.work else (WS / "artifacts" /
-        ("restack_video_v2_smoke" if args.smoke else "restack_video_v2"))
+    if args.work:
+        work = Path(args.work)
+    else:
+        base = "restack_video_v5" if args.av else "restack_video_v2"
+        work = WS / "artifacts" / (base + "_smoke" if args.smoke else base)
     work.mkdir(parents=True, exist_ok=True)
     bootstrap_from = None if (args.no_bootstrap or args.full_redump) \
         else args.bootstrap_from
@@ -648,14 +1059,17 @@ def main() -> int:
               else [args.stage])
     for st in stages:
         if st == "dump":
-            stage_dump(work, args.smoke, args.embedder, bootstrap_from,
-                       full_redump=args.full_redump)
+            if args.av:
+                stage_dump_av(work, args.smoke, args.embedder)
+            else:
+                stage_dump(work, args.smoke, args.embedder, bootstrap_from,
+                           full_redump=args.full_redump)
         elif st == "train":
-            stage_train(work, args.embedder)
+            stage_train(work, args.embedder, av=args.av)
         elif st == "gate":
-            stage_gate(work, args.smoke, args.embedder)
+            stage_gate(work, args.smoke, args.embedder, av=args.av)
         elif st == "verdict":
-            return stage_verdict(work, args.promote, args.promote_to)
+            return stage_verdict(work, args.promote, args.promote_to, av=args.av)
     return 0
 
 

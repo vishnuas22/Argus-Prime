@@ -124,6 +124,9 @@ def main():
                     "z_mean": res["znorm_mean"],
                     "z_segs": json.dumps(res["per_segment_znorm"]),
                     "ooc": res["out_of_coverage"],
+                    # W9 (D-079): additive column — fused-court abstention flag
+                    # (legacy bundles: abstained == ooc, so p4 receipts unchanged)
+                    "abstained": bool(res.get("abstained", False)),
                     "segs": res["segments_analyzed"],
                     "wall_ms": int((time.time() - t_arm) * 1000),
                 })
@@ -165,7 +168,8 @@ def main():
 
     with open(OUT / "scores.csv", "w") as f:
         w = csv.DictWriter(f, fieldnames=["stratum", "shard_idx", "arm", "p_fake",
-                                          "z_mean", "z_segs", "ooc", "segs", "wall_ms", "error"])
+                                          "z_mean", "z_segs", "ooc", "abstained",
+                                          "segs", "wall_ms", "error"])
         w.writeheader()
         w.writerows(rows)
     n_err = sum(1 for r in rows if r.get("error"))

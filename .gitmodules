@@ -1,0 +1,6 @@
+[submodule "integrations/Wav2Lip"]
+	path = integrations/Wav2Lip
+	url = https://github.com/Rudrabha/Wav2Lip
+[submodule "integrations/syncnet_python"]
+	path = integrations/syncnet_python
+	url = https://github.com/joonson/syncnet_python

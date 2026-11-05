@@ -221,6 +221,18 @@ def _load_video_stacker():
                     f"{cal_p} is missing — drift_spikes would silently zero "
                     f"while the trained model expects calibrated spikes "
                     f"(D-040); refusing to serve (fail closed)")
+            # W-AV (D-076): an AV-capable stacker (38-feature space) REQUIRES
+            # its coverage calibration beside the bundle — without it every
+            # row would serve in_coverage=0, a systematic skew the model was
+            # never trained to see (D-040 class). Fail closed, same law.
+            if "avs_present" in (meta.get("feature_names") or []):
+                av_p = VIDEO_STACKER.parent / "av_calibration.json"
+                if not av_p.exists():
+                    raise SystemExit(
+                        f"[video_stacker] {VIDEO_STACKER} is AV-capable but "
+                        f"{av_p} is missing — avs_in_coverage would silently "
+                        f"zero (D-040 skew class); refusing to serve "
+                        f"(fail closed)")
             _VID_STACKER_CACHE["clf"] = joblib.load(VIDEO_STACKER)
             _VID_STACKER_CACHE["names"] = meta.get("feature_names")
             try:
@@ -264,6 +276,11 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
     # Pre-flip the deployed v2 meta lacks the sentinel -> want_scene False ->
     # zero-cost legacy path. Load-order law preserved: the stacker loads FIRST.
     want_scene = "scene_face_area_mean" in (_VID_STACKER_CACHE["names"] or [])
+    # W-AV meta-gate (D-076): the AV channel runs ONLY when the loaded
+    # stacker was trained in the 38-feature space (sentinel = avs_present).
+    # Pre-flip bundles lack the sentinel -> want_av False -> zero-cost legacy
+    # path (no SyncNet, no dense windows, no serve-latency change).
+    want_av = "avs_present" in (_VID_STACKER_CACHE["names"] or [])
     vis, tracks, _per_track, _obs = visual_channel_bundle(path, n_frames,
                                                           with_scene=want_scene)
     if vis is None:
@@ -287,7 +304,7 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
         return court
 
     from video_channels import IdentityDriftProbe, VideoContext, drift_features
-    from video_features import compute_row, row_to_X
+    from video_features import AV_FEATURES, compute_row, row_to_X
 
     cal_p = VIDEO_STACKER.parent / "drift_calibration.json"
     spike = (float(json.loads(cal_p.read_text())["spike_thresh"])
@@ -305,8 +322,20 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
              "n_drift_tracks": feats["n_drift_tracks"]}
 
     aud = audio_channel(path)
+    avs, av_diag, av_calib = None, None, None
+    if want_av:
+        # W-AV serve block (D-076): the coverage calibration rides the bundle
+        # (VIDEO_STACKER.parent — the load-time assert guarantees it exists);
+        # the AV extractor reuses THIS decode's tracks (D-040 one-featurizer
+        # law). Disclosed serve cost: +2-5s/video (dense windows + SyncNet).
+        from av_sync import cached_extract
+        av_cal_p = VIDEO_STACKER.parent / "av_calibration.json"
+        av_calib = json.loads(av_cal_p.read_text()) if av_cal_p.exists() else None
+        avres = cached_extract(path, tracks, av_calib, None)
+        avs = avres.row()
+        av_diag = avres.diagnostics
     if clf is not None:
-        row = compute_row(vis, feats, aud)
+        row = compute_row(vis, feats, aud, avs)
         p = round(float(clf.predict_proba(row_to_X(row).reshape(1, -1))[0, 1]), 4)
         stacker_tag = VIDEO_STACKER.parent.name
     else:
@@ -343,6 +372,14 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
         "confidence_degraded": False,
         "visual": vis,
     }
+    if want_av:
+        # W-AV (D-076): additive response block — the 6 AV features verbatim
+        # (the exact values the stacker saw) + coverage transparency. Never
+        # overwrites p (mechanism-b law: advisory evidence only).
+        result["av"] = {"features": {k: avs[k] for k in AV_FEATURES},
+                        "calibrated": av_calib is not None,
+                        "reason": (av_diag or {}).get("reason"),
+                        "n_sync_windows": (av_diag or {}).get("n_sync_windows")}
     if recovery_enabled:
         import recovery as recovery_mod
         result["recovery"] = recovery_mod.run("video", result, {
@@ -403,6 +440,15 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     fe, model = _get_audio_model(device)
     bundle = joblib.load(AUDIO_PROBE)
+    # W9 (D-079): dormant fused-court branch. Legacy bundles (no "fusion" key)
+    # take the EXACT legacy path below — byte-identical behavior. Fused bundles
+    # (post-promotion pointer) route to audio_fusion, which fails closed on any
+    # missing asset. INERT until STEP 8 promotion moves BOTH pointers on user
+    # authorization.
+    if isinstance(bundle, dict) and bundle.get("fusion"):
+        import audio_fusion
+        return audio_fusion.detect_audio_fused(
+            path, wav, segs, duration_s, ext, AUDIO_PROBE, recovery_enabled)
 
     probs = []
     znorms = []
