@@ -59,6 +59,7 @@ def main() -> int:
     ap.add_argument("--prefix", default="data/caches/w9")
     ap.add_argument("--out", default="artifacts/p13_fused")
     args = ap.parse_args()
+    out = Path(args.out)
 
     man = [json.loads(l) for l in Path(args.manifest).read_text().splitlines() if l.strip()]
     info_of = {r["uid"]: r for r in man}
@@ -83,11 +84,20 @@ def main() -> int:
         return {u: [k for _, k in sorted(v)] for u, v in per.items()}
 
     cx, cw, cs = group_clean(zx), group_clean(zw), group_clean(zs)
+    if not (set(cx) == set(cw) == set(cs)):
+        raise SystemExit("cache key sets diverge across xlsr/wavlm/spectral — STOP")
     uids = sorted(cx)
-    missing = [u for u in info_of if u not in cx]
-    if missing:
-        raise SystemExit(f"{len(missing)} manifest uids absent from caches (e.g. "
-                         f"{missing[:3]}) — extraction incomplete — STOP")
+    # disclosed decode attrition: uids absent from caches must ALL be in the
+    # extraction bad ledger; anything unrecorded means an incomplete extraction.
+    bad_uids = set(json.loads(
+        Path(f"{args.prefix}_xlsr.train_meta.json").read_text())["bad_uids"])
+    absent = [u for u in info_of if u not in cx]
+    unrecorded = [u for u in absent if u not in bad_uids]
+    if unrecorded:
+        raise SystemExit(f"{len(unrecorded)} manifest uids absent from caches but NOT "
+                         f"in extraction bad ledger (e.g. {unrecorded[:3]}) — STOP")
+    print(f"attrition: {len(absent)} uids absent, all in bad ledger "
+          f"({len(bad_uids)} recorded) — disclosed decode attrition", flush=True)
 
     # channel A: frozen p4 math on XLS-R clean vectors
     a_feats = {}
@@ -132,7 +142,8 @@ def main() -> int:
         c_feats[u] = dict(zip(SP_NAMES, c_raw[u])) | {"spectral_score": float(zv.mean())}
 
     # durations
-    durs = {r["uid"]: duration_of(r) for r in man}
+    # durations — only for cache-present rows (bad-ledger rows have no vectors)
+    durs = {r["uid"]: duration_of(r) for r in man if r["uid"] in cx}
 
     rows = []
     for u in uids:
@@ -148,7 +159,6 @@ def main() -> int:
     if missing_cols:
         raise SystemExit(f"row feature columns missing: {missing_cols} — STOP")
 
-    out = Path(args.out)
     df[df["split"] == "train"].to_csv(out / "rows_train.csv", index=False)
     df[df["split"] == "val"].to_csv(out / "rows_val.csv", index=False)
     p4_sha = hashlib.sha256(P4_BUNDLE.read_bytes()).hexdigest()

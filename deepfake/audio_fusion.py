@@ -125,8 +125,13 @@ def load_court(court_path) -> dict:
         raise FusedBundleError(
             "prosody features present but Channel D was CUT at sealing (D-079) "
             "— refusing to serve")
+    obj = joblib.load(court_path)
+    if not isinstance(obj, dict) or "stacker" not in obj or not obj.get("fusion"):
+        raise FusedBundleError(
+            f"{court_path} is not a fused wrapper dict (fusion/stacker keys) — "
+            f"refusing to serve")
     court = {"path": court_path, "meta": meta,
-             "stacker": joblib.load(court_path),
+             "stacker": obj["stacker"],
              "wavlm": joblib.load(wav_p),
              "env": np.load(env_p),
              "p4": joblib.load(p4_p)}

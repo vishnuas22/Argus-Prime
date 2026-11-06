@@ -105,7 +105,9 @@ def main() -> int:
     rng = np.random.default_rng(SEED)
     rng.shuffle(groups)
     fold_of_group = {g: i % N_FOLDS for i, g in enumerate(groups)}
-    fold_of_vec = np.array([fold_of_group[group_of[u]] for u in uids])
+    # val groups are intentionally absent from fold_of_group (val is never a
+    # fold) — default -1 is unreachable because lookups are masked by tr_idx.
+    fold_of_vec = np.array([fold_of_group.get(group_of[u], -1) for u in uids])
     tr_idx = np.where(tr)[0]
     oof = {}
     for k in range(N_FOLDS):

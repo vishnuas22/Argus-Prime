@@ -440,6 +440,7 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     fe, model = _get_audio_model(device)
     bundle = joblib.load(AUDIO_PROBE)
+    ext = path.suffix.lower()
     # W9 (D-079): dormant fused-court branch. Legacy bundles (no "fusion" key)
     # take the EXACT legacy path below — byte-identical behavior. Fused bundles
     # (post-promotion pointer) route to audio_fusion, which fails closed on any
@@ -469,7 +470,6 @@ def detect_audio(path: Path, recovery_enabled: bool = True):
     zmean = float(np.mean(znorms))
     cov_thresh = bundle.get("coverage_threshold")
     ooc = bool(cov_thresh and zmean > cov_thresh)
-    ext = path.suffix.lower()
     result = {
         "p_fake_audio_mean": round(float(np.mean(probs)), 4),
         "segments_analyzed": len(probs),

@@ -146,6 +146,7 @@ def main() -> int:
 
     # extraction phase (resumable per shard)
     import joblib
+    import soundfile as sf
     import torch
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     torch.set_grad_enabled(False)
@@ -172,6 +173,8 @@ def main() -> int:
         cache_w = dict(np.load(cw)) if cw.exists() else {}
         cache_s = dict(np.load(cs)) if cs.exists() else {}
         labels = json.loads(cl.read_text()) if cl.exists() else {}
+        durs_path = CACHE_DIR / f"durs_shard{n:03d}.json"
+        durs = json.loads(durs_path.read_text()) if durs_path.exists() else {}
         t0 = time.time()
         done = 0
         for i in range(len(tab)):
@@ -185,6 +188,11 @@ def main() -> int:
                 labels[uid] = None
                 continue
             segs = serve_windows(wav)
+            try:
+                info = sf.info(io.BytesIO(data))
+                durs[uid] = round(info.frames / info.samplerate, 3)
+            except Exception:
+                durs[uid] = round(len(wav) / SR, 3)
             for si, seg in enumerate(segs):
                 key = f"{uid}:clean:s{si}"
                 cache_x[key] = embed(m_x, fe_x, seg).astype(np.float16)
@@ -197,17 +205,25 @@ def main() -> int:
                 np.savez(cw, **cache_w)
                 np.savez(cs, **cache_s)
                 cl.write_text(json.dumps(labels))
+                durs_path.write_text(json.dumps(durs))
                 rate = done / max(time.time() - t0, 1e-9)
                 print(f"shard {n}: [{done}] {rate:.2f} utt/s", flush=True)
         np.savez(cx, **cache_x)
         np.savez(cw, **cache_w)
         np.savez(cs, **cache_s)
         cl.write_text(json.dumps(labels))
+        durs_path.write_text(json.dumps(durs))
         print(f"shard {n}: extracted {done} new ({len(cache_x)//max(1, 1)} vec keys)", flush=True)
 
     # scoring phase: both arms from the same rows
     p4 = joblib.load(WS / "artifacts/p4/audio_probe.joblib")
-    court = joblib.load(WS / "artifacts/p13_fused/audio_court.joblib")
+    court_obj = joblib.load(WS / "artifacts/p13_fused/audio_court.joblib")
+    if not (isinstance(court_obj, dict) and court_obj.get("fusion")
+            and "stacker" in court_obj):
+        raise SystemExit("audio_court.joblib is not the fused wrapper dict "
+                         "(fusion/stacker keys) — rebuild via "
+                         "train_audio_w9_stacker.py — STOP")
+    court = court_obj["stacker"]
     meta = json.loads((WS / "artifacts/p13_fused/stacker_meta.json").read_text())
     wl = joblib.load(WS / "artifacts/p13_fused/wavlm_probe.joblib")
     env = np.load(WS / "artifacts/p13_fused/spectral_envelope.npz")
@@ -220,6 +236,7 @@ def main() -> int:
         cache_w = dict(np.load(CACHE_DIR / f"wavlm_shard{n:03d}.npz"))
         cache_s = dict(np.load(CACHE_DIR / f"spectral_shard{n:03d}.npz"))
         labels = json.loads((CACHE_DIR / f"labels_shard{n:03d}.json").read_text())
+        durs = json.loads((CACHE_DIR / f"durs_shard{n:03d}.json").read_text())
         per = {}
         for k in cache_x:
             uid, view, si = k.rsplit(":", 2)
@@ -240,7 +257,8 @@ def main() -> int:
                  "p4_znorm_mean": float(np.linalg.norm(Xz, axis=1).mean()),
                  "wavlm_pfake_mean": float(wl["clf"].predict_proba(Wz)[:, 1].mean()),
                  "wavlm_znorm_mean": float(np.linalg.norm(Wz, axis=1).mean()),
-                 "n_windows": len(ks)}
+                 "n_windows": len(ks),
+                 "duration_s": durs[uid]}
             f["p4_ooc"] = int(f["p4_znorm_mean"] > p4["coverage_threshold"])
             f["wavlm_ooc"] = int(f["wavlm_znorm_mean"] > wl["coverage_threshold"])
             f["spectral_score"] = float(np.abs((S - env["mean"]) / env["std"]).mean())

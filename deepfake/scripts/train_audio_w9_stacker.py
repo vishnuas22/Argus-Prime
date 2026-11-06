@@ -79,7 +79,12 @@ def main() -> int:
           f"alpha={alpha_cal:.4f} flagged={conformal_flagged}", flush=True)
 
     out = Path(args.out)
-    joblib.dump(clf, out / "audio_court.joblib")
+    # Bundle file carries the fusion flag itself: the dormant branch in
+    # argus_detect.detect_audio does joblib.load(AUDIO_PROBE) and routes on
+    # bundle.get("fusion") — so the pointer target must BE a dict with that
+    # key. load_court unwraps ["stacker"] (audio_fusion.py contract).
+    joblib.dump({"fusion": "feature-level-only", "stacker": clf},
+                out / "audio_court.joblib")
 
     # diet manifest copied into the bundle (spec §6 bundle layout)
     diet_sha = hashlib.sha256(
