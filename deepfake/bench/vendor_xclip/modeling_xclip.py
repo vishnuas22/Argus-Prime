@@ -1,5 +1,10 @@
-# Vendored from huggingface/transformers v4.57.0 (Apache-2.0), src/transformers/models/x_clip/ — the version the official D3 repo (github.com/Zig-HS/D3) pins. transformers 5.15.1 (installed) no longer ships XCLIP; vendored verbatim for the D3 channel (audit 2026-11-06 fix).
-# Only change: relative imports rewritten to absolute transformers.* (same symbols, verified present in 5.15.1).
+# Vendored from huggingface/transformers v4.57.0 (Apache-2.0), the version the
+# official D3 repo (github.com/Zig-HS/D3) pins. transformers 5.15.1 (installed)
+# no longer ships XCLIP; vendored for the D3 channel (audit 2026-11-06 fix).
+# Changes vs the wheel: relative imports rewritten to absolute transformers.*
+# (same symbols, verified present in 5.15.1) and the intra-package import
+# retargeted to the vendored filename (.configuration_x_clip -> .configuration_xclip).
+# No logic lines altered.
 
 # coding=utf-8
 # Copyright 2022 Microsoft Research and The HuggingFace Team. All rights reserved.

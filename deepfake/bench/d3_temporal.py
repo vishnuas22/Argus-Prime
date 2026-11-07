@@ -20,8 +20,9 @@ Documented deviations from the paper (reproducibility over eval-variance fidelit
   - deterministic t=0 window (paper: seeded random start for clips >3 s)
   - in-memory JPEG-q80 round-trip (paper: on-disk JPEG frames)
 
-No court imports — standalone module; exam_d3_t2v.py and detect_video both call
-d3_std(). Threshold calibration lives in artifacts/d3_t2v/calibration.json (D-035
+No court imports — standalone module; exam_d3_t2v.py calls d3_std(). detect_video
+does NOT (D-082: the channel missed its pre-registered bar and was never wired).
+Threshold calibration lives in artifacts/d3_t2v/calibration.json (D-035
 law: fit on train-split reals only, never on eval data).
 """
 import json
