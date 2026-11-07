@@ -416,6 +416,16 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
     from argus_detect import STACKER
     v.update({"kind": kind, "filename": file.filename,
               "elapsed_s": round(time.time() - t0, 2), "alpha": alpha})
+    # Audit F2 (2026-11-06): unify surfaces. The UI dials the recovery-
+    # adjudicated p (web/index.html reads rec.verdict.p_fake_fused) while the
+    # API previously exposed only the raw p — divergent numbers on the same
+    # case with no explicit bridge. Both numbers are now first-class on the
+    # API response; the UI notes already print "original → adjudicated".
+    _rec = v.get("recovery") or {}
+    _rvp = (_rec.get("verdict") or {}).get("p_fake_fused") \
+        if _rec.get("outcome") == "recovered" else None
+    v["p_fake_adjudicated"] = _rvp if isinstance(_rvp, (int, float)) else None
+    v["adjudicated"] = isinstance(_rvp, (int, float))
     if kind == "video":
         v.setdefault("stacker", None)     # the VIDEO stacker, not the image court's
     else:

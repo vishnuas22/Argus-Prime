@@ -41,6 +41,19 @@ R2_MAX_EXCLUDE = 2
 # Audio (P3-C16 loudnorm, P3-C17 coverage floor).
 LOUDNORM_AF = "loudnorm=I=-16:TP=-1.5:LRA=11"
 AUDIO_COVERAGE_FLOOR = 0.25
+# 2026-11-06 audit F2 fix — audio-ladder ISSUANCE GATE. The loudnorm→
+# in-coverage-vote rescore is MEASURED real-ward-biased on off-manifold audio
+# (controlled pairs: real 0.9396→0.0382 Δ−0.90, fake 0.9897→0.5609 Δ−0.43 —
+# both pulls real-ward). A mechanism biased toward "real" may never certify
+# REAL (it would be certifying its own bias); it may still certify FAKE
+# (a fake-ward output runs against the pull, so it is signal, not bias).
+# Issuance therefore requires BOTH: (a) rescored p fake-ward decided
+# (>= 0.5 + AUDIO_ISSUE_MARGIN), and (b) |rescored − raw| <= AUDIO_DELTA_CAP
+# (confirmation gate — the rescore corroborates the raw reading, never
+# overrides it). Everything else keeps the honest needs_review terminal.
+# Revisit after the W-AUDIO codec-aug retrain re-measures the ladder.
+AUDIO_ISSUE_MARGIN = 0.15
+AUDIO_DELTA_CAP = 0.15
 # server.py D-035 postures (audio has no fusion-derived trust/risk).
 AUDIO_POSTURE_IN_COVERAGE = (0.7, 0.0)
 AUDIO_POSTURE_OOC = (0.2, 0.9)
@@ -389,6 +402,19 @@ def _a2_coverage_vote(scored: dict, steps) -> dict:
     return {"p_fake_fused": pf, "coverage_fraction": cov}
 
 
+def _audio_issuable(rescored_p: float, raw_p) -> tuple:
+    """2026-11-06 audit F2: issuance gate for the audio recovery ladder (see
+    the constant block above for the measured-bias rationale). Returns
+    (ok, refusal_reason)."""
+    if rescored_p < 0.5 + AUDIO_ISSUE_MARGIN:
+        return False, "rescore_real_ward_bias_guard"
+    # 1e-9 keeps the documented "|Δ| <= 0.15" semantics exact at the boundary
+    # (raw float math: 0.65 - 0.50 = 0.15000000000000002 > 0.15 would refuse).
+    if raw_p is not None and abs(rescored_p - float(raw_p)) > AUDIO_DELTA_CAP + 1e-9:
+        return False, "rescore_delta_exceeds_cap"
+    return True, None
+
+
 def _ladder_audio(trigger, original, extras) -> dict:
     steps, reasons = [], []
     if trigger == "short_upload":
@@ -410,13 +436,20 @@ def _ladder_audio(trigger, original, extras) -> dict:
                            base=AUDIO_POSTURE_OOC)
         a2 = _a2_coverage_vote(a2_src, steps)
         cov = a2.get("coverage_fraction")
-        if cov is not None and cov >= AUDIO_COVERAGE_FLOOR and a2.get("p_fake_fused") is not None:
-            t, r = _clamp_recovered(*AUDIO_POSTURE_IN_COVERAGE)
-            return _result(trigger, "recovered", steps, reasons, original,
-                           {"p_fake_fused": a2["p_fake_fused"], "abstained": False,
-                            "trust": t, "risk": r, "coverage_fraction": cov,
-                            "per_identity": None},
-                           _ood_none(), t, r)
+        pf = a2.get("p_fake_fused")
+        if cov is not None and cov >= AUDIO_COVERAGE_FLOOR and pf is not None:
+            ok, why = _audio_issuable(pf, original.get("p_fake_fused"))
+            if ok:
+                t, r = _clamp_recovered(*AUDIO_POSTURE_IN_COVERAGE)
+                return _result(trigger, "recovered", steps, reasons, original,
+                               {"p_fake_fused": pf, "abstained": False,
+                                "trust": t, "risk": r, "coverage_fraction": cov,
+                                "per_identity": None},
+                               _ood_none(), t, r)
+            # 2026-11-06 F2: the rescore landed but is not certifiable (bias
+            # guard or delta cap) — the A2 step detail above already records
+            # the rescored p for the receipt. Honest terminal: needs_review.
+            reasons.append(why)
         reasons.append("audio_ooc_unrecovered")
         return _review(trigger, steps, reasons, original, base=AUDIO_POSTURE_OOC,
                        verdict_extra={"coverage_fraction": cov})

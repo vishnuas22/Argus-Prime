@@ -2554,6 +2554,25 @@ function renderVerdict(v) {
     if (pi.length) notes.push("Per-identity (never fused): " + pi.map(r => "id " + r.id + " n=" + r.frames + " topk=" + (r.topk_mean != null ? (+r.topk_mean).toFixed(2) : "–")).join(" · ") + ".");
     notes.push("Uploading an uncropped, uncompressed original (or a file with fewer identities) may allow adjudication.");
   }
+  // Instrument-contradiction banner (audit F5, 2026-11-06): when >=2 DECIDED
+  // p-valued instruments agree with each other but contradict the issued
+  // class, say so loudly — the fused number is contested evidence, not law.
+  if (v.kind === "video" && typeof v.p_fake_fused === "number" && isFinite(v.p_fake_fused)) {
+    const inst = [];
+    if (typeof v.video_score === "number" && isFinite(v.video_score)) inst.push(["visual-temporal", v.video_score]);
+    if (typeof v.largest_face_mean === "number" && isFinite(v.largest_face_mean)) inst.push(["largest-face", v.largest_face_mean]);
+    if (v.audio && typeof v.audio.p_fake_audio_mean === "number" && isFinite(v.audio.p_fake_audio_mean)) inst.push(["voice-clone", v.audio.p_fake_audio_mean]);
+    const issuedFake = v.p_fake_fused >= 0.5;
+    const decided = inst.filter(([, p]) => p >= 0.55 || p <= 0.45);
+    const contra = decided.filter(([, p]) => (p >= 0.5) !== issuedFake);
+    if (decided.length >= 2 && contra.length >= 2) {
+      notes.push("⚠ INSTRUMENT CONTRADICTION — " + contra.length + " of " + decided.length +
+        " decided instruments (" + contra.map(([n, p]) => n + " " + p.toFixed(2)).join(", ") +
+        ") read " + (issuedFake ? "REAL-ward" : "FAKE-ward") +
+        " against the issued " + (issuedFake ? "FAKE" : "REAL") +
+        " verdict. Treat the fused score as contested evidence.");
+    }
+  }
   if (v.audio && v.audio.p_fake_audio_mean != null) {
     notes.push("VOICE CLONE: probe P(fake audio) " + v.audio.p_fake_audio_mean + " across " + v.audio.segments_analyzed + " segments.");
   } else if (v.kind === "video") {
