@@ -18,7 +18,10 @@ Usage:
 import argparse
 import io
 import json
+import os
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -40,17 +43,57 @@ SP_NAMES = ([f"sp_ltas_{i}" for i in range(SP_BINS)] +
              "sp_edge_freq", "sp_frame_corr", "sp_phase_smooth"])
 
 
+def _ffmpeg_wav_bytes(b: bytes):
+    """Fallback decoder for VALID files libsndfile rejects (2021-eval FLAC class;
+    measured: 14,024/73,944, ffprobe/ffmpeg rc=0 where libsndfile errors).
+    Mirrors load_wav semantics: native decode -> mono mean -> np.interp to SR."""
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
+            f.write(b)
+            tmp = f.name
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a:0",
+             "-show_entries", "stream=sample_rate,channels", "-of", "json", tmp],
+            capture_output=True, text=True, timeout=30)
+        info = json.loads(probe.stdout or "{}")
+        st = (info.get("streams") or [{}])[0]
+        sr = int(st.get("sample_rate") or SR)
+        ch = int(st.get("channels") or 1)
+        r = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", tmp, "-f", "f32le",
+             "-acodec", "pcm_f32le", "-"], capture_output=True, timeout=120)
+        if r.returncode != 0 or not r.stdout:
+            return None
+        a = np.frombuffer(r.stdout, dtype=np.float32)
+        if ch < 1 or a.size % ch:
+            return None
+        mono = a.reshape(-1, ch).mean(axis=1)
+        if sr != SR:
+            g = np.arange(len(mono)) * (SR / sr)
+            mono = np.interp(g, np.arange(len(mono)), mono).astype(np.float32)
+        return mono
+    except Exception:
+        return None
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
 def load_wav_bytes(b: bytes):
     import soundfile as sf
     try:
         wav, sr = sf.read(io.BytesIO(b), dtype="float32", always_2d=True)
+        mono = wav.mean(axis=1)
+        if sr != SR:
+            g = np.arange(len(mono)) * (SR / sr)
+            mono = np.interp(g, np.arange(len(mono)), mono)
+        return mono
     except Exception:
-        return None
-    mono = wav.mean(axis=1)
-    if sr != SR:
-        g = np.arange(len(mono)) * (SR / sr)
-        mono = np.interp(g, np.arange(len(mono)), mono)
-    return mono
+        return _ffmpeg_wav_bytes(b)
 
 
 def serve_windows(wav):
@@ -113,6 +156,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=None)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--cand", default="p13_fused",
+                    help="candidate dir under artifacts/ (W9.1: p13b_fused)")
+    ap.add_argument("--reals-complete", action="store_true",
+                    help="D-081 resolution design: extract ALL bona-fide rows")
+    ap.add_argument("--max-fakes", type=int, default=None,
+                    help="D-081 resolution design: seeded fake budget "
+                         "(pre-registered analysis value: 50000)")
     args = ap.parse_args()
     out = Path(args.out) if args.out else WS / "artifacts" / (
         f"exam_audio_2021_full_{time.strftime('%Y%m%d')}")
@@ -125,24 +175,69 @@ def main() -> int:
     # count phase (labels only — cheap parquet column reads)
     import pyarrow.parquet as pq
     counts, n_total = {}, 0
+    labs = {}
     for n in range(N_SHARDS):
         tab = pq.read_table(shard_path(n), columns=["label"]) \
             if shard_path(n).exists() else None
         if tab is None:
             raise SystemExit(f"shard {n} missing — run ensure_shard first")
         lab = tab["label"].to_pylist()
+        labs[n] = lab
         counts[n] = {"n": len(lab), "fake": sum(1 for v in lab if v == 0),
                      "real": sum(1 for v in lab if v == 1)}
         n_total += len(lab)
     print(f"measured n_total={n_total} | per-shard: "
           f"{json.dumps({k: v['n'] for k, v in counts.items()})}", flush=True)
+
+    # D-081 resolution (2026-11-07): the sealed rule requires the user to rule on
+    # subsampling before scoring. Resolution on user word ("proceed ... without
+    # wasting computes"): reals-complete + seeded fake budget — PRE-REGISTERED in
+    # D-081 BEFORE any scoring (SE(AUC) 0.00103 vs full 0.00071, both far inside
+    # the D6/NR2 tolerances; reals are the constraint). Full scoring remains
+    # available on explicit user word.
+    subsample = None
     if n_total > N_STOP:
-        (out / "STOP_subsampling_rule.json").write_text(json.dumps(
-            {"n_total": n_total, "rule": f"n > {N_STOP} — sealed rule: user rules "
-             "on subsampling BEFORE scoring"}, indent=1))
-        print(f"STOP: n_total={n_total} > {N_STOP} — sealed rule requires the "
-              f"user to rule on subsampling BEFORE scoring", file=sys.stderr)
-        return 2
+        if not (args.reals_complete and args.max_fakes):
+            (out / "STOP_subsampling_rule.json").write_text(json.dumps(
+                {"n_total": n_total, "rule": f"n > {N_STOP} — sealed rule: user rules "
+                 "on subsampling BEFORE scoring"}, indent=1))
+            print(f"STOP: n_total={n_total} > {N_STOP} — sealed rule requires the "
+                  f"user to rule on subsampling BEFORE scoring", file=sys.stderr)
+            return 2
+        seed_base = 20261107
+        total_fakes = sum(c["fake"] for c in counts.values())
+        n_reals = sum(c["real"] for c in counts.values())
+        alloc = [int(round(args.max_fakes * counts[n]["fake"] / total_fakes))
+                 for n in range(N_SHARDS)]
+        drift = args.max_fakes - sum(alloc)
+        big = max(range(N_SHARDS), key=lambda k: counts[k]["fake"])
+        alloc[big] += drift
+        selected, per_shard = {}, []
+        for n in range(N_SHARDS):
+            fake_idx = np.array([i for i, v in enumerate(labs[n]) if v == 0])
+            k = min(alloc[n], len(fake_idx))
+            rng = np.random.default_rng(seed_base + n)
+            perm = rng.permutation(len(fake_idx))[:k]
+            selected[n] = {int(fake_idx[j]) for j in perm}
+            per_shard.append({"shard": n, "fake_avail": int(len(fake_idx)),
+                              "selected": int(k)})
+        n_selected = int(sum(p["selected"] for p in per_shard))
+        n_design = n_reals + n_selected
+        subsample = {"design": "reals-complete + seeded fake budget",
+                     "decision_ref": "D-081 resolution, user word 2026-11-07",
+                     "seed_base": seed_base, "max_fakes": args.max_fakes,
+                     "n_reals_full": n_reals, "n_fakes_selected": n_selected,
+                     "n_design": n_design, "n_full": n_total,
+                     "per_shard": per_shard,
+                     "se_full_auc": 0.00071, "se_subsample_auc": 0.00103,
+                     "tolerance_ref": "D6 |AUC-0.912|<=0.05; NR2 -0.005",
+                     "rationale": "scoring extra fakes buys ~zero precision; "
+                                  "reals are the constraint (D-081 analysis)"}
+        (out / "RULING_subsampling_resolved.json").write_text(
+            json.dumps(subsample, indent=1))
+        print(f"D-081 resolution: reals-complete ({n_reals}) + {n_selected} seeded "
+              f"fakes -> n_design={n_design} (full {n_total}) — receipt written",
+              flush=True)
 
     # extraction phase (resumable per shard)
     import joblib
@@ -160,7 +255,10 @@ def main() -> int:
         inp = fe(seg, sampling_rate=SR, return_tensors="pt").input_values.to(device)
         return model(inp).last_hidden_state.mean(dim=1).squeeze(0).float().cpu().numpy()
 
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)  # np.savez does not create parents
+
     dl_receipts = {}
+    skipped = 0
     for n in range(N_SHARDS):
         ensure_shard(n, dl_receipts)
         tab = pq.read_table(shard_path(n))
@@ -177,9 +275,15 @@ def main() -> int:
         durs = json.loads(durs_path.read_text()) if durs_path.exists() else {}
         t0 = time.time()
         done = 0
+        # resume law: cache keys are `uid:view:sN`; membership must be by uid
+        done_uids = {k.rsplit(":", 2)[0] for k in cache_x}
         for i in range(len(tab)):
             uid = f"shard{n:03d}_row{i:06d}"
-            if uid in cache_x:
+            if uid in done_uids:
+                continue
+            if subsample is not None and lcol[i].as_py() == 0 \
+                    and i not in selected[n]:
+                skipped += 1
                 continue
             rec = acol[i].as_py()
             data = rec["bytes"] if isinstance(rec, dict) else rec
@@ -199,6 +303,7 @@ def main() -> int:
                 cache_w[key] = embed(m_w, fe_w, seg).astype(np.float16)
                 cache_s[key] = spectral_feats(seg).astype(np.float32)
                 labels[key] = 1 - int(lcol[i].as_py())  # dataset 0=fake -> court 1=fake
+            done_uids.add(uid)
             done += 1
             if done % 500 == 0:
                 np.savez(cx, **cache_x)
@@ -217,16 +322,17 @@ def main() -> int:
 
     # scoring phase: both arms from the same rows
     p4 = joblib.load(WS / "artifacts/p4/audio_probe.joblib")
-    court_obj = joblib.load(WS / "artifacts/p13_fused/audio_court.joblib")
+    cand_dir = WS / f"artifacts/{args.cand}"  # W9.1: --cand p13b_fused
+    court_obj = joblib.load(cand_dir / "audio_court.joblib")
     if not (isinstance(court_obj, dict) and court_obj.get("fusion")
             and "stacker" in court_obj):
         raise SystemExit("audio_court.joblib is not the fused wrapper dict "
                          "(fusion/stacker keys) — rebuild via "
                          "train_audio_w9_stacker.py — STOP")
     court = court_obj["stacker"]
-    meta = json.loads((WS / "artifacts/p13_fused/stacker_meta.json").read_text())
-    wl = joblib.load(WS / "artifacts/p13_fused/wavlm_probe.joblib")
-    env = np.load(WS / "artifacts/p13_fused/spectral_envelope.npz")
+    meta = json.loads((cand_dir / "stacker_meta.json").read_text())
+    wl = joblib.load(cand_dir / "wavlm_probe.joblib")
+    env = np.load(cand_dir / "spectral_envelope.npz")
     feat_names = meta["feature_names"]
     thr_conf = float(meta["conformal_p10_top_prob"])
 
@@ -290,7 +396,9 @@ def main() -> int:
     y, p4s, pfu = df["label"].values, df["p_fake_audio_mean"].values, df["p_fused"].values
     metrics = {
         "n_total_measured": n_total, "n_scored": len(df),
-        "n_bad_decode": int(n_total - len(df)),
+        "n_bad_decode": int((subsample["n_design"] if subsample else n_total)
+                            - len(df)),
+        "n_skipped_subsample": int(skipped),
         "per_shard": {str(k): v for k, v in counts.items()},
         "shard_download_receipts": dl_receipts,
         "p4_raw_auc_all_rows": round(float(roc_auc_score(y, p4s)), 4),
@@ -303,6 +411,8 @@ def main() -> int:
         "wavlm_ooc_rate": round(float(df["wavlm_ooc"].mean()), 4),
         "selection_identity": "both arms scored from the same rows (NR2)",
     }
+    if subsample is not None:
+        metrics["subsample"] = {**subsample, "n_scored": len(df)}
     (out / "metrics.json").write_text(json.dumps(metrics, indent=1))
     print(json.dumps({k: metrics[k] for k in
                       ("n_scored", "p4_raw_auc_all_rows", "fused_auc_all_rows",

@@ -148,8 +148,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default=None, help="run a single bar id (D1..D6/NR1..NR4/REG)")
     ap.add_argument("--skip-e2e", action="store_true")
+    ap.add_argument("--cand", default="p13_fused",
+                    help="candidate dir name under artifacts/ (W9.1: p13b_fused)")
     args = ap.parse_args()
     want = lambda eid: args.only is None or args.only == eid
+
+    global CAND, CAND_SHORT
+    CAND = WS / f"artifacts/{args.cand}"
+    CAND_SHORT = args.cand.replace("_", "")
 
     court_bundle = CAND / "audio_court.joblib"
     if not court_bundle.exists():
@@ -192,21 +198,21 @@ def main() -> int:
     # ---------- fused-arm exams ----------
     if want("D1") or want("D2") or want("D3") or want("NR2"):
         import exam_audio_itw
-        d = A / "exam_audio_itw_p13fused"
+        d = A / f"exam_audio_itw_{CAND_SHORT}"
         sys.argv = ["exam_audio_itw.py", "--per-class", "300", "--out", str(d), "--force"]
         exam_audio_itw.main()
         results["itw_fused"] = court_metrics(rows_itw(d))
 
     if want("D5") or want("NR2"):
         import exam_audio_dfeval
-        d = A / "exam_audio_dfeval_p13fused"
+        d = A / f"exam_audio_dfeval_{CAND_SHORT}"
         sys.argv = ["exam_audio_dfeval.py", "--out", str(d), "--force"]
         exam_audio_dfeval.main()
         results["dfeval_fused"] = court_metrics(rows_dfeval(d))
 
     if want("D4") or want("NR1"):
         import exam_audio_codeccal
-        d = A / "exam_audio_codeccal_p13fused"
+        d = A / f"exam_audio_codeccal_{CAND_SHORT}"
         exam_audio_codeccal.OUT = d
         d.mkdir(parents=True, exist_ok=True)
         sys.argv = ["exam_audio_codeccal.py"]
@@ -230,7 +236,7 @@ def main() -> int:
 
     if want("NR2"):
         import exam_audio_radar_eval
-        d = A / "exam_audio_radareval_p13fused"
+        d = A / f"exam_audio_radareval_{CAND_SHORT}"
         sys.argv = ["exam_audio_radar_eval.py", "--per-cell", "150", "--out", str(d), "--force"]
         exam_audio_radar_eval.main()
         results["radareval_fused"] = court_metrics(rows_radareval(d))
@@ -259,7 +265,7 @@ def main() -> int:
 
     # ---------- 2021 full eval (STEP 6 rows) ----------
     if want("D6") or want("NR1") or want("NR2"):
-        full_csv = A / "exam_audio_2021_full_p13fused/rows_2021_full.csv"
+        full_csv = A / f"exam_audio_2021_full_{CAND_SHORT}/rows_2021_full.csv"
         if not full_csv.exists():
             raise SystemExit(f"STEP 6 rows missing: {full_csv} — run "
                              f"exam_audio_2021_full.py first — STOP")
@@ -377,7 +383,7 @@ def main() -> int:
           m.get("note"))])
 
     all_pass = all(x["verdict"] == "PASS" for x in v)
-    d = A / "gate_battery_w9_p13fused"
+    d = A / f"gate_battery_w9_{CAND_SHORT}"
     d.mkdir(parents=True, exist_ok=True)
     (d / "verdict.json").write_text(json.dumps({
         "candidate": str(court_bundle), "all_pass": all_pass,

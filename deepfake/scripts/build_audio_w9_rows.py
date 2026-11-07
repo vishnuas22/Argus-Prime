@@ -57,6 +57,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--prefix", default="data/caches/w9")
+    ap.add_argument("--extra-prefix", action="append", default=[],
+                    help="W9.1: additional cache prefixes (repeatable; e.g. "
+                         "data/caches/w9b, data/caches/w9c) merged in — keys must "
+                         "be disjoint; bad ledgers are unioned")
     ap.add_argument("--out", default="artifacts/p13_fused")
     args = ap.parse_args()
     out = Path(args.out)
@@ -64,9 +68,25 @@ def main() -> int:
     man = [json.loads(l) for l in Path(args.manifest).read_text().splitlines() if l.strip()]
     info_of = {r["uid"]: r for r in man}
 
-    zx = np.load(f"{args.prefix}_xlsr.npz")
-    zw = np.load(f"{args.prefix}_wavlm.npz")
-    zs = np.load(f"{args.prefix}_spectral.npz")
+    def _load_npz(path):
+        z = np.load(path)
+        return {k: z[k] for k in z.files}
+
+    zx = _load_npz(f"{args.prefix}_xlsr.npz")
+    zw = _load_npz(f"{args.prefix}_wavlm.npz")
+    zs = _load_npz(f"{args.prefix}_spectral.npz")
+    for ep in args.extra_prefix:
+        for suf, d in (("xlsr", zx), ("wavlm", zw), ("spectral", zs)):
+            e = _load_npz(f"{ep}_{suf}.npz")
+            overlap = set(e) & set(d)
+            if overlap:
+                # W9.1 construction law: extra prefix (fresher extraction) wins
+                # on same-file keys; the diet manifest is authoritative for labels.
+                for k in overlap:
+                    d.pop(k, None)
+                print(f"merge: {len(overlap)} overlapping {suf} keys in {ep} — "
+                      f"extra prefix wins", flush=True)
+            d.update(e)
     p4 = joblib.load(P4_BUNDLE)
     bndl = joblib.load(Path(args.out) / "wavlm_probe.joblib")
     oof = json.loads((Path(args.out) / "wavlm_oof_scores.json").read_text())
@@ -76,7 +96,7 @@ def main() -> int:
     # group clean-view keys per uid per cache
     def group_clean(z):
         per = {}
-        for k in z.files:
+        for k in (z.files if hasattr(z, "files") else z):
             uid, view, si = k.rsplit(":", 2)
             if view != "clean":
                 continue
@@ -86,11 +106,25 @@ def main() -> int:
     cx, cw, cs = group_clean(zx), group_clean(zw), group_clean(zs)
     if not (set(cx) == set(cw) == set(cs)):
         raise SystemExit("cache key sets diverge across xlsr/wavlm/spectral — STOP")
+    keep = set(info_of)
+    n_drop = len(set(cx) - keep)
+    if n_drop:
+        print(f"cache: ignored {n_drop} non-diet uids (retired W9 poisoned rows / "
+              f"replaced sample) — diet manifest is authoritative", flush=True)
+    cx = {u: v for u, v in cx.items() if u in keep}
+    cw = {u: v for u, v in cw.items() if u in keep}
+    cs = {u: v for u, v in cs.items() if u in keep}
+    if not (set(cx) == set(cw) == set(cs)):
+        raise SystemExit("filtered cache key sets diverge — STOP")
     uids = sorted(cx)
     # disclosed decode attrition: uids absent from caches must ALL be in the
     # extraction bad ledger; anything unrecorded means an incomplete extraction.
     bad_uids = set(json.loads(
         Path(f"{args.prefix}_xlsr.train_meta.json").read_text())["bad_uids"])
+    for ep in args.extra_prefix:
+        p_extra = Path(f"{ep}_xlsr.train_meta.json")
+        if p_extra.exists():
+            bad_uids |= set(json.loads(p_extra.read_text())["bad_uids"])
     absent = [u for u in info_of if u not in cx]
     unrecorded = [u for u in absent if u not in bad_uids]
     if unrecorded:

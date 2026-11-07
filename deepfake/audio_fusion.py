@@ -199,6 +199,8 @@ def detect_audio_fused(path: Path, wav: np.ndarray, segs: list,
         "spectral_score": round(feats["spectral_score"], 4),
         "segments_analyzed": len(segs),
         "znorm_mean": round(feats["p4_znorm_mean"], 1),
+        "per_segment_znorm": [round(float(z), 1)
+                              for z in np.linalg.norm(Xz, axis=1)],
         "coverage_threshold": court["p4"]["coverage_threshold"],
         "out_of_coverage": bool(feats["p4_ooc"]),
         "wavlm_ooc": bool(feats["wavlm_ooc"]),

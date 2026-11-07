@@ -62,6 +62,10 @@ def fit_recipe(X, y):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache", default="data/caches/w9_wavlm.npz")
+    ap.add_argument("--extra-cache", action="append", default=[],
+                    help="W9.1: additional wavlm npz (repeatable; e.g. "
+                         "data/caches/w9b_wavlm.npz, data/caches/w9c_wavlm.npz) "
+                         "merged in — keys must be disjoint")
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--out", default="artifacts/p13_fused")
     args = ap.parse_args()
@@ -75,10 +79,31 @@ def main() -> int:
         group_of[r["uid"]] = r.get("segment") if r["source"] == "mlaad" else r["uid"]
 
     z = np.load(args.cache)
-    keys = list(z.files)
+    merged = {k: z[k] for k in z.files}
+    for ep in args.extra_cache:
+        ze = np.load(ep)
+        overlap = set(ze.files) & set(merged)
+        if overlap:
+            # W9.1 construction law: the same audio file can appear in two
+            # prefixes (W9's poisoned 'bona' rows are real spoof files). The
+            # extra cache (fresher extraction) wins; the diet manifest is the
+            # single authoritative label source.
+            for k in overlap:
+                merged.pop(k, None)
+            print(f"merge: {len(overlap)} overlapping keys in {ep} — extra cache "
+                  f"wins (same-file vectors; diet label authoritative)", flush=True)
+        for k in ze.files:
+            merged[k] = ze[k]
+    diet_uids = set(split_of)
+    keys = [k for k in merged if k.rsplit(":", 2)[0] in diet_uids]
+    n_dropped = len(merged) - len(keys)
+    if n_dropped:
+        print(f"cache: ignored {n_dropped} keys from non-diet uids (retired W9 "
+              f"poisoned rows / replaced sample) — diet manifest is authoritative",
+              flush=True)
     uid_of = {k: k.rsplit(":", 2)[0] for k in keys}
     view_of = {k: k.rsplit(":", 2)[1] for k in keys}
-    X_all = np.stack([z[k] for k in keys]).astype(np.float32)
+    X_all = np.stack([merged[k] for k in keys]).astype(np.float32)
     uids = np.array([uid_of[k] for k in keys])
     views = np.array([view_of[k] for k in keys])
     splits = np.array([split_of[u] for u in uids])

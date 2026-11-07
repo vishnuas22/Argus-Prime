@@ -16,9 +16,10 @@ Three checks, all required before STEP 8 promotion:
    without "fusion"), detect_audio must take the exact legacy path (no
    "fused" key in the result) and reproduce the legacy numbers.
 
-Usage: ./.venv/bin/python deepfake/scripts/smoke_fused_court.py
-Exit 0 = all checks pass; receipt written to artifacts/p13_fused/SMOKE_RECEIPT.json
+Usage: ./.venv/bin/python deepfake/scripts/smoke_fused_court.py [--cand p13_fused]
+Exit 0 = all checks pass; receipt written to artifacts/<cand>/SMOKE_RECEIPT.json
 """
+import argparse
 import importlib.util
 import json
 import sys
@@ -34,6 +35,10 @@ sys.path.insert(0, str(WS / "deepfake"))
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cand", default="p13_fused",
+                    help="candidate dir under artifacts/ (W9.1: p13b_fused)")
+    args = ap.parse_args()
     receipt = {}
 
     # ---------- 1. spectral twin identity ----------
@@ -67,7 +72,7 @@ def main() -> int:
     # ---------- 2. fused-path smoke ----------
     import argus_detect as ad
     legacy_ptr = ad.AUDIO_PROBE
-    fused_path = WS / "artifacts/p13_fused/audio_court.joblib"
+    fused_path = WS / f"artifacts/{args.cand}/audio_court.joblib"
     wrapper = joblib.load(fused_path)
     assert isinstance(wrapper, dict) and wrapper.get("fusion") \
         and "stacker" in wrapper, "bundle is not a fused wrapper dict"
@@ -105,7 +110,7 @@ def main() -> int:
     receipt["legacy_guard"] = {"p_fake_audio_mean": res_leg["p_fake_audio_mean"],
                                "znorm_mean": res_leg["znorm_mean"]}
 
-    out = WS / "artifacts/p13_fused/SMOKE_RECEIPT.json"
+    out = WS / f"artifacts/{args.cand}/SMOKE_RECEIPT.json"
     out.write_text(json.dumps(receipt, indent=1, default=str))
     print(f"receipt -> {out}", flush=True)
     return 0

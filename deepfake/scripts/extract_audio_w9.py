@@ -189,6 +189,10 @@ def main() -> int:
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--skip-parity", action="store_true",
                     help="smoke runs only — the full run MUST parity-check")
+    ap.add_argument("--expected", default=None,
+                    help="W9.1: path to JSON carrying this run's sealed diet counts; "
+                         "overrides the built-in W9 seal assert (extending the guard "
+                         "to a new seal, never bypassing it)")
     args = ap.parse_args()
 
     rows = [json.loads(l) for l in Path(args.manifest).read_text().splitlines() if l.strip()]
@@ -198,11 +202,24 @@ def main() -> int:
     # gate 2: meta-vs-seal assert (skip only under --limit smoke)
     prov_path = Path(args.manifest).with_suffix(".provenance.json")
     if not args.limit:
-        prov = json.loads(prov_path.read_text())
-        if not prov.get("counts_binding_match_sealed_table") or prov.get("counts") != EXPECTED:
-            raise SystemExit("SEAL ASSERT FAILED: manifest provenance does not carry "
-                             f"the sealed §4 counts {EXPECTED} — STOP")
-        print(f"seal assert OK: {prov['counts']}", flush=True)
+        if args.expected:
+            exp = json.loads(Path(args.expected).read_text())
+            if not prov_path.exists():
+                raise SystemExit(f"SEAL ASSERT FAILED: --expected {args.expected} "
+                                 f"given but manifest has no .provenance.json "
+                                 f"sidecar — STOP (fail-closed; no silent skip)")
+            prov = json.loads(prov_path.read_text())
+            if prov.get("counts") != exp.get("counts"):
+                raise SystemExit(f"SEAL ASSERT FAILED: provenance counts "
+                                 f"{prov.get('counts')} != sealed {exp.get('counts')} — STOP")
+            print(f"seal assert OK (--expected {args.expected}): "
+                  f"{exp.get('counts')}", flush=True)
+        else:
+            prov = json.loads(prov_path.read_text())
+            if not prov.get("counts_binding_match_sealed_table") or prov.get("counts") != EXPECTED:
+                raise SystemExit("SEAL ASSERT FAILED: manifest provenance does not carry "
+                                 f"the sealed §4 counts {EXPECTED} — STOP")
+            print(f"seal assert OK: {prov['counts']}", flush=True)
 
     prefix = Path(args.prefix)
     prefix.parent.mkdir(parents=True, exist_ok=True)
