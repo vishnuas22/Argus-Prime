@@ -77,6 +77,18 @@ def main() -> int:
         print("[2] health chip:", page.locator("#healthChip").inner_text(), flush=True)
         if "ok" not in page.locator("#healthChip").inner_text():
             issues.append("health chip not ok")
+        top_count = page.locator("#topChannelCount").inner_text().strip()
+        chip_txt = page.locator("#healthChip").inner_text()
+        matrix_title = page.locator(".matrix-title").inner_text()
+        print(f"    UI instruments={top_count!r} chip={chip_txt!r} "
+              f"matrix={matrix_title!r}", flush=True)
+        if top_count != "19":
+            issues.append(f"#topChannelCount {top_count!r} != '19'")
+        for tok in ("img 11", "vid 5", "aud 3"):
+            if tok not in chip_txt:
+                issues.append(f"#healthChip missing {tok!r}: {chip_txt!r}")
+        if "IMAGE" not in matrix_title:
+            issues.append(f".matrix-title missing 'IMAGE': {matrix_title!r}")
 
         print("[2b] health API contract ...", flush=True)
         hr = page.request.get("http://127.0.0.1:8420/api/health")
@@ -89,6 +101,14 @@ def main() -> int:
             issues.append("health response missing 'stacker'")
         if "n_modules" not in h:
             issues.append("health response missing 'n_modules'")
+        mods = h.get("modalities") or {}
+        vid_n = (mods.get("video") or {}).get("instruments")
+        if vid_n != 5:
+            issues.append(f"health modalities.video.instruments={vid_n!r} "
+                          "(expected 5)")
+        if h.get("total_instruments") != 19:
+            issues.append(f"health total_instruments="
+                          f"{h.get('total_instruments')!r} (expected 19)")
 
         if IMG is None:
             browser.close()
@@ -127,6 +147,10 @@ def main() -> int:
             iv = check_verdict_json(r.text(), "image")
             print("    image kind:", iv.get("kind"), "| p_fake_fused:",
                   iv.get("p_fake_fused"), flush=True)
+            if (iv.get("scope") or {}).get("kind") != "image":
+                issues.append("image detect scope.kind="
+                              f"{(iv.get('scope') or {}).get('kind')!r} "
+                              "(expected 'image')")
         time.sleep(3)
         shot(page, "03_verdict")
 
@@ -173,6 +197,10 @@ def main() -> int:
                     if vv.get("kind") != "video":
                         issues.append(f"video detect kind={vv.get('kind')!r} "
                                       "(expected 'video')")
+                    if (vv.get("scope") or {}).get("kind") != "video":
+                        issues.append("video detect scope.kind="
+                                      f"{(vv.get('scope') or {}).get('kind')!r} "
+                                      "(expected 'video')")
                 time.sleep(2)
                 shot(page, "05_video_verdict")
 
@@ -205,6 +233,10 @@ def main() -> int:
                                   ar.text()[:300])
                 else:
                     av = check_verdict_json(ar.text(), "audio")
+                    if (av.get("scope") or {}).get("kind") != "audio":
+                        issues.append("audio detect scope.kind="
+                                      f"{(av.get('scope') or {}).get('kind')!r} "
+                                      "(expected 'audio')")
                     rec = av.get("recovery") or {}
                     outcome = rec.get("outcome")
                     print(f"    audio kind={av.get('kind')} "

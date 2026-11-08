@@ -1079,9 +1079,9 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
     </nav>
     
     <div class="telemetry-badges">
-      <div class="badge-item"><div class="live-dot"></div> <span id="sysStatusText">System Online</span><span id="healthChip" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0">court: ok · 11 channels</span></div>
+      <div class="badge-item"><div class="live-dot"></div> <span id="sysStatusText">System Online</span><span id="healthChip" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0">court: ok · img 11 / vid 5 / aud 3 · total 19</span></div>
       <div class="badge-item">Court: <span class="badge-val">01</span></div>
-      <div class="badge-item">Channels: <span class="badge-val" id="topChannelCount">11</span></div>
+      <div class="badge-item">Instruments: <span class="badge-val" id="topChannelCount">19</span></div>
       <div class="btn-icon" id="btnSettings" title="Court Settings & Alpha Override"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
       <div class="user-tag">VD</div>
     </div>
@@ -1277,7 +1277,7 @@ input[type=range] { accent-color: var(--gold); cursor: pointer; width: 180px; }
       <div class="matrix-meta">
         <div class="polyhedron-ic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20"/><path d="M8.5 3L7 9l5 12"/><path d="M15.5 3L17 9l-5 12"/></svg></div>
         <div>
-          <div class="matrix-title">11 FORENSIC CHANNELS</div>
+          <div class="matrix-title">11 IMAGE FORENSIC CHANNELS</div>
           <div class="matrix-sub" id="matrixSub">Cross-verifying evidence across all physical & learned dimensions</div>
         </div>
       </div>
@@ -2898,23 +2898,29 @@ function showChannelDeepDive(channelId) {
 fetch("/api/health")
   .then(r => r.json())
   .then(h => {
-    document.getElementById("sysStatusText").textContent = `Court ${h.status.toUpperCase()} · ${h.n_modules} Channels`;
+    const mods = h.modalities || {};
+    const nImg = mods.image?.instruments ?? h.n_modules;
+    const nVid = mods.video?.instruments ?? 0;
+    const nAud = mods.audio?.instruments ?? 0;
+    const total = h.total_instruments ?? (nImg + nVid + nAud);
+    const modTxt = `img ${nImg} / vid ${nVid} / aud ${nAud}`;
+    document.getElementById("sysStatusText").textContent = `Court ${h.status.toUpperCase()} · ${total} instruments`;
     const dotBox = document.getElementById("sysStatusText").closest(".badge-item");
     if (dotBox) dotBox.classList.remove("offline");
     ["stackerVerifiedTag", "probesOnlineTag"].forEach(id => {
       const el = document.getElementById(id);
       if (el) { el.style.color = "var(--teal)"; el.textContent = id === "stackerVerifiedTag" ? "VERIFIED" : "ONLINE"; }
     });
-    document.getElementById("topChannelCount").textContent = h.n_modules;
+    document.getElementById("topChannelCount").textContent = total;
     document.getElementById("settingsStackerName").textContent = h.stacker || "artifacts/p6v11";
     const chip = document.getElementById("healthChip");
-    if (chip) chip.textContent = `court: ${h.status} · ${h.n_modules} channels · stacker ${h.stacker}`;
+    if (chip) chip.textContent = `court: ${h.status} · ${modTxt} · total ${total} · stacker ${h.stacker}`;
     const alphaDesc = document.getElementById("alphaDesc");
     if (alphaDesc && h.conformal_alpha != null) alphaDesc.textContent = `Court-calibrated α ${h.conformal_alpha} · override below`;
     const foot = document.getElementById("verdictFooterNote");
     if (foot) foot.textContent = `(i) Adjudicated by Stacker ${h.stacker}. Conformal α ${h.conformal_alpha} active. Truth leaves patterns.`;
     const rel = document.getElementById("releaseTag");
-    if (rel) rel.textContent = `court ${h.stacker} · ${h.n_modules} channels`;
+    if (rel) rel.textContent = `court ${h.stacker} · ${modTxt}`;
   })
   .catch(() => {
     document.getElementById("sysStatusText").textContent = "Court Offline";

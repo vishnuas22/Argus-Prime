@@ -121,6 +121,7 @@ def main():
                 rows.append({
                     "stratum": stratum, "shard_idx": idx, "arm": arm,
                     "p_fake": res["p_fake_audio_mean"],
+                    "spectral_score": res.get("spectral_score"),
                     "z_mean": res["znorm_mean"],
                     "z_segs": json.dumps(res["per_segment_znorm"]),
                     "ooc": res["out_of_coverage"],
@@ -156,6 +157,7 @@ def main():
                     rows.append({
                         "stratum": f"padprobe_{sec}s", "shard_idx": idx, "arm": "wav_trim",
                         "p_fake": res["p_fake_audio_mean"],
+                        "spectral_score": res.get("spectral_score"),
                         "z_mean": res["znorm_mean"],
                         "z_segs": json.dumps(res["per_segment_znorm"]),
                         "ooc": res["out_of_coverage"],
@@ -168,8 +170,8 @@ def main():
 
     with open(OUT / "scores.csv", "w") as f:
         w = csv.DictWriter(f, fieldnames=["stratum", "shard_idx", "arm", "p_fake",
-                                          "z_mean", "z_segs", "ooc", "abstained",
-                                          "segs", "wall_ms", "error"])
+                                          "spectral_score", "z_mean", "z_segs", "ooc",
+                                          "abstained", "segs", "wall_ms", "error"])
         w.writeheader()
         w.writerows(rows)
     n_err = sum(1 for r in rows if r.get("error"))

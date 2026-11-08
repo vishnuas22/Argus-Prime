@@ -26,6 +26,7 @@ Usage:
 """
 import argparse
 import csv
+import hashlib
 import json
 import subprocess
 import sys
@@ -51,6 +52,31 @@ P4_REF = {"2021_shard": 0.912, "itw": 0.9153, "dfeval": 0.5593, "radareval": 0.6
 
 def auc(y, s):
     return float(roc_auc_score(y, s))
+
+
+def rows_shard330(cand_short: str):
+    """Sealed NR1/NR2 2021 n=330 receipt (exact original selection).
+
+    The D-081 full-2021 design samples a different fake population and cannot
+    reconstruct the registered first-200-per-class shard; this receipt is
+    produced by score_audio_2021_shard330.py and identity-checked here.
+    """
+    import pandas as pd
+
+    p = WS / "artifacts" / f"exam_audio_2021_shard330_{cand_short}" / "rows.csv"
+    if not p.exists():
+        raise SystemExit(f"2021 n=330 receipt missing: {p} — run "
+                         f"score_audio_2021_shard330.py --cand ... — STOP")
+    df = pd.read_csv(p)
+    n_real, n_fake = int((df["label"] == 0).sum()), int((df["label"] == 1).sum())
+    if len(df) != 330 or df["uid"].nunique() != 330 or (n_real, n_fake) != (173, 157):
+        raise SystemExit(f"330 receipt invalid: n={len(df)} "
+                         f"uniq={df['uid'].nunique()} real={n_real} fake={n_fake} — STOP")
+    seal = json.loads((WS / "artifacts/exam_audio_2021_shard330/selection.json").read_text())
+    digest = hashlib.sha256("\n".join(sorted(df["uid"])).encode()).hexdigest()
+    if digest != seal["sha256"]:
+        raise SystemExit("330 selection seal mismatch — STOP")
+    return df
 
 
 def rows_2021_shard(d: Path):
@@ -148,6 +174,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default=None, help="run a single bar id (D1..D6/NR1..NR4/REG)")
     ap.add_argument("--skip-e2e", action="store_true")
+    ap.add_argument("--reuse", action="store_true",
+                    help="reuse completed exam legs on disk (strict row-count checks)")
     ap.add_argument("--cand", default="p13_fused",
                     help="candidate dir name under artifacts/ (W9.1: p13b_fused)")
     args = ap.parse_args()
@@ -197,27 +225,49 @@ def main() -> int:
 
     # ---------- fused-arm exams ----------
     if want("D1") or want("D2") or want("D3") or want("NR2"):
-        import exam_audio_itw
         d = A / f"exam_audio_itw_{CAND_SHORT}"
-        sys.argv = ["exam_audio_itw.py", "--per-class", "300", "--out", str(d), "--force"]
-        exam_audio_itw.main()
+        if args.reuse:
+            if not (d / "scores.csv").exists():
+                raise SystemExit(f"--reuse: missing ITW receipt {d / 'scores.csv'} — STOP")
+        else:
+            import exam_audio_itw
+            sys.argv = ["exam_audio_itw.py", "--per-class", "300", "--out", str(d), "--force"]
+            exam_audio_itw.main()
         results["itw_fused"] = court_metrics(rows_itw(d))
+        if args.reuse and results["itw_fused"]["n_scored"] != 600:
+            raise SystemExit(f"--reuse: ITW n={results['itw_fused']['n_scored']} != 600 — STOP")
 
     if want("D5") or want("NR2"):
-        import exam_audio_dfeval
         d = A / f"exam_audio_dfeval_{CAND_SHORT}"
-        sys.argv = ["exam_audio_dfeval.py", "--out", str(d), "--force"]
-        exam_audio_dfeval.main()
+        if args.reuse:
+            if not (d / "audio_exam.csv").exists():
+                raise SystemExit(f"--reuse: missing DF-Eval receipt {d / 'audio_exam.csv'} — STOP")
+        else:
+            import exam_audio_dfeval
+            sys.argv = ["exam_audio_dfeval.py", "--out", str(d), "--force"]
+            exam_audio_dfeval.main()
         results["dfeval_fused"] = court_metrics(rows_dfeval(d))
+        if args.reuse and results["dfeval_fused"]["n_scored"] != 703:
+            raise SystemExit(f"--reuse: DF-Eval n={results['dfeval_fused']['n_scored']} != 703 — STOP")
 
     if want("D4") or want("NR1"):
-        import exam_audio_codeccal
         d = A / f"exam_audio_codeccal_{CAND_SHORT}"
-        exam_audio_codeccal.OUT = d
-        d.mkdir(parents=True, exist_ok=True)
-        sys.argv = ["exam_audio_codeccal.py"]
-        exam_audio_codeccal.main()
+        if args.reuse:
+            if not (d / "scores.csv").exists():
+                raise SystemExit(f"--reuse: missing codec receipt {d / 'scores.csv'} — STOP")
+        else:
+            import exam_audio_codeccal
+            exam_audio_codeccal.OUT = d
+            d.mkdir(parents=True, exist_ok=True)
+            sys.argv = ["exam_audio_codeccal.py"]
+            exam_audio_codeccal.main()
         cc = rows_codeccal(d)
+        if args.reuse:
+            arms = {arm: (sum(1 for r in cc if r["id"][2] == arm and r["label"] == 0),
+                          sum(1 for r in cc if r["id"][2] == arm and r["label"] == 1))
+                    for arm in FULL_ARMS}
+            if set(arms.values()) != {(200, 60)}:
+                raise SystemExit(f"--reuse: codec arm counts {arms} != 200/60 — STOP")
         per_arm_fpr, per_arm_rec = {}, {}
         for arm in FULL_ARMS:
             bona = [r for r in cc if r["id"][2] == arm and r["label"] == 0]
@@ -235,11 +285,17 @@ def main() -> int:
                                   "c_pooled_auc": c_auc}
 
     if want("NR2"):
-        import exam_audio_radar_eval
         d = A / f"exam_audio_radareval_{CAND_SHORT}"
-        sys.argv = ["exam_audio_radar_eval.py", "--per-cell", "150", "--out", str(d), "--force"]
-        exam_audio_radar_eval.main()
+        if args.reuse:
+            if not (d / "scores.csv").exists():
+                raise SystemExit(f"--reuse: missing RADAR receipt {d / 'scores.csv'} — STOP")
+        else:
+            import exam_audio_radar_eval
+            sys.argv = ["exam_audio_radar_eval.py", "--per-cell", "150", "--out", str(d), "--force"]
+            exam_audio_radar_eval.main()
         results["radareval_fused"] = court_metrics(rows_radareval(d))
+        if args.reuse and results["radareval_fused"]["n_scored"] != 1800:
+            raise SystemExit(f"--reuse: RADAR n={results['radareval_fused']['n_scored']} != 1800 — STOP")
 
     if want("NR3"):
         from argus_detect import detect_audio
@@ -277,22 +333,19 @@ def main() -> int:
             "fused_auc_all_rows": round(auc(y, pfu), 4),
             "p4_raw_auc_all_rows": round(auc(y, df["p_fake_audio_mean"].values), 4),
             "abstain_rate": round(float(df["abstained"].mean()), 4)}
-        # reconstruct the registered n=330 shard selection (shard 0 fakes +
-        # shard 13 reals, first 200 decodable per class — identical decode path)
-        sub = []
-        for shard, lab in ((0, 1), (13, 0)):
-            s = df[(df["shard"] == shard) & (df["label"] == lab)] \
-                .sort_values("uid").head(200)
-            sub.append(s)
-        rec = pd.concat(sub)
+        # Sealed NR1/NR2 shard: consume the exact original selection receipt
+        # (first-200-per-class picks + old decode filter). The D-081 full-2021
+        # fake sample is a different population and cannot reconstruct it.
+        rec = rows_shard330(CAND_SHORT)
         results["full2021"]["shard_subset_n"] = len(rec)
-        if len(rec) != 330:
-            raise SystemExit(f"shard-subset reconstruction n={len(rec)} != registered "
-                             f"330 — decode-path divergence — ESCALATE (D-046)")
         results["full2021"]["shard_subset_fused_auc"] = round(
             auc(rec["label"].values, rec["p_fused"].values), 4)
         results["full2021"]["shard_subset_wavlm_auc"] = round(
             auc(rec["label"].values, rec["wavlm_pfake_mean"].values), 4)
+        results["full2021"]["shard_subset_p4_auc"] = round(
+            auc(rec["label"].values, rec["p4_pfake_mean"].values), 4)
+        results["full2021"]["shard_subset_selection_sha256"] = json.loads(
+            (A / "exam_audio_2021_shard330/selection.json").read_text())["sha256"]
 
     # ---------- REG: deployed-court e2e battery (subprocess = unpatched) ----------
     if want("REG") and not args.skip_e2e:
@@ -339,9 +392,14 @@ def main() -> int:
           m.get("bona_fpr_court", 1) <= 0.10, m.get("bona_fpr_court"))])
     m = results.get("full2021", {})
     f_auc = m.get("fused_auc_all_rows", 0)
+    p4_auc = m.get("p4_raw_auc_all_rows", 0)
+    # §5 consistency clause is the SELECTION-ARTIFACT check: the p4 raw arm on
+    # the full eval vs its own registered shard receipt (0.912). The fused arm
+    # has its own clause. (Prior code used f_auc in both clauses — instrument
+    # bug, verdict-neutral: p4 0.9262 passes for both candidates.)
     add("D6", "FULL 2021 LA eval",
         [("fused AUC >= 0.88", f_auc >= 0.88, f_auc),
-         ("|AUC - 0.912| <= 0.05", abs(f_auc - 0.912) <= 0.05, f_auc)])
+         ("|p4 AUC - 0.912| <= 0.05", abs(p4_auc - 0.912) <= 0.05, p4_auc)])
     add("NR1", "new-probe home floors",
         [("B val AUC >= 0.98",
           json.loads((CAND / "wavlm_train_meta.json").read_text()).get("val_auc_all_views", 0) >= 0.98,
@@ -388,6 +446,9 @@ def main() -> int:
     (d / "verdict.json").write_text(json.dumps({
         "candidate": str(court_bundle), "all_pass": all_pass,
         "bars_source": SPEC,
+        "d6_consistency_arm": "p4_raw (selection-artifact check)",
+        "shard330_receipt": results.get("full2021", {}).get("shard_subset_selection_sha256"),
+        "reused_exam_legs": bool(args.reuse),
         "p4_receipt_selfcheck": results.get("selfcheck"),
         "results": {k: v_ for k, v_ in results.items() if k != "selfcheck"},
         "verdicts": v}, indent=1))

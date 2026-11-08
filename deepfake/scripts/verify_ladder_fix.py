@@ -7,6 +7,9 @@ Fix-pack under test:
      certify REAL.
   2. server.py p_fake_adjudicated / adjudicated response fields (surface
      unification with the UI dial).
+  3. recovery.py conflict-meta resolution (2026-11-08): conflict_p99 reads the
+     LIVE deployed stacker's stacker_meta.json (p6v11), legacy p6v10 path and
+     constant only as fallbacks; R2 decision parity on the #606 extras.
 
 Expected values come from the audit's controlled pairs (AUDIT_REPORT.md §3):
   #608 DF-Eval REAL  xj17VCL-uePIstzu6IKU2OMJ1S8.mp3  raw 0.9396 -> was 0.0382
@@ -91,6 +94,69 @@ check("V3 #606 still recovered", rec606.get("outcome") == "recovered",
       rec606.get("outcome"))
 v606 = (rec606.get("verdict") or {}).get("p_fake_fused")
 check("V3 #606 adjudicated 0.8163 byte-equal", v606 == 0.8163, v606)
+
+# ---------------- V4: live conflict-meta + R2 threshold parity (2026-11-08) ---
+# Audit correction under test: image recovery must read conflict_p99 from the
+# LIVE deployed stacker (p6v11), never the stale p6v10 path; the legacy path
+# and measured constant remain fallbacks. #606 and the R2 decision on the #606
+# extras must be byte-equal under old-vs-live thresholds.
+import recovery  # noqa: E402  (module handle for monkeypatching)
+
+p = recovery._conflict_meta_path()
+check("V4 conflict meta resolves to live p6v11",
+      p == WS / "artifacts" / "p6v11" / "stacker_meta.json", p)
+check("V4 conflict_p99 is the live p6v11 value",
+      abs(recovery._conflict_p99() - 0.16336) < 1e-6, recovery._conflict_p99())
+
+_orig_run = recovery.run
+captured = {}
+
+
+def _spy_run(modality, original, extras=None):
+    captured["extras"] = extras
+    return _orig_run(modality, original, extras)
+
+
+recovery.run = _spy_run
+try:
+    r606_spy = detect_image(pil, stacker_clfs=_image_stacker_clfs(),
+                            original_raw=img_path.read_bytes())
+finally:
+    recovery.run = _orig_run
+v606_spy = ((r606_spy.get("recovery") or {}).get("verdict") or {}).get(
+    "p_fake_fused")
+check("V4 spy call reproduces #606 adjudicated 0.8163", v606_spy == 0.8163,
+      v606_spy)
+extras606 = captured.get("extras")
+check("V4 spy captured image extras",
+      isinstance(extras606, dict) and extras606.get("survivors") is not None,
+      sorted(extras606) if isinstance(extras606, dict) else extras606)
+
+_orig_p99 = recovery._conflict_p99
+try:
+    recovery._conflict_p99 = lambda: 0.163132
+    steps_old = []
+    old = recovery._r2_refuse({"out_of_conflict": True}, extras606, steps_old)
+    recovery._conflict_p99 = _orig_p99
+    steps_new = []
+    new = recovery._r2_refuse({"out_of_conflict": True}, extras606, steps_new)
+finally:
+    recovery._conflict_p99 = _orig_p99
+check("V4 R2 old/live decision parity", (old is None) == (new is None),
+      f"old_none={old is None} live_none={new is None}")
+d_old = steps_old[-1]["detail"]
+d_new = steps_new[-1]["detail"]
+check("V4 R2 receipts both carry excluded_modules",
+      "excluded_modules" in d_old and "excluded_modules" in d_new,
+      (d_old, d_new))
+check("V4 R2 excluded_modules equal",
+      d_old.get("excluded_modules") == d_new.get("excluded_modules"),
+      d_old.get("excluded_modules"))
+check("V4 R2 live receipt names the live meta",
+      d_new.get("conflict_meta") == "artifacts/p6v11/stacker_meta.json",
+      d_new.get("conflict_meta"))
+print("   R2 old threshold:", json.dumps(d_old))
+print("   R2 live threshold:", json.dumps(d_new))
 
 print()
 if FAILS:

@@ -263,10 +263,29 @@ def backdrop():
 
 @app.get("/api/health")
 def health():
-    from argus_detect import STACKER
+    from argus_detect import AUDIO_PROBE, STACKER, VIDEO_STACKER
     out = {"status": "ok", "channels": _state.get("ids", []),
            "stacker": "artifacts/" + STACKER.parent.name,
            "n_modules": len(_state.get("modules", []))}
+    # Modality breakdown (2026-11-08 audit correction): the court is NOT
+    # "11 channels" — it is 11 image instruments + 5 video + 3 audio. All
+    # builds derive from the deployed pointers at request time (never a
+    # hardcoded tag: the p6v3/p6v5 cache incidents). The video human tag is
+    # p6vid_v4e while the artifact directory remains artifacts/p6vid_v4.
+    modalities = {
+        "image": {"build": STACKER.parent.name,
+                  "artifact": "artifacts/" + STACKER.parent.name,
+                  "instruments": len(_state.get("modules", []))},
+        "video": {"build": "p6vid_v4e",
+                  "artifact": "artifacts/" + VIDEO_STACKER.parent.name,
+                  "instruments": 5},
+        "audio": {"build": AUDIO_PROBE.parent.name,
+                  "artifact": "artifacts/" + AUDIO_PROBE.parent.name,
+                  "instruments": 3},
+    }
+    out["modalities"] = modalities
+    out["total_instruments"] = sum(m["instruments"]
+                                   for m in modalities.values())
     # B3 transparency: the stacker's own conformal alpha (what the court binds
     # when a request supplies no explicit alpha)
     out["conformal_alpha"] = _state.get("conformal_alpha")
@@ -289,6 +308,27 @@ def health():
         except Exception as e:
             out["benchmarks_error"] = str(e)[:120]
     return out
+
+
+def _bench_scope(kind: str) -> dict:
+    """Per-verdict measurement-scope metadata, read verbatim from
+    artifacts/benchmarks.json (D-037 arc: no number without its scope).
+
+    Returns kind/source/as_of/status/claims; on read/parse failure the same
+    shape with null as_of/status, empty claims and a short error string."""
+    try:
+        data = json.loads((WS / "artifacts" / "benchmarks.json").read_text())
+        sec = data.get(kind) or {}
+        return {"kind": kind, "source": "artifacts/benchmarks.json",
+                "as_of": data.get("as_of"), "status": sec.get("status"),
+                "claims": [{"scope": k, "claim": v["claim"]}
+                           for k, v in sec.items()
+                           if k.startswith("scope_") and isinstance(v, dict)
+                           and v.get("claim")]}
+    except Exception as e:
+        return {"kind": kind, "source": "artifacts/benchmarks.json",
+                "as_of": None, "status": None, "claims": [],
+                "error": str(e)[:120]}
 
 
 @app.get("/api/history")
@@ -416,6 +456,10 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
     from argus_detect import STACKER
     v.update({"kind": kind, "filename": file.filename,
               "elapsed_s": round(time.time() - t0, 2), "alpha": alpha})
+    # Scope metadata on every verdict (2026-11-08 audit correction): API
+    # consumers previously saw bare numbers while the honesty scope lived in
+    # the UI only (patterns.md 2026-10-20). Sourced verbatim from benchmarks.json.
+    v["scope"] = _bench_scope(kind)
     # Audit F2 (2026-11-06): unify surfaces. The UI dials the recovery-
     # adjudicated p (web/index.html reads rec.verdict.p_fake_fused) while the
     # API previously exposed only the raw p — divergent numbers on the same

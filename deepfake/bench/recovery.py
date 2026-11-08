@@ -62,7 +62,13 @@ VIDEO_FRAME_BUDGET_RETRY = 12
 VIDEO_YUNET_RETRY_THRESH = 0.45
 
 _GATE_DECISION = WS / "artifacts" / "recovery_ab" / "gate_decision.json"
-_CONFLICT_META = WS / "artifacts" / "p6v10" / "stacker_meta.json"
+# P3-C9 threshold source (2026-11-08 audit correction): the LIVE deployed
+# stacker's stacker_meta.json is authoritative. The p6v10 path is kept only as
+# a legacy fallback (the pre-fix behavior) and the measured constant as the
+# last resort — resolution is lazy so a pointer swap is picked up without a
+# recovery.py edit.
+_LEGACY_CONFLICT_META = WS / "artifacts" / "p6v10" / "stacker_meta.json"
+_CONFLICT_P99_FALLBACK = 0.163132
 
 
 def _trigger(modality: str, original: dict, extras: dict) -> str:
@@ -185,12 +191,35 @@ def _recovered(trigger, steps, reasons, original, vdict, ood=None) -> dict:
 
 # ---------------- image ladder (§4.2) ----------------
 
-def _conflict_p99() -> float:
-    """P3-C9: conflict threshold read from stacker_meta.json at runtime."""
+def _conflict_meta_path():
+    """Resolve the conflict-threshold meta: live stacker -> legacy -> None.
+
+    Never raises (the resolver is a read-only convenience, not a gate): any
+    import/OS failure falls through to the legacy path and then to None."""
     try:
-        return float(json.loads(_CONFLICT_META.read_text())["conflict_p99"])
+        from argus_detect import STACKER
+        live = Path(STACKER).parent / "stacker_meta.json"
+        if live.exists():
+            return live
     except Exception:
-        return 0.163132
+        pass
+    try:
+        if _LEGACY_CONFLICT_META.exists():
+            return _LEGACY_CONFLICT_META
+    except Exception:
+        pass
+    return None
+
+
+def _conflict_p99() -> float:
+    """P3-C9: conflict threshold read from the live stacker_meta at runtime."""
+    meta = _conflict_meta_path()
+    if meta is None:
+        return _CONFLICT_P99_FALLBACK
+    try:
+        return float(json.loads(meta.read_text())["conflict_p99"])
+    except Exception:
+        return _CONFLICT_P99_FALLBACK
 
 
 def _r0_ood_gate(steps: list) -> dict:
@@ -268,6 +297,7 @@ def _r2_refuse(original, extras, steps) -> dict | None:
     from fusion import (WeightedVotingJudge, build_contradictions,
                         conflict_metric, conformal_set, risk_score, trust_score)
     p99 = _conflict_p99()
+    meta = _conflict_meta_path()
     mass: dict = {}
     for c in build_contradictions(survivors):
         for mid in c.modules:
@@ -296,7 +326,9 @@ def _r2_refuse(original, extras, steps) -> dict | None:
     steps.append({"step": "R2", "name": "contradiction_aware_refuse",
                   "ok": bool(ok),
                   "detail": {"excluded_modules": excluded, "k_prime": k_prime,
-                             "conflict_p99": p99, "hypothesis_set": list(cset),
+                             "conflict_p99": p99,
+                             "conflict_meta": str(meta.relative_to(WS)) if meta else "fallback",
+                             "hypothesis_set": list(cset),
                              "p_fake_fused": pf, "trust": t, "risk": r}})
     if ok:
         return {"p_fake_fused": pf, "abstained": False, "trust": t, "risk": r,
