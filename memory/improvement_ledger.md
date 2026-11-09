@@ -21,6 +21,7 @@ multimodal 2.0/5.
 | Ladder fix (audit F2) | 2026-11-07 | Detection Y = **0** (by design — ladder fires only on OOC/abstained rows). Honesty Y: **72** historical audio verdicts issued through the old ladder; rescored values overwhelmingly ≤0.15 (many 0.000 "confidently authentic" on wild/OOC audio); the measured-bias guard now refuses every real-ward certification (~60+ of 72); ~3-6 fake-ward (0.7492, 0.6611, 0.8496×2) still issue IF raw within the 0.15 confirmation cap. verify_ladder_fix.py 15/15 byte-exact (#608 0.0382, #610 0.5609; #606 image regression byte-equal) | closes the fake→"authenticated authentic" certification path; unifies API/UI (p_fake_adjudicated + banner); 0 AUC delta | **DEPLOYED** |
 | D3 T2V channel (D-082) | 2026-11-07 | **MISS**: AUC 0.6959 (bar 0.85), catch 6/27 (bar 15; avlips 0/8), FPR 7.0%, per-generator AP inverted (sora 0.2216); τ=1.029278; 766 clips, 0 unavailable | **0** — nothing wired, deployed court byte-unchanged; banked: deterministic module + harness + content-motion-confound diagnosis | BANKED (not wired) |
 | Audit/scorecard correction (2026-11-08) | 2026-11-08 | No court number moved; 3 stale audit claims corrected (D3 97.72 paper-reported; F2 fixed 2026-11-07; F5 drop-only/5MiB stale) | 0 (documentation honesty only) | DONE |
+| D3 content-matched T2V re-measure (D-084) | 2026-11-09 | **FAIL G4 / no wiring**: G1 0.926655 PASS (298 fakes; 2 genuine decode fails), G2 0.945461 PASS, G3 23/27 PASS, G4 **37/300 = 0.123333 FAIL** (bar ≤0.10; Wilson 0.0908–0.1654); τ=2.554618 (calib p10; calib FPR 30/300); content matching lifts prior 0.6959 AUC to 0.9267, confirming D-082's confound diagnosis, but real-guard cost is too high. Sentinel: arithmetic reproduced; **REJECT for pre-registration** because `d3_temporal.py` 8/16-frame policy and `fetch_genvideo_val.py` `real/` layout bypass were not in the sealed spec; fail valid as executed, not certifiable. Deployed hashes unchanged; no commit/wiring/training | **0** (no wiring; prior +6.8/+4–5 video-OOD projection closed) | CLOSED FAIL (no wiring); P1b SPLIT only as new pre-registered experiment |
 
 ## Ceiling adjustment (honest)
 
@@ -30,14 +31,19 @@ static talking heads). Ladder/surface +4.0 — **partially banked** (defect clos
 the 84% audio over-abstention remains). Updated realistic recovery with public data
 under the exam-only training scope: audio finetune ~+4.3 + W9 deployment ~+2-3 +
 data acquisition +2.5 + AV joint +1.5 + robustness +2.0 + ladder remainder ~+2 ≈
-**+14-15 → ceiling ~77-78/100**. The remaining ~22 is structural (no public corpus
-for 2026-frontier generators; adversarial arms race; watermark layer compromised).
-100/100 is not achievable by anyone with public data today.
+**+14-15 → ceiling ~77-78/100** **before** the D3 content-matched result. D3 is now
+**closed FAIL G4 (D-084)**, so the current realistic path is **73-76**; 77-78 is
+conditional on a new pre-registered video-OOD channel clearing its bars. The
+remaining ~22 is structural (no public corpus for 2026-frontier generators;
+adversarial arms race; watermark layer compromised). 100/100 is not achievable by
+anyone with public data today.
 
 ## Skip list (no confirmed Y — do not spend compute)
 
-- **D3 content-matched re-measure** — tests the paper's reachability, does not move
-  the deployed court (our real arm would still hit the confound).
+- **D3 content-matched re-measure** — **DONE 2026-11-09, FAIL G4 (D-084)**; content
+  matching fixed the confound (AUC 0.6959→0.9267) but real FPR 12.33% breaks the
+  ≤10% guard. No wiring. Do not rescue by post-hoc threshold tuning; any retry needs
+  a new pre-registered split and spec.
 - **D3 motion-normalized variant** — research-grade, no documented prior, uncertain Y.
 - **T2V training wave** — GenVidBench-class training data is exam-only (scope-blocked).
 - **Standalone 2021 full-scoring** — folded into W9 STEP 6 as anti-regression

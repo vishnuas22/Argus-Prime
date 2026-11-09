@@ -166,6 +166,13 @@ def frame_features(path: Path, encoder: str = "xclip-b16"):
     frames = decode_segment(path)
     if len(frames) < MIN_FRAMES:
         return None, "too_few_frames"
+    # XCLIP's cross-frame message-token path requires the frame count to be a
+    # multiple of config.num_frames (8).  GenVideo-Val's MSRVTT reals are 3 fps
+    # and yield 9 frames in the 3 s window, which otherwise crashes the
+    # encoder.  Use the paper's 16-frame window when available, otherwise the
+    # minimum 8-frame window; never pad or duplicate frames.
+    n_use = MAX_FRAMES if len(frames) >= MAX_FRAMES else MIN_FRAMES
+    frames = frames[:n_use]
     batch = np.stack([_preprocess(f) for f in frames])       # [T,3,224,224]
     x = torch.from_numpy(batch)
     dev = _device()
