@@ -157,3 +157,11 @@ Format: `- YYYY-MM-DD [area] pattern`
 - **Do not rescue a failed bar by post-hoc threshold selection.** A sweep showed τ≈2.2 would meet G4/G3, but it was chosen after seeing eval. That is a new pre-registered experiment, not a pass.
 - **A marginal FPR fail is still a fail, but do not overclaim it.** G4 37/300, Wilson 95% CI 0.0908–0.1654; the point-estimate bar was missed, yet the evidence does not prove the true FPR is >10%. Report both.
 - **Receipts:** `artifacts/d3_t2v_matched/RESULT.md`; ledger D-084. Score impact 0; the +4–5 projection is closed.
+
+## 2026-11-10 — W9.1 closure / SPLIT latency / pre-registration audit
+
+- **W9.1 is CLOSED HOLD, not promoted.** Seven of eleven sealed bars fail (D1/D2/D4/D5/NR1/NR2/NR4); p4 stays byte-identical. D4 1/200 is not evidence of 0.005: Clopper-Pearson 95% CI 0.013%–2.77%. Receipt: `artifacts/gate_battery_w9_p13bfused/HOLD_CLOSURE.md`; ledger D-085.
+- **Do not reuse D3's 6 s/clip budget.** SPLIT's 8-frame, no-JPEG CPU path measured **1.223 s/clip** (p90 1.345 s; decode+preprocess 0.833 s, XCLIP forward 0.383 s) on 20 GenBuster++ clips; Stage 0 is ~41 min, not 3.3 h. Patch output `[8,196,768]` finite from 4-D `[8,3,224,224]`.
+- **GenBuster++ is verified:** 1,345,518,849 bytes, SHA-256 `b203126f…53c71`, 1,000 video/real + 1,000 video/fake; 24 fps, 5.041667 s, 121 frames.
+- **W-AUDIO now has an inference-only primary arm.** A0z uses the official AntiDeepfake adaptive-pool + 2-class FC head zero-shot (published ≈0.735–0.742 DF-Eval AUC); A0p is the frozen-feature + `<2k` legal linear-probe fallback, with separate training approval. A0z avoids spending training before the checkpoint's zero-shot claim is tested.
+- **Pre-registration audit:** direct audit only; sentinel/architect were blocked by the provider free-usage limit, so the specs are **not** independently certified. Exact hashes, counts, and residual risks are in `artifacts/prereg_audit_20261110.md`. No compute, training, wiring, or commit is authorized by the specs.
