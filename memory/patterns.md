@@ -203,3 +203,35 @@ Format: `- YYYY-MM-DD [area] pattern`
   or A0p training was applied. A0p needs separate approval; A0z remains not certified.
 - **Receipts:** `artifacts/split_t2v_matched/stage1/RESULT.md`;
   `artifacts/wa_audio_a0z_1b/RESULT.md`; ledger D-087/D-088. Score remains **63**; **0 booked**.
+
+## 2026-11-11 — next-item research synthesis (not executed)
+
+- **The 84% audio abstention is not over-abstention; it is a safety gate hiding a bad
+  operating point.** DF-Eval audio raw AUC 0.5593, raw FPR@0.5 **0.7949**, coverage-gate
+  abstention **0.839**, in-coverage residue AUC 0.6204. Do not “fix” this by lowering
+  abstention without a better score; that converts honest abstention into false
+  accusations. P4 must start with a 2-hour oracle coverage–risk test.
+- **P2 video scope gate is the best expected next item, but it is not a +1.5 promise.**
+  Local defect is measured: AVLips fakes 0/8 abstained, mean p_fake 0.0109, all video
+  instruments green. Probability-weighted expected gain ≈ +0.7–0.8; the +1.0–1.5
+  roadmap range is upside. It needs wiring approval and a pre-registered re-encoded
+  T2V control.
+- **Video benchmark metadata is a live shortcut.** Cakiroglu et al., arXiv:2606.31004
+  (v2, 3 Nov 2026): frame-type counts alone separate real/generated at AUC 0.999 on
+  GenVidBench; one-setting re-encode still leaves 0.61–0.63 on three benchmarks; a
+  fixed frame-type pattern removes the leak. Any P2 metadata/scope feature must be
+  tested on re-encoded clips, not just original files.
+- **Train-real-only coverage gates have a 1/3 local base rate.** Audio worked (D-035);
+  image CLIP z-norm (D-037) and image kNN/contradiction (D-047) both measured
+  NOT-AVAILABLE. Treat P2 as a medium-confidence experiment, not a banked gain.
+- **A0p is not the ECE fix.** A0z 1B passed AUC (0.778066) and failed ECE (0.243034).
+  The same frozen XLS-R + logistic-regression recipe reports ITW ECE **26.9% (1B) /
+  16.1% (2B)** in Pascu et al., arXiv:2309.05384v2 (Interspeech 2024). A0p is a 1B
+  linear probe; the 0.05 ECE bar is unlikely. A0p is the pre-registered fallback for
+  an AUC miss, not for a calibration fail.
+- **P8-fast is the no-wiring fallback, not a detection win.** DeepAction is 6.06 GB,
+  CC BY 4.0 for AI-generated folders, Pexels license for reals; DF-Eval-2024 video is
+  gated and evaluation-only. Expected +0.5–1.0 data-coverage, 2 days plus external gate.
+- **P5 measurement alone is insurance.** The robust lever is real codec diversity in
+  training (Combei, arXiv:2506.09606), not another retention table. Do a 1-day
+  CRF28/JPEG q35 kill-test later; do not spend 2–3 days on the full exam now.

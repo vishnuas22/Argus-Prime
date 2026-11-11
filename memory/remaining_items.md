@@ -1,0 +1,174 @@
+# Argus Prime — Remaining Items Inventory
+
+**Last updated:** 2026-11-11
+**Status:** planning/research only. No training, wiring, promotion, pointer change, or
+commit is authorized by this file.
+**Baseline:** **63.1/100** weighted distance-to-frontier. This is not percent-complete.
+**Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
+closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**. No score
+booked from these runs.
+
+## A. Immediate bookkeeping / reconciliation
+
+| ID | Item | Status | Contribution | ETA | Notes |
+|---|---|---|---|---|---|
+| P0c | Formal scorecard rescore after Phase 0; ledger reconciliation | Open | 0–0.8 already-achieved system/honesty credit, not yet booked | ~0.5 day | Receipts only; do not retroactively inflate. This is not a detection improvement. |
+
+## B. Score-bearing build candidates
+
+The roadmap cumulative projection is a portfolio estimate, not a measured receipt.
+A failed gate stops dependent rows.
+
+| ID | Item | Status | Standalone contribution | ETA | Projected court (item-only, from 63.1) | Gate / dependency |
+|---|---|---|---|---|---|---|
+| P2 | Video OOD abstention/scope gate; abstain when video evidence is off-manifold; surface reason code | Open; first substantive video item after D3/SPLIT closure | **+0.7–0.8 expected**; +1.0–1.5 roadmap upside | 1.5–2 days | 63.8–63.9 expected; 64–65 upside | Independent of P1; must not suppress FF++/CDF in-domain; **mandatory re-encoded T2V control** (metadata-only gate is a kill) |
+| P4 | Audio coverage-risk/calibration repair; the 84% gate masks raw FPR@0.5 **0.7949**; do not lower abstention blindly | Open; oracle test first | 0 to +0.7 only if the 2-hour oracle passes | 2h oracle + 1 day if pass | 63.1–63.8 | Ladder guard byte-equal on #606; per-group thresholds; no global conformal without grouped-exchangeability check |
+| P5 | Robustness: H.264/CRF, JPEG, MP3/Opus, resampling; real codec diversity; measure retention | Open; not next | +0.3–0.5 expected; +1.5 only with codec-diverse retraining | 1-day kill-test; 2–3 days only if approved | 63.4–63.6 expected; 64.6 upside | Measurement alone is insurance; training approval for the real lever |
+| P6 | AV sync as a separate `offset_abs` gate, not a stacker blend | Open; conditional on paired-audio evaluation | +0.7 multimodal/video | 2–3 days | 63.8 | W-AV v5 HOLD; new spec; 0.7240 external is component evidence, not a deployable stacker |
+| P7 | Image backbone audit + provider-real scalar calibration (DINOv3-class check); no per-generator heads | Open | +0.5 OOD-image | 1–2 days | 63.6 | Saturated dimension; keep inference latency in budget |
+| P8 | Data coverage: DF-Eval-2024 video gate request; license-audit/evaluate GenVideo/DeepAction/LAV-DF/OpenFake/AIGIBench; license ledger | Open; external gate may dominate | **+0.5–1.0 expected**; +1.5 only if DF-Eval video lands | 2 days + external gate | 63.6–64.1 expected; 64.6 ceiling | DeepAction 6.06 GB CC BY 4.0; DF-Eval video is gated/eval-only; no training on eval corpora |
+| P9 | System/transparency: C2PA read-only validator, security/ops checks, test/CI, model cards | Open | +0.4 system; 0 detection | 1–2 days | 63.5 | C2PA is transparency-only; never a gate |
+| P3 | W-AUDIO A0/A1: A0z 1B DF-Eval done; AUC pass, ECE fail; not certified. Guard arms/13 s/2B/A0p/A1 open | Conditional; not certified | A0 pass +0.9–1.5 OOD-audio; A1 +1.5–2.5 | A0z 1B done; sub-arms separate | 63 now; 64.0–64.6 if A0; 64.6–65.6 if A1 | AUC pass alone is insufficient; ECE fail; A0p 1B linear probe ITW ECE 26.9% (Pascu 2024) makes the 0.05 bar unlikely; no training without explicit approval |
+
+## C. Approval-gated sub-items (do not start without explicit user approval)
+
+| ID | Sub-item | Status | Why it is not automatic |
+|---|---|---|---|
+| P3a | A0z guard arms: ASVspoof 2021 LA, ITW 600, codec pooled FPR, codec AUC drop | Not run | A0z ECE already fails; guards cannot repair DF-Eval calibration; separate approval required |
+| P3b | A0z 13 s secondary | Not run | 4 s primary only; report-only secondary; approval required |
+| P3c | A0z 2B checkpoint | Not run | 1B only; model-card AUC is lower for 2B; approval required |
+| P3d | A0p frozen-feature `<2k` linear probe | Not run | Training approval required; A0z not certified; A0p is the pre-registered fallback for an AUC miss, not an ECE fail; 1B linear-probe ITW ECE 26.9% (Pascu 2024) makes ≤0.05 unlikely |
+| P3e | A1 full audio candidate | Not run | Depends on a certified A0; full W9.1 bars; promotion approval |
+| P6a | W-AV v5 / AV offset new spec | HOLD | v5 missed external bar; no blend; new pre-registration needed |
+| P8a | DF-Eval-2024 video gate registration | Not started | User action / external approval; eval-only |
+| P8b | AV-Deepfake1M++ / DeepSpeak acquisition | Deferred | Gated/heavy; only feed a future video-AV diet wave; payoff uncertain |
+
+## D. Open user decisions / engineering backlog (not score-bearing by themselves)
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| U1 | Audio ship-label decision | Blocked on user | ASVspoof-family banner only; no label change without ruling |
+| U2 | `.aiff` dispatch | Open user item | Decoder/dispatch behavior; not a score move |
+| U3 | CLI XLS-R reload performance backlog | Open | ~7.5 s warm reload per file; performance, not detection |
+| U4 | Any model training / promotion / pointer movement | Not authorized | Requires explicit approval and pre-registered bars |
+| U5 | Any commit of assistant changes | Not authorized | Leave uncommitted unless user asks |
+
+## E. Closed / HOLD / do not restart
+
+| Item | State | Reason |
+|---|---|---|
+| D3 content-matched T2V | CLOSED FAIL G4 | Real guard 0.1233 > 0.10; no wiring; retry needs new pre-registration |
+| D3 motion-normalized variant | SKIP | Research-grade, no documented prior, confound already diagnosed |
+| D3 wiring | CLOSED | P0 failed; +4–5 projection removed |
+| SPLIT Stage 0 | Historical marginal PASS | 0.70244 vs 0.70; CI 0.679236–0.725154 |
+| SPLIT Stage 1 | CLOSED FAIL S2 | S2 0.513919, S3 0.546810, S5 5/27, S7 0.076667/0.057604; 9-stratum sora-empty deviation; no Stage 2 |
+| SPLIT Stage 2 / threshold rescue | SKIP | Near-chance aggregate; no post-hoc rescue |
+| W9.1 | CLOSED HOLD | 7/11 sealed bars fail; no promotion; p4 remains |
+| A0z 1B DF-Eval | NOT CERTIFIED | AUC 0.778066 PASS, ECE 0.243034 FAIL; 0 booked |
+| A0z post-hoc calibration | SKIP | No temperature scaling/threshold change; would be a new experiment |
+| HOLA reproduction / AV-Deepfake1M++ frozen featurization | SKIP | 8×A100, no public HOLA weights, 1.46 TB gated data; expected Y ≈ 0 |
+| Per-generator image heads | SKIP | No head-to-head evidence; data alignment/backbone dominates |
+| DeepSpeak v2 training corpus | SKIP | Gated/custom license/ND ambiguity |
+| ASVspoof5 standalone pull | SKIP | 142.3 GB; no standalone confirmed Y |
+| Full 2021 audio scoring | Insurance only | Subsample inside tolerance; not a score move |
+| T2V training wave | SKIP for now | GenVidBench exam-only; no justified wave before a new measured hypothesis |
+| AV diet diversification (SadTalker/VideoReTalking/MakeItTalk) | SKIP | W-AV v5 HOLD; uncertain payoff |
+| Watermark detection as score feature | SKIP | Mark-to-frame attacks; transparency only |
+| Frequency-invariance architecture | SKIP | 2026 controlled result: no marginal over plain EfficientNet-B0 |
+| 2026-frontier red-team only | SKIP | No public corpus; unweighted probes are not a score |
+| Chasing 100/100 | SKIP | ~22 points structural with public data |
+
+## F. Research shortlist for “best next item”
+
+1. **P2 — Video OOD abstention/scope gate** (cheap, independent, known 0/8 AVLips
+   abstention; **+0.7–0.8 expected**, +1.0–1.5 upside; metadata-shortcut control
+   mandatory).
+2. **P8-fast — Data coverage** (no-wiring path; **+0.5–1.0 expected**, 2 days +
+   external gate; coverage, not detection).
+3. **P4 — Audio coverage–risk/calibration repair** (the 84% is a safety gate, not
+   over-abstention; raw FPR@0.5 **0.7949**; 2-hour oracle first; 0 to +0.7 only if
+   the oracle passes).
+4. **P5 — Robustness/codec retention** (+0.3–0.5 expected from measurement; +1.5
+   requires codec-diverse retraining; 1-day kill-test later).
+5. **P3d — A0p** (unlikely to fix ECE: 1B linear-probe ITW ECE 26.9%, Pascu 2024;
+   training approval required; not next).
+6. **P0c — scorecard reconciliation** (0–0.8 bookkeeping; not “next level”).
+
+## G. Current score and honest ceiling
+
+- Measured court: **63/100**.
+- 73–76 is a theoretical public-data ceiling, not a current measured path.
+- 77–78 requires a new pre-registered video-OOD channel clearing its bars.
+- 100/100 is not achievable with public data today.
+
+## Sources
+
+- `artifacts/roadmap_20261109/ROADMAP.md`
+- `memory/improvement_ledger.md` (D-084, D-085, D-087, D-088)
+- `artifacts/prereg_audit_20261110.md`
+- `artifacts/split_t2v_matched/stage1/RESULT.md`
+- `artifacts/wa_audio_a0z_1b/RESULT.md`
+- `memory/decisions.md` for open user decisions/backlog
+
+## H. Research synthesis — 2026-11-11 (not executed)
+
+**Decision state:** awaiting user confirmation. No training, wiring, promotion, pointer
+change, or commit.
+
+### Ranked next-item view
+
+| Rank | Item | Expected court gain | ETA | Confidence | Why |
+|---|---|---:|---|---|---|
+| 1 | **P2 video OOD/scope gate** | **+0.7–0.8** probability-weighted; +1.0–1.5 upside | 1.5–2 days | Medium | Targets a measured defect (0/8 AVLips abstained; all five video instruments green), independent of failed D3/SPLIT detection, no training, CPU-only. Needs wiring approval. |
+| 2 | **P8-fast data coverage** | **+0.5–1.0** | 2 days + external gate | Medium | No-wiring path: DeepAction 6.06 GB CC BY 4.0 (AI-generated; Pexels real license), plus DF-Eval-2024 video gate application (eval-only). Mostly coverage/license evidence, not detection. |
+| 3 | **P4 audio oracle coverage–risk test** | 0 to +0.7 only if oracle passes | 2 hours, then decide | Low–medium | The 84% is not over-abstention: raw FPR@0.5 = **0.7949**, coverage gate 0.839. Lowering abstention blindly increases false positives. Run the oracle test before any 1–2 day calibration work. |
+| 4 | **P5 robustness** | +0.3–0.5 expected; +1.5 only with real codec diversity/retraining | 2–3 days + training approval | Low–medium | Measurement alone is insurance; the robust lever is codec-diverse training, which is not authorized. Do a 1-day CRF28/JPEG q35 kill-test later, not the full exam now. |
+| 5 | **P3d A0p** | ~0 | 1 day + training approval | Low | A0z passed AUC; A0p is the pre-registered fallback for an AUC miss, not ECE. The same frozen XLS-R + logistic-regression recipe reports ITW ECE **26.9% (1B) / 16.1% (2B)** in Pascu et al. 2024; A0p is 1B, so 0.05 ECE is unlikely. |
+| 6 | **P0c scorecard reconciliation** | 0–0.8 bookkeeping | 0.5 day | High | Books already-achieved credit; not a detection improvement. Do not call it “next level.” |
+
+### Load-bearing evidence
+
+- **P2 local defect:** `artifacts/audit_20261106/endpoint_summary_corrected.json` —
+  `video:avlips_fake` 8 rows, **0 abstained**, mean `p_fake` 0.0109; `video:avlips_real`
+  8 rows, 0 abstained. `artifacts/audit_20261106/SOTA_SCORECARD.md` F1: T2V+lip-sync
+  catch 1/27, 0% abstention.
+- **P2 shortcut risk:** Cakiroglu et al., *Where the Real Clips Came From: Corpus
+  Identity in AI-Generated Video Detection*, arXiv:2606.31004 (v2, 3 Nov 2026):
+  frame-type counts alone separate real/generated at **AUC 0.999** on GenVidBench;
+  re-encoding every clip with one setting at fixed length still leaves **0.61–0.63**
+  on three benchmarks; a fixed frame-type pattern removes the leak. Therefore P2 must
+  include a **re-encoded T2V control**; metadata/scope features alone are not evidence.
+- **P2 base rate:** the train-real-only coverage principle worked on audio (D-035:
+  wild audio 2–3× off-manifold, 84% abstention) but failed twice on image (D-037
+  CLIP z-norm; D-047 kNN/contradiction both NOT-AVAILABLE). Local base rate 1/3.
+- **P4 local defect:** `artifacts/benchmarks.json` audio `scope_external_wild`:
+  raw AUC 0.5593, **FPR@0.5 0.7949**, coverage gate abstention **0.839**, in-coverage
+  residue AUC 0.6204. Lowering abstention without a better score is a product
+  regression, not a score gain.
+- **P4 method caution:** Salem et al., *Hierarchical Group-Conditional Conformal Risk
+  Control for Selective Prediction in Language Models*, arXiv:2607.24562 (27 Jul 2026):
+  standard CRC can violate per-group risk under mild group-composition shift; per-group
+  thresholds/group-conditional control are required. This is LLM evidence, not direct
+  audio-deepfake evidence; treat as method caution, not proof.
+- **P3d calibration evidence:** Pascu et al., *Towards generalisable and calibrated
+  audio deepfake detection with self-supervised representations*, arXiv:2309.05384v2
+  (Interspeech 2024), Table 3/4: XLS-R 1B + logistic regression has ITW ECE **26.9%**;
+  2B has **16.1%**. The bar is ≤5%. A0p is a 1B frozen-feature linear probe.
+- **P8 access:** `faridlab/deepaction_v1` Hugging Face card: 2,600 videos, **6.06 GB**,
+  AI-generated folders **CC BY 4.0**, real Pexels folder under the Pexels license.
+  Deepfake-Eval-2024 Hugging Face card: gated, CC-BY-SA-4.0 tag, **evaluation only**;
+  use for training violates terms.
+- **P5 evidence:** roadmap/Combei (arXiv:2506.09606, Interspeech 2025): data curation/
+  pruning is the strong lever; codec augmentation was null-to-negative on wild audio.
+  Measurement/operating-point changes are not a substitute for codec-diverse training.
+
+### Recommendation
+
+**P2 first**, as a pre-registered 1.5-day experiment with a hard kill bar and a
+mandatory re-encoded T2V control. Expected value **+0.7–0.8**, not the roadmap’s
++1.0–1.5 upside. If the user will not authorize the P2 wiring/scope-gate change,
+**P8-fast** is the best no-wiring executable item. Do **not** start P4, P5, or P3d
+now. P4 gets a 2-hour oracle test only; P5 gets a 1-day kill-test later; P3d is not
+next because A0z passed AUC and the 1B linear-probe ECE evidence is poor.
+
+**No execution has started.** The next action is user confirmation of one path.
