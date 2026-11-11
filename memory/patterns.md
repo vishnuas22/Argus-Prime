@@ -147,7 +147,7 @@ Format: `- YYYY-MM-DD [area] pattern`
 - **Portfolio, not arithmetic soup:** do not double-count overlapping work (e.g. D3 detection vs video abstention). Sum only inside a declared portfolio and cap at the public-data ceiling.
 - **No confirmed-Y path → SKIP.** Maintenance, insurance, and anti-regression work may be required but are not scored as improvement.
 - **Pre-register before compute:** spec, bars, data license/scope, rollback, and user approval for training/wiring/promotion. Append measured Y to `memory/improvement_ledger.md` after receipt.
-- **Current honest ceiling: 73–76/100 on the current path** after D3 failed G4 (2026-11-09); **77–78 only if a new pre-registered video-OOD channel clears its bars** (not this D3 run). This **supersedes the earlier ~83** anchor in the 2026-11-06 SOTA notes. ~22 points are structural: no public corpus for 2026-frontier generators, adversarial arms race, compromised watermark layer. 100/100 is not achievable by anyone with public data today.
+- **The 2026-11-09 honest ceiling was 73–76/100 after D3 failed G4; that is now a theoretical public-data ceiling, not a current measured path.** SPLIT later closed FAIL S2 and A0z 1B failed ECE (2026-11-11), so the measured court remains **63/100**. **77–78 only if a new pre-registered video-OOD channel clears its bars** (not the D3/SPLIT runs). This **supersedes the earlier ~83** anchor in the 2026-11-06 SOTA notes. ~22 points are structural: no public corpus for 2026-frontier generators, adversarial arms race, compromised watermark layer. 100/100 is not achievable by anyone with public data today.
 - **Working artifact:** `artifacts/roadmap_20261109/ROADMAP.md`.
 
 ## 2026-11-09 — D3 content-matched exam lesson
@@ -161,7 +161,45 @@ Format: `- YYYY-MM-DD [area] pattern`
 ## 2026-11-10 — W9.1 closure / SPLIT latency / pre-registration audit
 
 - **W9.1 is CLOSED HOLD, not promoted.** Seven of eleven sealed bars fail (D1/D2/D4/D5/NR1/NR2/NR4); p4 stays byte-identical. D4 1/200 is not evidence of 0.005: Clopper-Pearson 95% CI 0.013%–2.77%. Receipt: `artifacts/gate_battery_w9_p13bfused/HOLD_CLOSURE.md`; ledger D-085.
-- **Do not reuse D3's 6 s/clip budget.** SPLIT's 8-frame, no-JPEG CPU path measured **1.223 s/clip** (p90 1.345 s; decode+preprocess 0.833 s, XCLIP forward 0.383 s) on 20 GenBuster++ clips; Stage 0 is ~41 min, not 3.3 h. Patch output `[8,196,768]` finite from 4-D `[8,3,224,224]`.
+- **Do not reuse D3's 6 s/clip budget.** SPLIT's 8-frame, no-JPEG CPU path measured **1.223 s/clip** (p90 1.345 s; decode+preprocess 0.833 s, XCLIP forward 0.383 s) on 20 GenBuster++ clips; the full Stage 0 later measured **0.714 s/clip median** (24.0 min clip latency), not 3.3 h. Patch output `[8,196,768]` finite from 4-D `[8,3,224,224]`.
 - **GenBuster++ is verified:** 1,345,518,849 bytes, SHA-256 `b203126f…53c71`, 1,000 video/real + 1,000 video/fake; 24 fps, 5.041667 s, 121 frames.
-- **W-AUDIO now has an inference-only primary arm.** A0z uses the official AntiDeepfake adaptive-pool + 2-class FC head zero-shot (published ≈0.735–0.742 DF-Eval AUC); A0p is the frozen-feature + `<2k` legal linear-probe fallback, with separate training approval. A0z avoids spending training before the checkpoint's zero-shot claim is tested.
+- **W-AUDIO now has an inference-only primary arm.** A0z uses the official AntiDeepfake adaptive-pool + 2-class FC head zero-shot (the sealed SPEC's ≈0.735–0.742 DF-Eval AUC is a binormal approximation; the model cards report 0.810/0.798 — corrected 2026-11-11); A0p is the frozen-feature + `<2k` legal linear-probe fallback, with separate training approval. A0z avoids spending training before the checkpoint's zero-shot claim is tested.
 - **Pre-registration audit:** direct audit only; sentinel/architect were blocked by the provider free-usage limit, so the specs are **not** independently certified. Exact hashes, counts, and residual risks are in `artifacts/prereg_audit_20261110.md`. No compute, training, wiring, or commit is authorized by the specs.
+
+## 2026-11-11 — SPLIT Stage 0 / W-AUDIO timing
+
+- **SPLIT Stage 0 is a marginal PASS, not a promotion.** 2,000/2,000 GenBuster++ video clips (1,000/1,000), AUC **0.70244** vs the sealed PASS ≥0.70; report-only stratified bootstrap 95% CI **0.679236–0.725154** includes values below the bar. The sealed rule uses the point estimate, so the decision is `SPLIT_MOTION_PASS`; the honest reading is “clears by 0.00244, not proven robust.” Stage 0 authorizes a **Stage 1 request only**; do not start Stage 1 without separate explicit approval.
+- **Motion controls can rescue the interpretation, not the bar.** Motion-rebalanced AUC **0.736812** (99/100 bins; one top-motion bin has 0 real/20 fake), motion-only AUC **0.495853** (chance). Raw AUC alone would not prove motion robustness; the negative control is what rules out a motion shortcut here. Constant 24 fps means fps/score correlation is not estimable, not zero.
+- **SPLIT formulas were cross-checked against the official repo, but this is a spec-frozen experiment, not an exact paper reimplementation.** Official TTR is `(ln L1 − ln L2)/ln 2`, LSMI is the mean spatial-gradient magnitude, fusion is `mean_ttr^8 · lsmi`; our module matches. The sealed spec deliberately fixes T=8 and even 3 s sampling; official SPLIT uses 8/16 extracted frames. The implementation normalizes RGB; official `cv2.imread` + albumentations may effectively use BGR. Record these as reproducibility caveats, not post-hoc changes.
+- **Hash what can change the score.** Stage 0's recipe hash covers the SPLIT module, vendored XCLIP, D3 helpers, and policy fields, but **not the exam-harness SHA**; `metrics.json` also lacks a deployed-artifact hash field, so the p4/p6v11/p6vid_v4 unchanged check was manual. Future harnesses should include both before scoring. Receipt: `artifacts/split_t2v_matched/stage0/RESULT.md`.
+- **W-AUDIO 100-clip timing pilot is complete for both checkpoints.** 1B median **0.530 s/clip** (p90 0.5364), 2B **0.9984 s/clip** (p90 1.054); both 50 real/50 fake, 806 keys mapped / 9 skipped, no missing encoder keys; 1B hidden 1280, 2B hidden 1920; `proj_fc` `[2,1280]` / `[2,1920]`. 2B max RSS **16.82 GiB**, zero swaps on the 32 GiB host. No AUC, threshold, or full A0z run. Receipt: `artifacts/wa_audio_pilot/PILOT_RECEIPT.md`.
+- **Correct the model-card AUC claim before planning.** The sealed W-AUDIO SPEC's “EER 25.76–27.76% ≈0.735–0.742 AUC” is a binormal approximation, not the measured model-card ROC AUC. The cards report DF-Eval AUC **0.810 (1B)** and **0.798 (2B)**, EER 26.76% / 27.76%. The 1B card AUC is higher than 2B, contrary to the SPEC's “2B — best reported” ordering; the A0 bar ≥0.650 is unchanged. 1B is the better A0z primary candidate if full inference is approved.
+- **Head class order is load-bearing.** Model card output is `<Fake score, Real score>`; index **0 = fake**, index **1 = real**. Any A0z AUC must use the fake score, not index 1. The pilot proves mapping/shape/finite logits and timing, not numerical equivalence to fairseq; that parity remains unverified.
+
+## 2026-11-11 — SPLIT Stage 1 closure / A0z calibration
+
+- **In-domain gate ≠ OOD transfer.** SPLIT Stage 0 AUC **0.70244** on GenBuster++ became Stage 1
+  **S2 0.513919** on fresh GenVideo and **S3 0.546810** on GenVidBench. The Stage 0 margin was
+  only 0.00244 with CI 0.679236–0.725154; a marginal in-domain pass is not a license to assume
+  transfer. Close the path when the fresh exam is at chance; do not tune.
+- **Low FPR alone is not detection.** Stage 1 S4 FPR **0.08** and S6 JPEG FPR **0.09** passed, but
+  S7 recall was **0.076667/0.057604** and S5 was **5/27**. A detector that rejects almost everything
+  can pass FPR guards; always read recall/fixtures with FPR.
+- **A recorded 9-stratum deviation is not a clean 10-generator pass.** All 56 on-disk `sora` fakes
+  were D3 SHA exclusions, so `sora` is empty. The 0.5139 nine-generator AUC is 0.386 below the
+  bar, so the missing stratum cannot explain the failure, but the sealed 10-generator claim remains
+  unmet. No substitution.
+- **Per-generator heterogeneity can hide aggregate failure.** Stage 1 GenVideo per-generator AUC
+  ranged ~0.179–0.805; GenVidBench opentora 0.190, sora 0.837. Aggregate near chance; no post-hoc
+  per-generator selection.
+- **AUC pass and calibration pass are different gates.** A0z 1B DF-Eval AUC **0.778066** passed
+  ≥0.650, but ECE **0.243034** failed ≤0.05 (max-confidence **0.242634**). The 452-clip low-score
+  bin had mean `p_fake` 0.0097 but 29.2% fake. Ranking can be useful while probabilities are
+  unusable; do not certify A0 on AUC alone.
+- **Use `p_fake` or logit difference, not a single-class logit, for a 2-class head.** AUC on fake
+  logit alone was 0.7733 because `p_fake` depends on `fake − real`; `p_fake` and logit-difference
+  AUC both 0.778066. The post-run reporting correction changed no scores or gates.
+- **A calibration failure is not a threshold problem.** No temperature scaling, threshold change,
+  or A0p training was applied. A0p needs separate approval; A0z remains not certified.
+- **Receipts:** `artifacts/split_t2v_matched/stage1/RESULT.md`;
+  `artifacts/wa_audio_a0z_1b/RESULT.md`; ledger D-087/D-088. Score remains **63**; **0 booked**.
