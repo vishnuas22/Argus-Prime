@@ -258,3 +258,32 @@ Format: `- YYYY-MM-DD [area] pattern`
   NaN; no face row had ≥2 NaN. An error counted as an abstention can fake a pass.
 - **Do not rescue a failed sealed bar.** P2 G3/G5 fail → closed; a retry needs a
   new pre-registered signal, not a lower threshold or a post-hoc bar change.
+
+## 2026-11-13 — P8-fast data coverage
+
+- **Dataset-card counts are not repo counts.** DeepAction’s card says 2,600
+  videos / 6.06 GB; the repo has 2,605 MP4s / 6.0592 GB. The 5 extra
+  `RunwayML/77 f–j` files are byte-identical to `RunwayML/27 a–e`; the full
+  SHA-256 audit found 11 duplicate files and **2,594 unique contents**. D1 is a
+  file-completeness bar; pass it only with the duplicate caveat disclosed. Do
+  not silently convert “2,605 files” into “2,605 unique videos.”
+- **Class IDs are not a clean 0–99 range.** The corpus has 100 classes but IDs
+  include 101–103 and gaps; count unique class IDs, don’t assert `set(range(100))`.
+- **Do not assume card normalization.** Only 2/20 D3 samples are 512×512; the
+  corpus spans 512×512 to 2160×4096. D3 required decode + metadata, not 512².
+  Record the actual resolution distribution; don’t repeat a normalization claim
+  the data does not support.
+- **Coverage is not detection.** D4’s 70 clips produced 0 errors, 52
+  `video_face` / 18 `image_court`, and 14 abstentions (20%). That is an ingest
+  receipt; no AUC bar, no threshold change, no detection claim. The 20%
+  abstention is a coverage observation, not a P2-style failure.
+- **The DF-Eval video gate is a form, not a discussion post.** The owner requires
+  an institutional email associated with the requester’s name or a verifiable
+  link to previous work; there is no post-submission edit. The draft now carries
+  those fields and exact URL/terms, but **no submission has been made**.
+- **Raw snapshot beats the loader.** The DeepAction card pins `datasets`
+  3.0.1–3.0.6; using the raw MP4 snapshot avoids loader-version risk and gives a
+  clean per-file SHA-256 manifest.
+- **Coverage credit is capped at the low end.** P8-fast books +0.5 (data coverage
+  4.5→5.0), not the +1.0 upside; the DF-Eval video grant is a separate,
+  unsubmitted +0.5 opportunity.

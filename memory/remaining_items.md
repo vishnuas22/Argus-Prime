@@ -1,13 +1,14 @@
 # Argus Prime — Remaining Items Inventory
 
 **Last updated:** 2026-11-13
-**Status:** execution update 2026-11-13: P0c booked; P2 closed FAIL. No training,
-wiring, promotion, pointer change, or commit is authorized by this file.
+**Status:** execution update 2026-11-13: P0c booked; P2 closed FAIL; P8-fast
+booked +0.5 data coverage. No training, wiring, promotion, pointer change, or
+commit is authorized by this file.
 **Baseline:** **63.1/100** weighted distance-to-frontier. This is not percent-complete.
-**Current booked court:** **63.9/100** (P0c +0.8 bookkeeping; P2 adds 0).
+**Current booked court:** **64.4/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
 closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**; P2
-closed FAIL G3/G5. No detection score booked from these runs.
+closed FAIL G3/G5; P8-fast PASS D1–D5 (coverage only; no detection score).
 
 ## A. Immediate bookkeeping / reconciliation
 
@@ -27,7 +28,7 @@ A failed gate stops dependent rows.
 | P5 | Robustness: H.264/CRF, JPEG, MP3/Opus, resampling; real codec diversity; measure retention | Open; not next | +0.3–0.5 expected; +1.5 only with codec-diverse retraining | 1-day kill-test; 2–3 days only if approved | 63.4–63.6 expected; 64.6 upside | Measurement alone is insurance; training approval for the real lever |
 | P6 | AV sync as a separate `offset_abs` gate, not a stacker blend | Open; conditional on paired-audio evaluation | +0.7 multimodal/video | 2–3 days | 63.8 | W-AV v5 HOLD; new spec; 0.7240 external is component evidence, not a deployable stacker |
 | P7 | Image backbone audit + provider-real scalar calibration (DINOv3-class check); no per-generator heads | Open | +0.5 OOD-image | 1–2 days | 63.6 | Saturated dimension; keep inference latency in budget |
-| P8 | Data coverage: DF-Eval-2024 video gate request; license-audit/evaluate GenVideo/DeepAction/LAV-DF/OpenFake/AIGIBench; license ledger | Open; external gate may dominate | **+0.5–1.0 expected**; +1.5 only if DF-Eval video lands | 2 days + external gate | 63.6–64.1 expected; 64.6 ceiling | DeepAction 6.06 GB CC BY 4.0; DF-Eval video is gated/eval-only; no training on eval corpora |
+| P8 | Data coverage: DeepAction acquired; DF-Eval-2024 video gate request; license ledger | **P8-fast done 2026-11-13 (+0.5)**; P8a open; P8b deferred | **+0.5 booked**; +0.5 conditional on DF-Eval video, not booked | done + external gate | **64.4 current**; 64.9 if DF-Eval video lands | DeepAction 2,605 files / 2,594 unique; CC BY 4.0 + Pexels; DF-Eval video gated/eval-only; no training |
 | P9 | System/transparency: C2PA read-only validator, security/ops checks, test/CI, model cards | Open | +0.4 system; 0 detection | 1–2 days | 63.5 | C2PA is transparency-only; never a gate |
 | P3 | W-AUDIO A0/A1: A0z 1B DF-Eval done; AUC pass, ECE fail; not certified. Guard arms/13 s/2B/A0p/A1 open | Conditional; not certified | A0 pass +0.9–1.5 OOD-audio; A1 +1.5–2.5 | A0z 1B done; sub-arms separate | 63 now; 64.0–64.6 if A0; 64.6–65.6 if A1 | AUC pass alone is insufficient; ECE fail; A0p 1B linear probe ITW ECE 26.9% (Pascu 2024) makes the 0.05 bar unlikely; no training without explicit approval |
 
@@ -41,7 +42,7 @@ A failed gate stops dependent rows.
 | P3d | A0p frozen-feature `<2k` linear probe | Not run | Training approval required; A0z not certified; A0p is the pre-registered fallback for an AUC miss, not an ECE fail; 1B linear-probe ITW ECE 26.9% (Pascu 2024) makes ≤0.05 unlikely |
 | P3e | A1 full audio candidate | Not run | Depends on a certified A0; full W9.1 bars; promotion approval |
 | P6a | W-AV v5 / AV offset new spec | HOLD | v5 missed external bar; no blend; new pre-registration needed |
-| P8a | DF-Eval-2024 video gate registration | Not started | User action / external approval; eval-only |
+| P8a | DF-Eval-2024 video gate registration | Draft updated 2026-11-13; **not submitted** | User action / external approval; eval-only; institutional email or verifiable link |
 | P8b | AV-Deepfake1M++ / DeepSpeak acquisition | Deferred | Gated/heavy; only feed a future video-AV diet wave; payoff uncertain |
 
 ## D. Open user decisions / engineering backlog (not score-bearing by themselves)
@@ -81,11 +82,10 @@ A failed gate stops dependent rows.
 
 ## F. Research shortlist for “best next item”
 
-1. **P2 — Video OOD abstention/scope gate** (cheap, independent, known 0/8 AVLips
-   abstention; **+0.7–0.8 expected**, +1.0–1.5 upside; metadata-shortcut control
-   mandatory).
-2. **P8-fast — Data coverage** (no-wiring path; **+0.5–1.0 expected**, 2 days +
-   external gate; coverage, not detection).
+1. **P2 — CLOSED FAIL G3/G5; 0 booked.** No production wiring; the original
+   +0.7–0.8 expectation is not realized.
+2. **P8-fast — DONE 2026-11-13; +0.5 data coverage booked.** Remaining P8 leg:
+   DF-Eval-2024 video gate (user action; **not submitted**).
 3. **P4 — Audio coverage–risk/calibration repair** (the 84% is a safety gate, not
    over-abstention; raw FPR@0.5 **0.7949**; 2-hour oracle first; 0 to +0.7 only if
    the oracle passes).
@@ -120,8 +120,8 @@ change, or commit.
 
 | Rank | Item | Expected court gain | ETA | Confidence | Why |
 |---|---|---:|---|---|---|
-| 1 | **P2 video OOD/scope gate** | **+0.7–0.8** probability-weighted; +1.0–1.5 upside | 1.5–2 days | Medium | Targets a measured defect (0/8 AVLips abstained; all five video instruments green), independent of failed D3/SPLIT detection, no training, CPU-only. Needs wiring approval. |
-| 2 | **P8-fast data coverage** | **+0.5–1.0** | 2 days + external gate | Medium | No-wiring path: DeepAction 6.06 GB CC BY 4.0 (AI-generated; Pexels real license), plus DF-Eval-2024 video gate application (eval-only). Mostly coverage/license evidence, not detection. |
+| 1 | **P2 video OOD/scope gate** | **0 booked** | done | — | CLOSED FAIL G3/G5; no wiring; projected +0.7–0.8 not realized. |
+| 2 | **P8-fast data coverage** | **+0.5 booked** | done 2026-11-13 | — | DeepAction acquired (2,605 files / 2,594 unique; CC BY 4.0 + Pexels); D4 70/70, 0 errors; DF-Eval video gate remains user action. |
 | 3 | **P4 audio oracle coverage–risk test** | 0 to +0.7 only if oracle passes | 2 hours, then decide | Low–medium | The 84% is not over-abstention: raw FPR@0.5 = **0.7949**, coverage gate 0.839. Lowering abstention blindly increases false positives. Run the oracle test before any 1–2 day calibration work. |
 | 4 | **P5 robustness** | +0.3–0.5 expected; +1.5 only with real codec diversity/retraining | 2–3 days + training approval | Low–medium | Measurement alone is insurance; the robust lever is codec-diverse training, which is not authorized. Do a 1-day CRF28/JPEG q35 kill-test later, not the full exam now. |
 | 5 | **P3d A0p** | ~0 | 1 day + training approval | Low | A0z passed AUC; A0p is the pre-registered fallback for an AUC miss, not ECE. The same frozen XLS-R + logistic-regression recipe reports ITW ECE **26.9% (1B) / 16.1% (2B)** in Pascu et al. 2024; A0p is 1B, so 0.05 ECE is unlikely. |
@@ -155,22 +155,24 @@ change, or commit.
   audio deepfake detection with self-supervised representations*, arXiv:2309.05384v2
   (Interspeech 2024), Table 3/4: XLS-R 1B + logistic regression has ITW ECE **26.9%**;
   2B has **16.1%**. The bar is ≤5%. A0p is a 1B frozen-feature linear probe.
-- **P8 access:** `faridlab/deepaction_v1` Hugging Face card: 2,600 videos, **6.06 GB**,
-  AI-generated folders **CC BY 4.0**, real Pexels folder under the Pexels license.
-  Deepfake-Eval-2024 Hugging Face card: gated, CC-BY-SA-4.0 tag, **evaluation only**;
-  use for training violates terms.
+- **P8 access:** DeepAction v1 acquired 2026-11-13: **2,605 MP4s / 6.0592 GB /
+  7 folders / 100 classes**; **2,594 unique contents** (5 extra `RunwayML/77 f–j`
+  duplicate `27 a–e`; 11 duplicate files total); AI folders **CC BY 4.0**, real
+  Pexels folder under the Pexels license; citation arXiv:2412.00526.
+  Deepfake-Eval-2024 video: gated, CC-BY-SA-4.0, **evaluation only**; draft updated
+  2026-11-13 but **not submitted** (institutional email or verifiable link
+  required).
 - **P5 evidence:** roadmap/Combei (arXiv:2506.09606, Interspeech 2025): data curation/
   pruning is the strong lever; codec augmentation was null-to-negative on wild audio.
   Measurement/operating-point changes are not a substitute for codec-diverse training.
 
 ### Recommendation
 
-**P2 first**, as a pre-registered 1.5-day experiment with a hard kill bar and a
-mandatory re-encoded T2V control. Expected value **+0.7–0.8**, not the roadmap’s
-+1.0–1.5 upside. If the user will not authorize the P2 wiring/scope-gate change,
-**P8-fast** is the best no-wiring executable item. Do **not** start P4, P5, or P3d
-now. P4 gets a 2-hour oracle test only; P5 gets a 1-day kill-test later; P3d is not
-next because A0z passed AUC and the 1B linear-probe ECE evidence is poor.
+**P2 is closed FAIL (0 booked); P8-fast is done (+0.5 booked).** The remaining
+no-wiring candidates are **P4** (2-hour oracle test before any calibration work)
+and **P5** (1-day codec kill-test later). **P3d** is not next because A0z passed
+AUC and the 1B linear-probe ECE evidence is poor. The DF-Eval-2024 video gate is a
+user action; a grant can support a separate +0.5 but is not booked now.
 
 **Execution has started; see the 2026-11-13 update below.**
 
@@ -178,8 +180,8 @@ next because A0z passed AUC and the 1B linear-probe ECE evidence is poor.
 
 - **P0c — DONE (bookkeeping).** Receipt-proven **+0.8** System rescore
   (11.7→12.5/15); API/UI divergence fixed, 5 MiB cap proven harness-only,
-  fresh ladder battery 15/15. Current booked court **63.9/100**; conservative
-  floor **63.5** if the stale-cap correction is disallowed. Receipt:
+  fresh ladder battery 15/15. Court after P0c: **63.9/100**; conservative floor
+  **63.5** if the stale-cap correction is disallowed. Receipt:
   `artifacts/scorecard_20261111/P0C_RECONCILIATION.md`.
 - **P2 — CLOSED FAIL G3/G5; 0 booked.** G1 PASS (FF++ 2.71%, CDF 0.39%),
   G2 PASS (AVLips confirm 240/240 fake + 179/179 real), G4 PASS (84/84
@@ -188,6 +190,15 @@ next because A0z passed AUC and the 1B linear-probe ECE evidence is poor.
   49/105 = 46.67% vs ≥50%** (difference 0.95pp, agreement 97.1%, image 100%).
   Zero feature/re-encode errors; the failure is coverage, not metadata. No
   production wiring. Receipt: `artifacts/p2_video_scope/RESULT.md`.
-- **Current measured court: 63.9/100** (P0c bookkeeping +0.8; P2 adds 0).
+- **P8-fast — DONE; +0.5 data coverage booked.** DeepAction v1 acquired at
+  revision `476932c3…`: 2,605 MP4s / 6.0592 GB / 7 folders / 100 classes; D3
+  20/20 full decode; D4 70/70, 0 unhandled errors (52 `video_face` / 18
+  `image_court`, 14 abstain = 20.0%); license ledger CC BY 4.0 + Pexels.
+  Duplicate audit: 2,594
+  unique contents (5 extra `RunwayML/77 f–j` duplicate `27 a–e`; 11 duplicate
+  files). DF-Eval video draft updated but **not submitted**. Receipts:
+  `artifacts/p8_data_coverage/RESULT.md`,
+  `artifacts/scorecard_20261111/P8_RECONCILIATION.md`.
+- **Current measured court: 64.4/100** (P0c +0.8; P2 0; P8-fast +0.5).
   Historical 63.1 snapshot preserved. Any new video-OOD attempt needs a new
   pre-registered signal and explicit user approval; do not lower P2's bars.
