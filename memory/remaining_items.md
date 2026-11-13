@@ -1,18 +1,19 @@
 # Argus Prime — Remaining Items Inventory
 
-**Last updated:** 2026-11-11
-**Status:** planning/research only. No training, wiring, promotion, pointer change, or
-commit is authorized by this file.
+**Last updated:** 2026-11-13
+**Status:** execution update 2026-11-13: P0c booked; P2 closed FAIL. No training,
+wiring, promotion, pointer change, or commit is authorized by this file.
 **Baseline:** **63.1/100** weighted distance-to-frontier. This is not percent-complete.
+**Current booked court:** **63.9/100** (P0c +0.8 bookkeeping; P2 adds 0).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
-closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**. No score
-booked from these runs.
+closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**; P2
+closed FAIL G3/G5. No detection score booked from these runs.
 
 ## A. Immediate bookkeeping / reconciliation
 
 | ID | Item | Status | Contribution | ETA | Notes |
 |---|---|---|---|---|---|
-| P0c | Formal scorecard rescore after Phase 0; ledger reconciliation | Open | 0–0.8 already-achieved system/honesty credit, not yet booked | ~0.5 day | Receipts only; do not retroactively inflate. This is not a detection improvement. |
+| P0c | Formal scorecard rescore after Phase 0; ledger reconciliation | **Done 2026-11-13** | **+0.8 booked** (System 11.7→12.5); no detection claim | done | Receipt: `artifacts/scorecard_20261111/P0C_RECONCILIATION.md`; historical 63.1 preserved; conservative floor 63.5. |
 
 ## B. Score-bearing build candidates
 
@@ -21,7 +22,7 @@ A failed gate stops dependent rows.
 
 | ID | Item | Status | Standalone contribution | ETA | Projected court (item-only, from 63.1) | Gate / dependency |
 |---|---|---|---|---|---|---|
-| P2 | Video OOD abstention/scope gate; abstain when video evidence is off-manifold; surface reason code | Open; first substantive video item after D3/SPLIT closure | **+0.7–0.8 expected**; +1.0–1.5 roadmap upside | 1.5–2 days | 63.8–63.9 expected; 64–65 upside | Independent of P1; must not suppress FF++/CDF in-domain; **mandatory re-encoded T2V control** (metadata-only gate is a kill) |
+| P2 | Video OOD abstention/scope gate; abstain when video evidence is off-manifold; surface reason code | **CLOSED FAIL G3/G5 (2026-11-13)** | **0 booked**; G3 face-route 45.71% vs ≥55%; opentora 20% vs ≥45%; G5 re-encoded 46.67% vs ≥50% | done | 63.9 (P0c only); P2 adds 0 | Receipt: `artifacts/p2_video_scope/RESULT.md`; no wiring; retry needs a new pre-registered signal, not a lower bar. |
 | P4 | Audio coverage-risk/calibration repair; the 84% gate masks raw FPR@0.5 **0.7949**; do not lower abstention blindly | Open; oracle test first | 0 to +0.7 only if the 2-hour oracle passes | 2h oracle + 1 day if pass | 63.1–63.8 | Ladder guard byte-equal on #606; per-group thresholds; no global conformal without grouped-exchangeability check |
 | P5 | Robustness: H.264/CRF, JPEG, MP3/Opus, resampling; real codec diversity; measure retention | Open; not next | +0.3–0.5 expected; +1.5 only with codec-diverse retraining | 1-day kill-test; 2–3 days only if approved | 63.4–63.6 expected; 64.6 upside | Measurement alone is insurance; training approval for the real lever |
 | P6 | AV sync as a separate `offset_abs` gate, not a stacker blend | Open; conditional on paired-audio evaluation | +0.7 multimodal/video | 2–3 days | 63.8 | W-AV v5 HOLD; new spec; 0.7240 external is component evidence, not a deployable stacker |
@@ -171,4 +172,22 @@ mandatory re-encoded T2V control. Expected value **+0.7–0.8**, not the roadmap
 now. P4 gets a 2-hour oracle test only; P5 gets a 1-day kill-test later; P3d is not
 next because A0z passed AUC and the 1B linear-probe ECE evidence is poor.
 
-**No execution has started.** The next action is user confirmation of one path.
+**Execution has started; see the 2026-11-13 update below.**
+
+## 2026-11-13 execution update
+
+- **P0c — DONE (bookkeeping).** Receipt-proven **+0.8** System rescore
+  (11.7→12.5/15); API/UI divergence fixed, 5 MiB cap proven harness-only,
+  fresh ladder battery 15/15. Current booked court **63.9/100**; conservative
+  floor **63.5** if the stale-cap correction is disallowed. Receipt:
+  `artifacts/scorecard_20261111/P0C_RECONCILIATION.md`.
+- **P2 — CLOSED FAIL G3/G5; 0 booked.** G1 PASS (FF++ 2.71%, CDF 0.39%),
+  G2 PASS (AVLips confirm 240/240 fake + 179/179 real), G4 PASS (84/84
+  image-court), G6/G7/G8 PASS. **G3 face-route 48/105 = 45.71% vs ≥55%**
+  (sora 76%, kling 52.5%, **opentora 8/40 = 20% vs ≥45%**); **G5 re-encoded
+  49/105 = 46.67% vs ≥50%** (difference 0.95pp, agreement 97.1%, image 100%).
+  Zero feature/re-encode errors; the failure is coverage, not metadata. No
+  production wiring. Receipt: `artifacts/p2_video_scope/RESULT.md`.
+- **Current measured court: 63.9/100** (P0c bookkeeping +0.8; P2 adds 0).
+  Historical 63.1 snapshot preserved. Any new video-OOD attempt needs a new
+  pre-registered signal and explicit user approval; do not lower P2's bars.

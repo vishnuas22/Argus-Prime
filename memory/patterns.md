@@ -235,3 +235,26 @@ Format: `- YYYY-MM-DD [area] pattern`
 - **P5 measurement alone is insurance.** The robust lever is real codec diversity in
   training (Combei, arXiv:2506.09606), not another retention table. Do a 1-day
   CRF28/JPEG q35 kill-test later; do not spend 2–3 days on the full exam now.
+
+## 2026-11-13 — P0c bookkeeping + P2 scope-gate FAIL
+
+- **A scorecard reconciliation is not a capability gain.** P0c booked +0.8 only
+  because the audit's two System defects were receipt-closed: API/UI divergence
+  fixed, 5 MiB cap proven harness-only, fresh ladder battery 23/23. The historical
+  63.1 snapshot is preserved; the 63.5 conservative floor is disclosed. Do not
+  double-count the ladder fix in System and Abstention.
+- **A train-real coverage gate can be stable and still fail coverage.** P2's
+  2-of-10 vote passed in-domain and AVLips, and the fixed re-encode control was
+  stable (0.95 pp difference, 97.1% agreement), but opentora face areas sit inside
+  the train-real envelope (`scene_face_area_mean` p0.5–p99.5 = 0.0079–0.2242), so
+  only 20% of opentora abstained. Per-generator bars are load-bearing; an overall
+  pass can hide a generator miss.
+- **Re-encode control: separate stability from absolute coverage.** P2's
+  re-encoded rate was 46.7% vs original 45.7% (stable) but below the sealed 50%
+  floor. Report both; a stable under-covering gate is not a metadata win.
+- **Data-quality audit before verdict.** Count feature errors, re-encode errors,
+  and NaN-by-design separately. P2 had 0/189 feature and 0/189 re-encode errors;
+  84 image-court rows had all features absent by design; 1/105 face rows had one
+  NaN; no face row had ≥2 NaN. An error counted as an abstention can fake a pass.
+- **Do not rescue a failed sealed bar.** P2 G3/G5 fail → closed; a retry needs a
+  new pre-registered signal, not a lower threshold or a post-hoc bar change.
