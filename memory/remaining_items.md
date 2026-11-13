@@ -1,15 +1,17 @@
 # Argus Prime — Remaining Items Inventory
 
-**Last updated:** 2026-11-13
-**Status:** execution update 2026-11-13: P0c booked; P2 closed FAIL; P8-fast
-booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0. No training,
-wiring, promotion, pointer change, or commit is authorized by this file.
+**Last updated:** 2026-11-14
+**Status:** execution update 2026-11-14: P0c booked; P2 closed FAIL; P8-fast
+booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0; **P5 codec/
+laundering kill-test GAP and closed at 0**. No training, wiring, promotion,
+pointer change, or commit is authorized by this file.
 **Baseline:** **63.1/100** weighted distance-to-frontier. This is not percent-complete.
 **Current booked court:** **64.4/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5;
-P4 0).
+P4 0; P5 0).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
 closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**; P2
-closed FAIL G3/G5; P4 closed FAIL K1 (oracle ceiling); P8-fast PASS D1–D5
+closed FAIL G3/G5; P4 closed FAIL K1 (oracle ceiling); **P5 closed GAP (audio
+8 kHz and video CRF28; image q35/resize pass)**; P8-fast PASS D1–D5
 (coverage only; no detection score).
 
 ## A. Immediate bookkeeping / reconciliation
@@ -27,7 +29,7 @@ A failed gate stops dependent rows.
 |---|---|---|---|---|---|---|
 | P2 | Video OOD abstention/scope gate; abstain when video evidence is off-manifold; surface reason code | **CLOSED FAIL G3/G5 (2026-11-13)** | **0 booked**; G3 face-route 45.71% vs ≥55%; opentora 20% vs ≥45%; G5 re-encoded 46.67% vs ≥50% | done | 63.9 (P0c only); P2 adds 0 | Receipt: `artifacts/p2_video_scope/RESULT.md`; no wiring; retry needs a new pre-registered signal, not a lower bar. |
 | P4 | Audio coverage-risk/calibration repair; the 84% gate masks raw FPR@0.5 **0.7949**; do not lower abstention blindly | **CLOSED FAIL K1 (2026-11-13)** | **0 booked**; oracle on existing p_fake+z cannot reach 30% coverage at FPR_c≤0.10 and R_all≥0.40 — no feasible policy at any coverage; best FPR_c at coverage≥30% is 0.333 (sealed grid) / 0.326 (0.005 sensitivity) | done | 64.4 (no change) | Receipt: `artifacts/p4_oracle/RESULT.md`; sealed spec + hashes; no calibration, wiring, or threshold change. Retry needs a better score/new signal, not a lower bar. |
-| P5 | Robustness: H.264/CRF, JPEG, MP3/Opus, resampling; real codec diversity; measure retention | Open; not next | +0.3–0.5 expected; +1.5 only with codec-diverse retraining | 1-day kill-test; 2–3 days only if approved | 63.4–63.6 expected; 64.6 upside | Measurement alone is insurance; training approval for the real lever |
+| P5 | Robustness: H.264/CRF, JPEG, MP3/Opus, resampling; real codec diversity; measure retention | **CLOSED GAP (2026-11-14)** | **0 booked**; audio MP3/Opus PASS but **8 kHz FAIL R1/R2/R4** (AUC 0.9153→0.6708, coverage 0.937→0.252, raw FPR 0.093→0.940; all issued rows fake-ward); video **CRF28 FAIL R3 only** (AUC 0.9072→0.8580, TPR 0.729→0.561; R1 marginal); image q35/resize PASS (saturated spot-check) | done | 64.4 (no change) | Receipt: `artifacts/p5_robustness/RESULT.md` + `RESULT_ADDENDUM.md`; 3,840 rows, 0 errors/missing, hashes/recompute PASS. Codec-diverse retraining eligible only via separate sealed spec + explicit approval; no training/wiring. |
 | P6 | AV sync as a separate `offset_abs` gate, not a stacker blend | Open; conditional on paired-audio evaluation | +0.7 multimodal/video | 2–3 days | 63.8 | W-AV v5 HOLD; new spec; 0.7240 external is component evidence, not a deployable stacker |
 | P7 | Image backbone audit + provider-real scalar calibration (DINOv3-class check); no per-generator heads | Open | +0.5 OOD-image | 1–2 days | 63.6 | Saturated dimension; keep inference latency in budget |
 | P8 | Data coverage: DeepAction acquired; DF-Eval-2024 video gate request; license ledger | **P8-fast done 2026-11-13 (+0.5)**; P8a open; P8b deferred | **+0.5 booked**; +0.5 conditional on DF-Eval video, not booked | done + external gate | **64.4 current**; 64.9 if DF-Eval video lands | DeepAction 2,605 files / 2,594 unique; CC BY 4.0 + Pexels; DF-Eval video gated/eval-only; no training |
@@ -68,6 +70,7 @@ A failed gate stops dependent rows.
 | SPLIT Stage 1 | CLOSED FAIL S2 | S2 0.513919, S3 0.546810, S5 5/27, S7 0.076667/0.057604; 9-stratum sora-empty deviation; no Stage 2 |
 | SPLIT Stage 2 / threshold rescue | SKIP | Near-chance aggregate; no post-hoc rescue |
 | W9.1 | CLOSED HOLD | 7/11 sealed bars fail; no promotion; p4 remains |
+| P5 codec/laundering kill-test | CLOSED GAP | Audio 8 kHz fails R1/R2/R4 (coverage 0.252; issued FPR 100%); video CRF28 fails R3 (TPR 0.729→0.561); image q35/resize pass; 0 booked; retraining only via separate sealed spec + approval |
 | A0z 1B DF-Eval | NOT CERTIFIED | AUC 0.778066 PASS, ECE 0.243034 FAIL; 0 booked |
 | A0z post-hoc calibration | SKIP | No temperature scaling/threshold change; would be a new experiment |
 | HOLA reproduction / AV-Deepfake1M++ frozen featurization | SKIP | 8×A100, no public HOLA weights, 1.46 TB gated data; expected Y ≈ 0 |
@@ -93,8 +96,12 @@ A failed gate stops dependent rows.
    any coverage (best FPR_c at coverage≥30% = 0.333). The 84% abstention is not
    the defect to “fix”; the score (AUC 0.5593) is. No calibration/wiring. Receipt:
    `artifacts/p4_oracle/RESULT.md`.
-4. **P5 — Robustness/codec retention** (+0.3–0.5 expected from measurement; +1.5
-   requires codec-diverse retraining; 1-day kill-test later).
+4. **P5 — CLOSED GAP; 0 booked.** Audio MP3/Opus pass, but 8 kHz resampling
+   collapses coverage to 0.252 and issues 100% fake-ward; video CRF28 loses
+   16.8 pp TPR at 0.5 (Face2Face/NeuralTextures); image q35/resize pass
+   (saturated spot-check). Retraining only via a separate sealed spec + explicit
+   approval. Next no-wiring candidates: P7 image backbone audit, P9 system, or
+   P6 AV gate (new spec); P3d is low-probability.
 5. **P3d — A0p** (unlikely to fix ECE: 1B linear-probe ITW ECE 26.9%, Pascu 2024;
    training approval required; not next).
 6. **P0c — scorecard reconciliation** (0–0.8 bookkeeping; not “next level”).
@@ -127,7 +134,7 @@ change, or commit.
 | 1 | **P2 video OOD/scope gate** | **0 booked** | done | — | CLOSED FAIL G3/G5; no wiring; projected +0.7–0.8 not realized. |
 | 2 | **P8-fast data coverage** | **+0.5 booked** | done 2026-11-13 | — | DeepAction acquired (2,605 files / 2,594 unique; CC BY 4.0 + Pexels); D4 70/70, 0 errors; DF-Eval video gate remains user action. |
 | 3 | **P4 audio oracle coverage–risk test** | **0 booked** | done 2026-11-13 | — | **CLOSED FAIL K1.** Existing p_fake+z cannot reach 30% coverage at FPR_c≤0.10 and R_all≥0.40; no feasible policy at any coverage; best FPR_c at coverage≥30% = 0.333 (sealed) / 0.326 (0.005 sensitivity). The 84% gate is not the defect; AUC 0.5593 is. No calibration/wiring. Receipt: `artifacts/p4_oracle/RESULT.md`. |
-| 4 | **P5 robustness** | +0.3–0.5 expected; +1.5 only with real codec diversity/retraining | 2–3 days + training approval | Low–medium | Measurement alone is insurance; the robust lever is codec-diverse training, which is not authorized. Do a 1-day CRF28/JPEG q35 kill-test later, not the full exam now. |
+| 4 | **P5 robustness** | **0 booked** | done 2026-11-14 | — | **CLOSED GAP.** Audio 8 kHz fails R1/R2/R4 (AUC 0.6708, coverage 0.252, raw FPR 0.940; all 151 issued rows p≥0.5, with issued FPR 68/68 and issued TPR 83/83); video CRF28 fails R3 only (TPR 0.729→0.561; Face2Face/NeuralTextures collapse); image q35/resize pass but baseline AUC is saturated. Retraining only via separate sealed spec + explicit approval; no training/wiring. Receipt: `artifacts/p5_robustness/RESULT.md` + `RESULT_ADDENDUM.md`. |
 | 5 | **P3d A0p** | ~0 | 1 day + training approval | Low | A0z passed AUC; A0p is the pre-registered fallback for an AUC miss, not ECE. The same frozen XLS-R + logistic-regression recipe reports ITW ECE **26.9% (1B) / 16.1% (2B)** in Pascu et al. 2024; A0p is 1B, so 0.05 ECE is unlikely. |
 | 6 | **P0c scorecard reconciliation** | 0–0.8 bookkeeping | 0.5 day | High | Books already-achieved credit; not a detection improvement. Do not call it “next level.” |
 
@@ -173,12 +180,17 @@ change, or commit.
 ### Recommendation
 
 **P2 is closed FAIL (0 booked); P8-fast is done (+0.5 booked); P4 is closed
-FAIL K1 (0 booked).** The remaining no-wiring candidate is **P5** (1-day codec
-kill-test later). **P3d** is not next because A0z passed AUC and the 1B
-linear-probe ECE evidence is poor. The DF-Eval-2024 video gate is a user action;
-a grant can support a separate +0.5 but is not booked now.
+FAIL K1 (0 booked); P5 is closed GAP (0 booked).** P5 measured a real
+codec/laundering gap, but the gap is not an improvement receipt. The next choice
+is a user ruling: (a) draft a separate sealed codec-diverse retraining proposal
+(no training until explicitly approved), or (b) proceed to the next no-wiring
+roadmap item — **P7** image backbone audit (+0.5 OOD-image, 1–2 days), **P9**
+system/transparency (+0.4 system, 1–2 days), or **P6** AV `offset_abs` gate
+(+0.7 multimodal/video, new spec). **P3d** is not next because A0z passed AUC and
+the 1B linear-probe ECE evidence is poor. The DF-Eval-2024 video gate is a user
+action; a grant can support a separate +0.5 but is not booked now.
 
-**Execution has started; see the 2026-11-13 update below.**
+**Execution has started; see the 2026-11-14 update below.**
 
 ## 2026-11-13 execution update
 
@@ -213,6 +225,39 @@ a grant can support a separate +0.5 but is not booked now.
   **R_all 38/308 = 0.1234** (the old “TPR 0.6909” was conditional, not overall).
   No K2 cross-fit, no group oracle, no calibration/wiring/training. Receipt:
   `artifacts/p4_oracle/RESULT.md`; spec/script hashes in `seal.txt`.
-- **Current measured court: 64.4/100** (P0c +0.8; P2 0; P8-fast +0.5; P4 0).
+- **Current measured court: 64.4/100** (P0c +0.8; P2 0; P8-fast +0.5; P4 0; P5 0).
   Historical 63.1 snapshot preserved. Any new video-OOD attempt needs a new
   pre-registered signal and explicit user approval; do not lower P2's bars.
+
+## 2026-11-14 execution update
+
+- **P5 — CLOSED GAP; 0 booked.** Sealed read-only codec/laundering kill-test:
+  3,840 rows (audio ITW 600×4; video FF++ C23 420×2; image 100/100×3), **0
+  errors, 0 missing**, all fixed-input/model hashes and baseline recomputes PASS
+  (video max |Δ| 0.000050; audio orig re-score max |Δ| 0.000000). No media
+  retained; 3,840 transform receipts. Receipts: `artifacts/p5_robustness/
+  RESULT.md` and `RESULT_ADDENDUM.md`; spec/script hashes in `seal.txt`.
+- **Audio:** MP3 128k PASS (AUC 0.9153→0.9164; coverage 0.938; FPR 0.093; TPR
+  0.747→0.767); Opus 64k PASS (0.9161; coverage 0.940; FPR 0.093; TPR 0.743).
+  **8 kHz resample FAIL R1/R2/R4:** AUC 0.6708 (Δ −0.2445, CI −0.2898..−0.2013);
+  coverage 0.252 (Δ −0.685); raw FPR 0.940 (Δ +0.8467); raw TPR 0.973
+  (Δ +0.2267). All 449 abstentions are OOC; all **68 covered reals** and **83
+  covered fakes** score p≥0.5, so issued FPR/TPR are both 100%. The 8 kHz
+  transform preserves duration/RMS; this is a fake-ward domain shift, not
+  corruption.
+- **Video:** **H.264 CRF28 FAIL R3 only:** AUC 0.9072→0.8580 (Δ −0.04917, CI
+  −0.07027..−0.02777); coverage 1.0; FPR 0.100→0.050; TPR 0.729→0.561
+  (Δ −0.1679). R1 point-passes by only 0.00083 and the CI includes −0.05.
+  Per-method TPR: Deepfakes 0.957→0.929; Face2Face 0.643→0.300; FaceSwap
+  0.914→0.857; NeuralTextures 0.400→0.157. The loss is an operating-point
+  failure concentrated in the hard methods, not an aggregate ranking collapse.
+- **Image:** JPEG q35 PASS (AUC 0.9992; coverage 0.725; raw FPR 0.040; TPR
+  1.000); resize 50% PASS (0.9996; coverage 0.745; raw FPR 0.090; TPR 1.000).
+  Issued FPR is 0/47 and 0/52 respectively. Baseline AUC is saturated at 1.0000
+  on this 100/100 sample → spot-check only; the T11/T9 recapture 45% real-FPR
+  gap remains separate and was not re-measured.
+- **Disposition:** P5 adds **0**; court **64.4/100**. No training, wiring,
+  promotion, pointer change, threshold change, or commit. A codec-diverse
+  retraining proposal is eligible only via a separate sealed spec and explicit
+  user approval. Next-item choice: sealed retraining proposal, or next no-wiring
+  item (P7/P9/P6); P3d remains low-probability.

@@ -10,7 +10,7 @@ must be justified as anti-regression, never booked as improvement.
 Dimensions: in-domain 14.4/15 · OOD-image 8.5/10 · OOD-audio 5.0/10 · OOD-video 1.2/10
 · abstention 11.3/15 · robustness 4.5/10 · data coverage 4.5/10 · system 11.7/15 ·
 multimodal 2.0/5.
-**Current booked: 64.4/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13; P4 K1 FAIL adds 0, 2026-11-13).
+**Current booked: 64.4/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13; P4 K1 FAIL adds 0, 2026-11-13; P5 codec/laundering GAP adds 0, 2026-11-14).
 Conservative P0c floor: 63.5 if the stale-cap correction is disallowed.
 
 ## Ledger
@@ -33,6 +33,7 @@ Conservative P0c floor: 63.5 if the stale-cap correction is disallowed.
 | P2 video OOD/scope gate | 2026-11-13 | **FAIL G3/G5**: G1 PASS (FF++ 2.71%, CDF 0.39%; issued AUC deltas +0.0009/−0.000008), G2 PASS (AVLips confirm 240/240 fake + 179/179 real, parity 0), G4 PASS (84/84 image-court), G6/G7/G8 PASS; **G3 face-route 48/105 = 45.71% vs ≥55%** (sora 76%, kling 52.5%, **opentora 8/40 = 20% vs ≥45%**); **G5 re-encoded 49/105 = 46.67% vs ≥50%** (diff 0.95pp, agreement 97.1%, image 100%); 0 feature/re-encode errors; stable re-encode → coverage fail, not metadata | **0 booked**; no wiring; projected +0.7–0.8 not realized | **CLOSED FAIL** |
 | P8-fast data coverage (D-089) | 2026-11-13 | **PASS D1–D5**: DeepAction v1 rev `476932c3…`: **2,605 MP4s / 6.0592 GB / 7 folders / 100 classes**; license ledger CC BY 4.0 (AI) + Pexels (real) + arXiv:2412.00526; D3 **20/20 full decode** (resolutions 512×512–2160×4096; only 2/20 512²); D4 **70/70, 0 errors**, 52 `video_face` / 18 `image_court`, 14 abstain (20.0%), 56 p-scored; duplicate audit **2,594 unique contents** (5 extra `RunwayML/77 f–j` duplicate `27 a–e`; 11 duplicate files; 699/700 class-content sets). DF-Eval video draft updated, **not submitted** | **+0.5 data coverage** (dim 5 4.5→5.0); court **64.4**; no detection claim; +0.5 DF-Eval-video conditional not booked | **BOOKED** |
 | P4 audio oracle coverage–risk (D-090) | 2026-11-13 | **K1 FAIL**: 703 DF-Eval audio (395 real / 308 fake), deployed AUC **0.5593** (95% CI 0.5176–0.6022). Sealed global oracle on `(p_fake, z_norm)` finds **no policy** at FPR_c≤0.10 and R_all≥0.40 at any coverage; K1 coverage 0% vs ≥30%. Best FPR_c at coverage≥30%: **0.333** (0.01 grid) / **0.326** (0.005 sensitivity), far above 0.10. Deployed: coverage 16.07%; FPR_c 35/58 = 0.6034; TPR_c 38/55 = 0.6909; **R_all 38/308 = 0.1234** (old TPR was conditional). No K2 cross-fit/group oracle | **0 booked**; no calibration/wiring/training; court **64.4** unchanged | **CLOSED FAIL K1**; retry needs a better score/new signal, not a lower bar |
+| P5 codec/laundering robustness kill-test (D-091) | 2026-11-14 | **GAP, 0 booked**: sealed read-only exam, 3,840 rows (audio ITW 600×4; video FF++ C23 420×2; image 100/100×3), 0 errors/0 missing, all hashes/recompute PASS. **Audio**: MP3 128k PASS (AUC 0.9153→0.9164, Δ +0.0011; cov 0.937→0.938; FPR 0.093; TPR 0.747→0.767); Opus 64k PASS (0.9161, Δ +0.0007; cov 0.940; FPR 0.093; TPR 0.743); **8 kHz resample FAIL R1/R2/R4** (AUC 0.6708, Δ −0.2445 [CI −0.2898..−0.2013]; cov 0.252, Δ −0.685; raw FPR 0.940, Δ +0.8467; raw TPR 0.973, Δ +0.2267; all 449 abstentions OOC; all 68 covered reals and 83 covered fakes p≥0.5 → issued FPR/TPR 100%). **Video**: **H.264 CRF28 FAIL R3 only** (AUC 0.9072→0.8580, Δ −0.04917 [CI −0.07027..−0.02777]; cov 1.0; FPR 0.100→0.050; TPR 0.729→0.561, Δ −0.1679; R1 point-passes by 0.00083, CI includes −0.05; per-method TPR Face2Face 0.643→0.300, NeuralTextures 0.400→0.157, Deepfakes 0.957→0.929, FaceSwap 0.914→0.857). **Image**: JPEG q35 PASS (AUC 0.9992, Δ −0.0008; cov 0.725; raw FPR 0.040; TPR 1.000); resize 50% PASS (0.9996, Δ −0.0004; cov 0.745; raw FPR 0.090; TPR 1.000); baseline AUC saturated at 1.0000 → spot-check only; issued FPR 0/47, 0/55, 0/52 | **0**; court **64.4** unchanged; no training/wiring/promotion/pointer/threshold/commit. Codec-diverse retraining eligible only via separate sealed spec + explicit approval | **CLOSED GAP**; receipts `artifacts/p5_robustness/RESULT.md` + `RESULT_ADDENDUM.md` |
 
 ## Ceiling adjustment (honest)
 
@@ -45,8 +46,9 @@ under the exam-only training scope: audio finetune ~+4.3 + W9 deployment ~+2-3 +
 data acquisition +2.5 + AV joint +1.5 + robustness +2.0 + ladder remainder ~+2 ≈
 **+14-15 → ceiling ~77-78/100** **before** the D3 content-matched result. D3 is now
 **closed FAIL G4 (D-084)**, SPLIT is **closed FAIL S2 (D-087)**, A0z 1B is
-**AUC-pass/ECE-fail (D-088)**, and P4 is **closed FAIL K1 (D-090)**, so the
-current measured court is **64.4/100** (P8-fast +0.5; P4 0). The
+**AUC-pass/ECE-fail (D-088)**, P4 is **closed FAIL K1 (D-090)**, and P5 is
+**closed GAP (D-091)**, so the current measured court is **64.4/100**
+(P8-fast +0.5; P4 0; P5 0). The
 **73-76** figure is a theoretical public-data ceiling, not a current measured path;
 77-78 remains conditional on a new pre-registered video-OOD channel clearing its
 bars. The remaining ~22 is structural (no public corpus for 2026-frontier
@@ -66,6 +68,7 @@ achievable by anyone with public data today.
 - **A0z post-hoc calibration / unapproved A0p** — **ECE 0.2430 FAIL (D-088)**.
   No temperature scaling, threshold change, or training. A0p requires separate
   explicit training approval; A0z is not certified.
+- **P5 codec-diverse retraining** — **P5 GAP (D-091)** makes a codec-diverse retraining proposal eligible only via a separate sealed spec and explicit user approval; no confirmed Y, and the measured gap is not itself an improvement receipt. Do not start by default; the next no-wiring roadmap item is the safer default unless robustness is explicitly prioritized.
 - **T2V training wave** — GenVidBench-class training data is exam-only (scope-blocked).
 - **Standalone 2021 full-scoring** — folded into W9 STEP 6 as anti-regression
   insurance (subsampled per D-081 resolution: reals-complete + 50k seeded fakes,
