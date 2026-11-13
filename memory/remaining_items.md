@@ -2,13 +2,15 @@
 
 **Last updated:** 2026-11-13
 **Status:** execution update 2026-11-13: P0c booked; P2 closed FAIL; P8-fast
-booked +0.5 data coverage. No training, wiring, promotion, pointer change, or
-commit is authorized by this file.
+booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0. No training,
+wiring, promotion, pointer change, or commit is authorized by this file.
 **Baseline:** **63.1/100** weighted distance-to-frontier. This is not percent-complete.
-**Current booked court:** **64.4/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5).
+**Current booked court:** **64.4/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5;
+P4 0).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
 closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**; P2
-closed FAIL G3/G5; P8-fast PASS D1–D5 (coverage only; no detection score).
+closed FAIL G3/G5; P4 closed FAIL K1 (oracle ceiling); P8-fast PASS D1–D5
+(coverage only; no detection score).
 
 ## A. Immediate bookkeeping / reconciliation
 
@@ -24,7 +26,7 @@ A failed gate stops dependent rows.
 | ID | Item | Status | Standalone contribution | ETA | Projected court (item-only, from 63.1) | Gate / dependency |
 |---|---|---|---|---|---|---|
 | P2 | Video OOD abstention/scope gate; abstain when video evidence is off-manifold; surface reason code | **CLOSED FAIL G3/G5 (2026-11-13)** | **0 booked**; G3 face-route 45.71% vs ≥55%; opentora 20% vs ≥45%; G5 re-encoded 46.67% vs ≥50% | done | 63.9 (P0c only); P2 adds 0 | Receipt: `artifacts/p2_video_scope/RESULT.md`; no wiring; retry needs a new pre-registered signal, not a lower bar. |
-| P4 | Audio coverage-risk/calibration repair; the 84% gate masks raw FPR@0.5 **0.7949**; do not lower abstention blindly | Open; oracle test first | 0 to +0.7 only if the 2-hour oracle passes | 2h oracle + 1 day if pass | 63.1–63.8 | Ladder guard byte-equal on #606; per-group thresholds; no global conformal without grouped-exchangeability check |
+| P4 | Audio coverage-risk/calibration repair; the 84% gate masks raw FPR@0.5 **0.7949**; do not lower abstention blindly | **CLOSED FAIL K1 (2026-11-13)** | **0 booked**; oracle on existing p_fake+z cannot reach 30% coverage at FPR_c≤0.10 and R_all≥0.40 — no feasible policy at any coverage; best FPR_c at coverage≥30% is 0.333 (sealed grid) / 0.326 (0.005 sensitivity) | done | 64.4 (no change) | Receipt: `artifacts/p4_oracle/RESULT.md`; sealed spec + hashes; no calibration, wiring, or threshold change. Retry needs a better score/new signal, not a lower bar. |
 | P5 | Robustness: H.264/CRF, JPEG, MP3/Opus, resampling; real codec diversity; measure retention | Open; not next | +0.3–0.5 expected; +1.5 only with codec-diverse retraining | 1-day kill-test; 2–3 days only if approved | 63.4–63.6 expected; 64.6 upside | Measurement alone is insurance; training approval for the real lever |
 | P6 | AV sync as a separate `offset_abs` gate, not a stacker blend | Open; conditional on paired-audio evaluation | +0.7 multimodal/video | 2–3 days | 63.8 | W-AV v5 HOLD; new spec; 0.7240 external is component evidence, not a deployable stacker |
 | P7 | Image backbone audit + provider-real scalar calibration (DINOv3-class check); no per-generator heads | Open | +0.5 OOD-image | 1–2 days | 63.6 | Saturated dimension; keep inference latency in budget |
@@ -86,9 +88,11 @@ A failed gate stops dependent rows.
    +0.7–0.8 expectation is not realized.
 2. **P8-fast — DONE 2026-11-13; +0.5 data coverage booked.** Remaining P8 leg:
    DF-Eval-2024 video gate (user action; **not submitted**).
-3. **P4 — Audio coverage–risk/calibration repair** (the 84% is a safety gate, not
-   over-abstention; raw FPR@0.5 **0.7949**; 2-hour oracle first; 0 to +0.7 only if
-   the oracle passes).
+3. **P4 — CLOSED FAIL K1; 0 booked.** The oracle on existing `p_fake`+z
+   cannot reach 30% coverage at FPR_c≤0.10 and R_all≥0.40; no feasible policy at
+   any coverage (best FPR_c at coverage≥30% = 0.333). The 84% abstention is not
+   the defect to “fix”; the score (AUC 0.5593) is. No calibration/wiring. Receipt:
+   `artifacts/p4_oracle/RESULT.md`.
 4. **P5 — Robustness/codec retention** (+0.3–0.5 expected from measurement; +1.5
    requires codec-diverse retraining; 1-day kill-test later).
 5. **P3d — A0p** (unlikely to fix ECE: 1B linear-probe ITW ECE 26.9%, Pascu 2024;
@@ -122,7 +126,7 @@ change, or commit.
 |---|---|---:|---|---|---|
 | 1 | **P2 video OOD/scope gate** | **0 booked** | done | — | CLOSED FAIL G3/G5; no wiring; projected +0.7–0.8 not realized. |
 | 2 | **P8-fast data coverage** | **+0.5 booked** | done 2026-11-13 | — | DeepAction acquired (2,605 files / 2,594 unique; CC BY 4.0 + Pexels); D4 70/70, 0 errors; DF-Eval video gate remains user action. |
-| 3 | **P4 audio oracle coverage–risk test** | 0 to +0.7 only if oracle passes | 2 hours, then decide | Low–medium | The 84% is not over-abstention: raw FPR@0.5 = **0.7949**, coverage gate 0.839. Lowering abstention blindly increases false positives. Run the oracle test before any 1–2 day calibration work. |
+| 3 | **P4 audio oracle coverage–risk test** | **0 booked** | done 2026-11-13 | — | **CLOSED FAIL K1.** Existing p_fake+z cannot reach 30% coverage at FPR_c≤0.10 and R_all≥0.40; no feasible policy at any coverage; best FPR_c at coverage≥30% = 0.333 (sealed) / 0.326 (0.005 sensitivity). The 84% gate is not the defect; AUC 0.5593 is. No calibration/wiring. Receipt: `artifacts/p4_oracle/RESULT.md`. |
 | 4 | **P5 robustness** | +0.3–0.5 expected; +1.5 only with real codec diversity/retraining | 2–3 days + training approval | Low–medium | Measurement alone is insurance; the robust lever is codec-diverse training, which is not authorized. Do a 1-day CRF28/JPEG q35 kill-test later, not the full exam now. |
 | 5 | **P3d A0p** | ~0 | 1 day + training approval | Low | A0z passed AUC; A0p is the pre-registered fallback for an AUC miss, not ECE. The same frozen XLS-R + logistic-regression recipe reports ITW ECE **26.9% (1B) / 16.1% (2B)** in Pascu et al. 2024; A0p is 1B, so 0.05 ECE is unlikely. |
 | 6 | **P0c scorecard reconciliation** | 0–0.8 bookkeeping | 0.5 day | High | Books already-achieved credit; not a detection improvement. Do not call it “next level.” |
@@ -168,11 +172,11 @@ change, or commit.
 
 ### Recommendation
 
-**P2 is closed FAIL (0 booked); P8-fast is done (+0.5 booked).** The remaining
-no-wiring candidates are **P4** (2-hour oracle test before any calibration work)
-and **P5** (1-day codec kill-test later). **P3d** is not next because A0z passed
-AUC and the 1B linear-probe ECE evidence is poor. The DF-Eval-2024 video gate is a
-user action; a grant can support a separate +0.5 but is not booked now.
+**P2 is closed FAIL (0 booked); P8-fast is done (+0.5 booked); P4 is closed
+FAIL K1 (0 booked).** The remaining no-wiring candidate is **P5** (1-day codec
+kill-test later). **P3d** is not next because A0z passed AUC and the 1B
+linear-probe ECE evidence is poor. The DF-Eval-2024 video gate is a user action;
+a grant can support a separate +0.5 but is not booked now.
 
 **Execution has started; see the 2026-11-13 update below.**
 
@@ -199,6 +203,16 @@ user action; a grant can support a separate +0.5 but is not booked now.
   files). DF-Eval video draft updated but **not submitted**. Receipts:
   `artifacts/p8_data_coverage/RESULT.md`,
   `artifacts/scorecard_20261111/P8_RECONCILIATION.md`.
-- **Current measured court: 64.4/100** (P0c +0.8; P2 0; P8-fast +0.5).
+- **P4 — CLOSED FAIL K1; 0 booked.** Sealed oracle test on the deployed
+  DF-Eval audio exam (703 clips, 395 real / 308 fake; AUC 0.5593, 95% CI
+  0.5176–0.6022). No global policy on `(p_fake, z_norm)` reaches **FPR_c≤0.10**
+  with **R_all≥0.40** at any coverage; K1 coverage is **0%**, not 30%. Best
+  FPR_c at coverage≥30% is **0.333** on the sealed 0.01 grid and **0.326** on a
+  post-seal 0.005 sensitivity grid — both far above 0.10. Deployed point:
+  coverage 113/703 = 16.07%; FPR_c 35/58 = 0.6034; TPR_c 38/55 = 0.6909;
+  **R_all 38/308 = 0.1234** (the old “TPR 0.6909” was conditional, not overall).
+  No K2 cross-fit, no group oracle, no calibration/wiring/training. Receipt:
+  `artifacts/p4_oracle/RESULT.md`; spec/script hashes in `seal.txt`.
+- **Current measured court: 64.4/100** (P0c +0.8; P2 0; P8-fast +0.5; P4 0).
   Historical 63.1 snapshot preserved. Any new video-OOD attempt needs a new
   pre-registered signal and explicit user approval; do not lower P2's bars.

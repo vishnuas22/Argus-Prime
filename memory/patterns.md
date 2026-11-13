@@ -287,3 +287,22 @@ Format: `- YYYY-MM-DD [area] pattern`
 - **Coverage credit is capped at the low end.** P8-fast books +0.5 (data coverage
   4.5→5.0), not the +1.0 upside; the DF-Eval video grant is a separate,
   unsubmitted +0.5 opportunity.
+- **Oracle kill tests must use the threshold oracle, not the label oracle.**
+  The label-aware perfect-ordering curve (reject true errors first) is an
+  unattainable lower bound; using it as a pass bar is too lenient. The relevant
+  ceiling for a calibration/coverage repair is the best threshold policy on the
+  existing scores. Monotone calibration preserves ranking; only two-sided bands,
+  group thresholds, or a better score can move the risk–coverage frontier.
+- **Name the denominator, every time.** The deployed audio point’s “TPR 0.6909”
+  was `TP / covered_fakes` (38/55), not overall recall (38/308 = 0.1234). A
+  conditional TPR and overall `R_all` are different product claims; report both.
+  At 30% coverage, an `R_all ≥0.40` bar is a +0.10 lift over random, not a
+  restatement of a conditional 0.50.
+- **P4 is a score-quality kill, not an abstention-threshold miss.** DF-Eval audio
+  703 (395 real / 308 fake), AUC 0.5593 (95% CI 0.5176–0.6022). The sealed
+  oracle found **no** policy on `(p_fake, z_norm)` at FPR_c≤0.10 and R_all≥0.40
+  at any coverage; best FPR_c at coverage≥30% was 0.333 (sealed 0.01 grid) /
+  0.326 (0.005 sensitivity), far above 0.10. Do not lower the gate to “fix” the
+  84% abstention; that converts honest abstention into false accusations. A
+  future audio attempt needs a better score or new signal. Receipt:
+  `artifacts/p4_oracle/RESULT.md`.

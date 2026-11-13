@@ -10,7 +10,7 @@ must be justified as anti-regression, never booked as improvement.
 Dimensions: in-domain 14.4/15 · OOD-image 8.5/10 · OOD-audio 5.0/10 · OOD-video 1.2/10
 · abstention 11.3/15 · robustness 4.5/10 · data coverage 4.5/10 · system 11.7/15 ·
 multimodal 2.0/5.
-**Current booked: 64.4/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13).
+**Current booked: 64.4/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13; P4 K1 FAIL adds 0, 2026-11-13).
 Conservative P0c floor: 63.5 if the stale-cap correction is disallowed.
 
 ## Ledger
@@ -32,18 +32,21 @@ Conservative P0c floor: 63.5 if the stale-cap correction is disallowed.
 | P0c scorecard reconciliation | 2026-11-13 | **No detection Y**; receipt-proven **System 11.7→12.5 (+0.8)**: API/UI divergence fixed (`p_fake_adjudicated` + UI bridge), 5 MiB cap proven harness-only (product cap 100 MB), fresh ladder battery 23/23 (#608 0.0382, #610 0.5609, #606 0.8163); historical 63.1 snapshot preserved | **+0.8 bookkeeping**; court **63.9**; conservative floor **63.5** if stale-cap correction disallowed | **BOOKED** |
 | P2 video OOD/scope gate | 2026-11-13 | **FAIL G3/G5**: G1 PASS (FF++ 2.71%, CDF 0.39%; issued AUC deltas +0.0009/−0.000008), G2 PASS (AVLips confirm 240/240 fake + 179/179 real, parity 0), G4 PASS (84/84 image-court), G6/G7/G8 PASS; **G3 face-route 48/105 = 45.71% vs ≥55%** (sora 76%, kling 52.5%, **opentora 8/40 = 20% vs ≥45%**); **G5 re-encoded 49/105 = 46.67% vs ≥50%** (diff 0.95pp, agreement 97.1%, image 100%); 0 feature/re-encode errors; stable re-encode → coverage fail, not metadata | **0 booked**; no wiring; projected +0.7–0.8 not realized | **CLOSED FAIL** |
 | P8-fast data coverage (D-089) | 2026-11-13 | **PASS D1–D5**: DeepAction v1 rev `476932c3…`: **2,605 MP4s / 6.0592 GB / 7 folders / 100 classes**; license ledger CC BY 4.0 (AI) + Pexels (real) + arXiv:2412.00526; D3 **20/20 full decode** (resolutions 512×512–2160×4096; only 2/20 512²); D4 **70/70, 0 errors**, 52 `video_face` / 18 `image_court`, 14 abstain (20.0%), 56 p-scored; duplicate audit **2,594 unique contents** (5 extra `RunwayML/77 f–j` duplicate `27 a–e`; 11 duplicate files; 699/700 class-content sets). DF-Eval video draft updated, **not submitted** | **+0.5 data coverage** (dim 5 4.5→5.0); court **64.4**; no detection claim; +0.5 DF-Eval-video conditional not booked | **BOOKED** |
+| P4 audio oracle coverage–risk (D-090) | 2026-11-13 | **K1 FAIL**: 703 DF-Eval audio (395 real / 308 fake), deployed AUC **0.5593** (95% CI 0.5176–0.6022). Sealed global oracle on `(p_fake, z_norm)` finds **no policy** at FPR_c≤0.10 and R_all≥0.40 at any coverage; K1 coverage 0% vs ≥30%. Best FPR_c at coverage≥30%: **0.333** (0.01 grid) / **0.326** (0.005 sensitivity), far above 0.10. Deployed: coverage 16.07%; FPR_c 35/58 = 0.6034; TPR_c 38/55 = 0.6909; **R_all 38/308 = 0.1234** (old TPR was conditional). No K2 cross-fit/group oracle | **0 booked**; no calibration/wiring/training; court **64.4** unchanged | **CLOSED FAIL K1**; retry needs a better score/new signal, not a lower bar |
 
 ## Ceiling adjustment (honest)
 
 The scorecard's recovery budget credited D3 +6.8 — **refuted on our corpora** (D-082
 content-motion confound: the paper's benchmark is content-matched; our real arm is
 static talking heads). Ladder/surface +4.0 — **partially banked** (defect closed;
-the 84% audio over-abstention remains). Updated realistic recovery with public data
+P4 oracle K1 shows the 84% audio gate is not the defect; the score is — D-090).
+Updated realistic recovery with public data
 under the exam-only training scope: audio finetune ~+4.3 + W9 deployment ~+2-3 +
 data acquisition +2.5 + AV joint +1.5 + robustness +2.0 + ladder remainder ~+2 ≈
 **+14-15 → ceiling ~77-78/100** **before** the D3 content-matched result. D3 is now
-**closed FAIL G4 (D-084)**, SPLIT is **closed FAIL S2 (D-087)**, and A0z 1B is
-**AUC-pass/ECE-fail (D-088)**, so the measured court remains **63/100**. The
+**closed FAIL G4 (D-084)**, SPLIT is **closed FAIL S2 (D-087)**, A0z 1B is
+**AUC-pass/ECE-fail (D-088)**, and P4 is **closed FAIL K1 (D-090)**, so the
+current measured court is **64.4/100** (P8-fast +0.5; P4 0). The
 **73-76** figure is a theoretical public-data ceiling, not a current measured path;
 77-78 remains conditional on a new pre-registered video-OOD channel clearing its
 bars. The remaining ~22 is structural (no public corpus for 2026-frontier
