@@ -3,16 +3,18 @@
 **Last updated:** 2026-11-14
 **Status:** execution update 2026-11-14: P0c booked; P2 closed FAIL; P8-fast
 booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0; **P5 codec/
-laundering kill-test GAP and closed at 0**. No training, wiring, promotion,
+laundering kill-test GAP and closed at 0**; **P9 read-only C2PA validator PASS
+and booked +0.4 system (0 detection)**. No training, wiring, promotion,
 pointer change, or commit is authorized by this file.
 **Baseline:** **63.1/100** weighted distance-to-frontier. This is not percent-complete.
-**Current booked court:** **64.4/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5;
-P4 0; P5 0).
+**Current booked court:** **64.8/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5;
+P4 0; P5 0; P9 +0.4 system).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
 closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**; P2
 closed FAIL G3/G5; P4 closed FAIL K1 (oracle ceiling); **P5 closed GAP (audio
 8 kHz and video CRF28; image q35/resize pass)**; P8-fast PASS D1–D5
-(coverage only; no detection score).
+(coverage only; no detection score); **P9 PASS B1-B15 (transparency-only;
+0 detection)**.
 
 ## A. Immediate bookkeeping / reconciliation
 
@@ -30,10 +32,10 @@ A failed gate stops dependent rows.
 | P2 | Video OOD abstention/scope gate; abstain when video evidence is off-manifold; surface reason code | **CLOSED FAIL G3/G5 (2026-11-13)** | **0 booked**; G3 face-route 45.71% vs ≥55%; opentora 20% vs ≥45%; G5 re-encoded 46.67% vs ≥50% | done | 63.9 (P0c only); P2 adds 0 | Receipt: `artifacts/p2_video_scope/RESULT.md`; no wiring; retry needs a new pre-registered signal, not a lower bar. |
 | P4 | Audio coverage-risk/calibration repair; the 84% gate masks raw FPR@0.5 **0.7949**; do not lower abstention blindly | **CLOSED FAIL K1 (2026-11-13)** | **0 booked**; oracle on existing p_fake+z cannot reach 30% coverage at FPR_c≤0.10 and R_all≥0.40 — no feasible policy at any coverage; best FPR_c at coverage≥30% is 0.333 (sealed grid) / 0.326 (0.005 sensitivity) | done | 64.4 (no change) | Receipt: `artifacts/p4_oracle/RESULT.md`; sealed spec + hashes; no calibration, wiring, or threshold change. Retry needs a better score/new signal, not a lower bar. |
 | P5 | Robustness: H.264/CRF, JPEG, MP3/Opus, resampling; real codec diversity; measure retention | **CLOSED GAP (2026-11-14)** | **0 booked**; audio MP3/Opus PASS but **8 kHz FAIL R1/R2/R4** (AUC 0.9153→0.6708, coverage 0.937→0.252, raw FPR 0.093→0.940; all issued rows fake-ward); video **CRF28 FAIL R3 only** (AUC 0.9072→0.8580, TPR 0.729→0.561; R1 marginal); image q35/resize PASS (saturated spot-check) | done | 64.4 (no change) | Receipt: `artifacts/p5_robustness/RESULT.md` + `RESULT_ADDENDUM.md`; 3,840 rows, 0 errors/missing, hashes/recompute PASS. Codec-diverse retraining eligible only via separate sealed spec + explicit approval; no training/wiring. |
-| P6 | AV sync as a separate `offset_abs` gate, not a stacker blend | Open; conditional on paired-audio evaluation | +0.7 multimodal/video | 2–3 days | 63.8 | W-AV v5 HOLD; new spec; 0.7240 external is component evidence, not a deployable stacker |
-| P7 | Image backbone audit + provider-real scalar calibration (DINOv3-class check); no per-generator heads | Open | +0.5 OOD-image | 1–2 days | 63.6 | Saturated dimension; keep inference latency in budget |
-| P8 | Data coverage: DeepAction acquired; DF-Eval-2024 video gate request; license ledger | **P8-fast done 2026-11-13 (+0.5)**; P8a open; P8b deferred | **+0.5 booked**; +0.5 conditional on DF-Eval video, not booked | done + external gate | **64.4 current**; 64.9 if DF-Eval video lands | DeepAction 2,605 files / 2,594 unique; CC BY 4.0 + Pexels; DF-Eval video gated/eval-only; no training |
-| P9 | System/transparency: C2PA read-only validator, security/ops checks, test/CI, model cards | Open | +0.4 system; 0 detection | 1–2 days | 63.5 | C2PA is transparency-only; never a gate |
+| P6 | AV sync as a separate `offset_abs` gate, not a stacker blend | **CLOSED KILL B3 (2026-11-14)** | **0 booked**; FP **106/358 = 29.6089%** vs ≤35 (Wilson 95% 0.251165–0.345343); TP 350/480 = 72.9167% PASS; AUC 0.724002 parity PASS; coverage 838/838 PASS; tau 2.5 frames; `>=` 107 FP / 375 TP report-only | done | 64.8 (no change) | Receipt: `artifacts/p6_av_gate/run/RESULT.md`; spec `p6-av-offset-gate-v1` sha `987846a7…`; sentinel APPROVE; no wiring/promotion/threshold change. Disclosed fps confound (RAVDESS 29.97 vs AVLips 25) and missing AVLips license. Retry needs target-domain calibration/normalization or a new signal, not a lower bar. |
+| P7 | Image backbone audit + provider-real scalar calibration (DINOv3-class check); no per-generator heads | **CLOSED AT ZERO (2026-11-14)** | **0 booked**; 28.70 pp oracle loss at 10% FPR; LOCO FPR 0.1200/0.0300/0.1717; split 97.5th pct 0.1800; A/B1/B2/B3 false | done | 64.8 (no change) | Receipt: `artifacts/p7_image_audit/AUDIT_RECEIPT.md`; spec `p7-image-audit-v1` sha `a4f25c05…`; sentinel APPROVE; no wiring/promotion/threshold change. Parked: DINOv3 ViT-B/16 audit (license acceptance + new D-045-style spec + D-044-class contract re-derivation 224/CLS vs 256/avg) and a disjoint license-clean provider-real corpus. |
+| P8 | Data coverage: DeepAction acquired; DF-Eval-2024 video gate request; license ledger | **P8-fast done 2026-11-13 (+0.5)**; P8a open; P8b deferred | **+0.5 booked**; +0.5 conditional on DF-Eval video, not booked | done + external gate | **64.8 current**; 65.3 if DF-Eval video lands | DeepAction 2,605 files / 2,594 unique; CC BY 4.0 + Pexels; DF-Eval video gated/eval-only; no training |
+| P9 | System/transparency: C2PA read-only validator, security/ops checks, test/CI, model cards | **DONE 2026-11-14** | **+0.4 system booked**; 0 detection | done | **64.8 current** | Receipt: `artifacts/p9_system/RESULT.md`; spec `p9-c2pa-readonly-v1` sha `c6b551c7...`; 24 tests, 0 skips; fixture3 `well_formed_valid`/untrusted/hard-bound; tampered `invalid`/hard false; truncated `error`; trusted synthetic-only; no gate/wiring. |
 | P3 | W-AUDIO A0/A1: A0z 1B DF-Eval done; AUC pass, ECE fail; not certified. Guard arms/13 s/2B/A0p/A1 open | Conditional; not certified | A0 pass +0.9–1.5 OOD-audio; A1 +1.5–2.5 | A0z 1B done; sub-arms separate | 63 now; 64.0–64.6 if A0; 64.6–65.6 if A1 | AUC pass alone is insufficient; ECE fail; A0p 1B linear probe ITW ECE 26.9% (Pascu 2024) makes the 0.05 bar unlikely; no training without explicit approval |
 
 ## C. Approval-gated sub-items (do not start without explicit user approval)
@@ -45,7 +47,7 @@ A failed gate stops dependent rows.
 | P3c | A0z 2B checkpoint | Not run | 1B only; model-card AUC is lower for 2B; approval required |
 | P3d | A0p frozen-feature `<2k` linear probe | Not run | Training approval required; A0z not certified; A0p is the pre-registered fallback for an AUC miss, not an ECE fail; 1B linear-probe ITW ECE 26.9% (Pascu 2024) makes ≤0.05 unlikely |
 | P3e | A1 full audio candidate | Not run | Depends on a certified A0; full W9.1 bars; promotion approval |
-| P6a | W-AV v5 / AV offset new spec | HOLD | v5 missed external bar; no blend; new pre-registration needed |
+| P6a | W-AV v5 / AV offset new spec | **CLOSED KILL (2026-11-14)** | Standalone `offset_abs` gate failed B3 (106/358 real FP); no blend, no wiring; any retry needs a new pre-registration. |
 | P8a | DF-Eval-2024 video gate registration | Draft updated 2026-11-13; **not submitted** | User action / external approval; eval-only; institutional email or verifiable link |
 | P8b | AV-Deepfake1M++ / DeepSpeak acquisition | Deferred | Gated/heavy; only feed a future video-AV diet wave; payoff uncertain |
 
@@ -71,6 +73,7 @@ A failed gate stops dependent rows.
 | SPLIT Stage 2 / threshold rescue | SKIP | Near-chance aggregate; no post-hoc rescue |
 | W9.1 | CLOSED HOLD | 7/11 sealed bars fail; no promotion; p4 remains |
 | P5 codec/laundering kill-test | CLOSED GAP | Audio 8 kHz fails R1/R2/R4 (coverage 0.252; issued FPR 100%); video CRF28 fails R3 (TPR 0.729→0.561); image q35/resize pass; 0 booked; retraining only via separate sealed spec + approval |
+| P9 read-only C2PA validator | DONE/BOOKED | +0.4 system; transparency-only; no gate/wiring; 24 tests, 0 skips |
 | A0z 1B DF-Eval | NOT CERTIFIED | AUC 0.778066 PASS, ECE 0.243034 FAIL; 0 booked |
 | A0z post-hoc calibration | SKIP | No temperature scaling/threshold change; would be a new experiment |
 | HOLA reproduction / AV-Deepfake1M++ frozen featurization | SKIP | 8×A100, no public HOLA weights, 1.46 TB gated data; expected Y ≈ 0 |
@@ -100,15 +103,17 @@ A failed gate stops dependent rows.
    collapses coverage to 0.252 and issues 100% fake-ward; video CRF28 loses
    16.8 pp TPR at 0.5 (Face2Face/NeuralTextures); image q35/resize pass
    (saturated spot-check). Retraining only via a separate sealed spec + explicit
-   approval. Next no-wiring candidates: P7 image backbone audit, P9 system, or
-   P6 AV gate (new spec); P3d is low-probability.
+   approval. **P9 is DONE (+0.4 system booked; 0 detection)**, **P6 is
+   CLOSED KILL B3 (0 booked; D-093)**, and **P7 is CLOSED AT ZERO
+   (2026-11-14; D-094)**, so no no-wiring roadmap item remains; P3d is
+   low-probability.
 5. **P3d — A0p** (unlikely to fix ECE: 1B linear-probe ITW ECE 26.9%, Pascu 2024;
    training approval required; not next).
 6. **P0c — scorecard reconciliation** (0–0.8 bookkeeping; not “next level”).
 
 ## G. Current score and honest ceiling
 
-- Measured court: **63/100**.
+- Measured court: **64.8/100**.
 - 73–76 is a theoretical public-data ceiling, not a current measured path.
 - 77–78 requires a new pre-registered video-OOD channel clearing its bars.
 - 100/100 is not achievable with public data today.
@@ -180,15 +185,24 @@ change, or commit.
 ### Recommendation
 
 **P2 is closed FAIL (0 booked); P8-fast is done (+0.5 booked); P4 is closed
-FAIL K1 (0 booked); P5 is closed GAP (0 booked).** P5 measured a real
-codec/laundering gap, but the gap is not an improvement receipt. The next choice
-is a user ruling: (a) draft a separate sealed codec-diverse retraining proposal
-(no training until explicitly approved), or (b) proceed to the next no-wiring
-roadmap item — **P7** image backbone audit (+0.5 OOD-image, 1–2 days), **P9**
-system/transparency (+0.4 system, 1–2 days), or **P6** AV `offset_abs` gate
-(+0.7 multimodal/video, new spec). **P3d** is not next because A0z passed AUC and
-the 1B linear-probe ECE evidence is poor. The DF-Eval-2024 video gate is a user
-action; a grant can support a separate +0.5 but is not booked now.
+FAIL K1 (0 booked); P5 is closed GAP (0 booked); P9 is done and booked
+(+0.4 system, 0 detection); P6 is closed KILL B3 (0 booked).** P5 measured a
+real codec/laundering gap, but the gap is not an improvement receipt. **P7**
+image backbone + provider-real calibration has since closed at 0 (D-094;
+2026-11-14), so no no-wiring roadmap item remains; the next choice is a user
+ruling: (a) draft a separate sealed codec-diverse retraining proposal (no
+training until explicitly approved), or (b) the license-gated DINOv3 ViT-B/16
+audit or a disjoint license-clean provider-real corpus. **P3d** is not next
+because A0z passed AUC and the 1B linear-probe ECE evidence is poor. The
+DF-Eval-2024 video gate is a user action; a grant can support a separate +0.5
+but is not booked now.
+
+**P7 closed at 0 (2026-11-14).** No no-wiring roadmap item remains. Reopen P7
+only if: (a) the user accepts the DINOv3 License and approves a new ViT-B/16
+D-045-style audit with the joint gate; or (b) a disjoint license-clean
+provider-real corpus is acquired and a new spec is approved; or (c) a new frozen
+backbone passes D-045 G1/G2. The audit licenses no AUC claim, no generalization,
+and no court movement; court stays **64.8/100**.
 
 **Execution has started; see the 2026-11-14 update below.**
 
@@ -225,7 +239,8 @@ action; a grant can support a separate +0.5 but is not booked now.
   **R_all 38/308 = 0.1234** (the old “TPR 0.6909” was conditional, not overall).
   No K2 cross-fit, no group oracle, no calibration/wiring/training. Receipt:
   `artifacts/p4_oracle/RESULT.md`; spec/script hashes in `seal.txt`.
-- **Current measured court: 64.4/100** (P0c +0.8; P2 0; P8-fast +0.5; P4 0; P5 0).
+- **Current measured court: 64.8/100** (P0c +0.8; P2 0; P8-fast +0.5; P4 0; P5 0;
+  P9 +0.4 system).
   Historical 63.1 snapshot preserved. Any new video-OOD attempt needs a new
   pre-registered signal and explicit user approval; do not lower P2's bars.
 
@@ -259,5 +274,28 @@ action; a grant can support a separate +0.5 but is not booked now.
 - **Disposition:** P5 adds **0**; court **64.4/100**. No training, wiring,
   promotion, pointer change, threshold change, or commit. A codec-diverse
   retraining proposal is eligible only via a separate sealed spec and explicit
-  user approval. Next-item choice: sealed retraining proposal, or next no-wiring
-  item (P7/P9/P6); P3d remains low-probability.
+  user approval. P6 closed KILL B3 (D-093); P7 closed at 0 (D-094; no
+  no-wiring roadmap item remains); P3d remains low-probability.
+- **P9 — PASS B1-B15; +0.4 system booked; 0 detection.** Sealed read-only C2PA
+  validator (`p9-c2pa-readonly-v1`, sha `c6b551c7…`): 24 stdlib tests, 0 skips,
+  0 failures/errors; fresh sentinel APPROVE. Fixture3 `well_formed_valid` /
+  `trusted=false` / `hard_binding=true`; first-IDAT tamper `invalid` / hard
+  false; truncated `error`; real no-manifest image `absent`; trusted/BMFF
+  synthetic-only. System dimension 12.5→12.9; court **64.4→64.8**;
+  transparency-only, no gate/wiring/promotion/pointer/threshold/commit.
+  Receipt: `artifacts/p9_system/RESULT.md`.
+- **P6 — CLOSED KILL B3; 0 booked.** Sealed read-only standalone
+  `avs_syncnet_offset_abs` gate (`p6-av-offset-gate-v1`, spec sha
+  `987846a7…`): calibration 53 AV-diet train reals, tau=q95=2.5 frames,
+  strict `offset_abs > 2.5`; AVLips exam 838 (358 real / 480 fake), all
+  in coverage, 838 unique `sha256_12`. AUC **0.724002** (parity
+  0.7240 ± 0.0005 PASS); TP **350/480 = 72.9167%** PASS; coverage
+  **838/838** PASS; FP **106/358 = 29.6089%** (Wilson 95%
+  0.251165–0.345343) vs ≤35 → **B3 FAIL, exit 2 KILL**. `>=`
+  sensitivity 107 FP / 375 TP, report-only. Two runs byte-identical;
+  13 tests 0 failures/0 errors/0 skips; ruff clean; fresh sentinel
+  APPROVE. Disclosed: RAVDESS 29.97 fps vs AVLips 25 fps (raw-frame
+  threshold not normalized); `offset_abs` selected on this same exam
+  (winner's curse); AVLips license missing (research/eval only).
+  Court stays **64.8/100**; no wiring, promotion, pointer/threshold
+  change, or commit. Receipt: `artifacts/p6_av_gate/run/RESULT.md`.

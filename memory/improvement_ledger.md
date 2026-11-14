@@ -10,7 +10,7 @@ must be justified as anti-regression, never booked as improvement.
 Dimensions: in-domain 14.4/15 · OOD-image 8.5/10 · OOD-audio 5.0/10 · OOD-video 1.2/10
 · abstention 11.3/15 · robustness 4.5/10 · data coverage 4.5/10 · system 11.7/15 ·
 multimodal 2.0/5.
-**Current booked: 64.4/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13; P4 K1 FAIL adds 0, 2026-11-13; P5 codec/laundering GAP adds 0, 2026-11-14).
+**Current booked: 64.8/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13; P4 K1 FAIL adds 0, 2026-11-13; P5 codec/laundering GAP adds 0, 2026-11-14; P9 read-only C2PA validator +0.4 system, 2026-11-14; P6 AV offset gate KILL adds 0, 2026-11-14; P7 image audit CLOSED at 0, 2026-11-14).
 Conservative P0c floor: 63.5 if the stale-cap correction is disallowed.
 
 ## Ledger
@@ -34,6 +34,9 @@ Conservative P0c floor: 63.5 if the stale-cap correction is disallowed.
 | P8-fast data coverage (D-089) | 2026-11-13 | **PASS D1–D5**: DeepAction v1 rev `476932c3…`: **2,605 MP4s / 6.0592 GB / 7 folders / 100 classes**; license ledger CC BY 4.0 (AI) + Pexels (real) + arXiv:2412.00526; D3 **20/20 full decode** (resolutions 512×512–2160×4096; only 2/20 512²); D4 **70/70, 0 errors**, 52 `video_face` / 18 `image_court`, 14 abstain (20.0%), 56 p-scored; duplicate audit **2,594 unique contents** (5 extra `RunwayML/77 f–j` duplicate `27 a–e`; 11 duplicate files; 699/700 class-content sets). DF-Eval video draft updated, **not submitted** | **+0.5 data coverage** (dim 5 4.5→5.0); court **64.4**; no detection claim; +0.5 DF-Eval-video conditional not booked | **BOOKED** |
 | P4 audio oracle coverage–risk (D-090) | 2026-11-13 | **K1 FAIL**: 703 DF-Eval audio (395 real / 308 fake), deployed AUC **0.5593** (95% CI 0.5176–0.6022). Sealed global oracle on `(p_fake, z_norm)` finds **no policy** at FPR_c≤0.10 and R_all≥0.40 at any coverage; K1 coverage 0% vs ≥30%. Best FPR_c at coverage≥30%: **0.333** (0.01 grid) / **0.326** (0.005 sensitivity), far above 0.10. Deployed: coverage 16.07%; FPR_c 35/58 = 0.6034; TPR_c 38/55 = 0.6909; **R_all 38/308 = 0.1234** (old TPR was conditional). No K2 cross-fit/group oracle | **0 booked**; no calibration/wiring/training; court **64.4** unchanged | **CLOSED FAIL K1**; retry needs a better score/new signal, not a lower bar |
 | P5 codec/laundering robustness kill-test (D-091) | 2026-11-14 | **GAP, 0 booked**: sealed read-only exam, 3,840 rows (audio ITW 600×4; video FF++ C23 420×2; image 100/100×3), 0 errors/0 missing, all hashes/recompute PASS. **Audio**: MP3 128k PASS (AUC 0.9153→0.9164, Δ +0.0011; cov 0.937→0.938; FPR 0.093; TPR 0.747→0.767); Opus 64k PASS (0.9161, Δ +0.0007; cov 0.940; FPR 0.093; TPR 0.743); **8 kHz resample FAIL R1/R2/R4** (AUC 0.6708, Δ −0.2445 [CI −0.2898..−0.2013]; cov 0.252, Δ −0.685; raw FPR 0.940, Δ +0.8467; raw TPR 0.973, Δ +0.2267; all 449 abstentions OOC; all 68 covered reals and 83 covered fakes p≥0.5 → issued FPR/TPR 100%). **Video**: **H.264 CRF28 FAIL R3 only** (AUC 0.9072→0.8580, Δ −0.04917 [CI −0.07027..−0.02777]; cov 1.0; FPR 0.100→0.050; TPR 0.729→0.561, Δ −0.1679; R1 point-passes by 0.00083, CI includes −0.05; per-method TPR Face2Face 0.643→0.300, NeuralTextures 0.400→0.157, Deepfakes 0.957→0.929, FaceSwap 0.914→0.857). **Image**: JPEG q35 PASS (AUC 0.9992, Δ −0.0008; cov 0.725; raw FPR 0.040; TPR 1.000); resize 50% PASS (0.9996, Δ −0.0004; cov 0.745; raw FPR 0.090; TPR 1.000); baseline AUC saturated at 1.0000 → spot-check only; issued FPR 0/47, 0/55, 0/52 | **0**; court **64.4** unchanged; no training/wiring/promotion/pointer/threshold/commit. Codec-diverse retraining eligible only via separate sealed spec + explicit approval | **CLOSED GAP**; receipts `artifacts/p5_robustness/RESULT.md` + `RESULT_ADDENDUM.md` |
+| P9 read-only C2PA validator (D-092) | 2026-11-14 | **PASS B1-B15**: 24 stdlib tests, 0 skips, 0 failures/errors; fixture3 `well_formed_valid`/`trusted=false`/`hard_binding=true`; first-IDAT tamper `invalid`/hard false; truncated `error`; trusted/BMFF synthetic-only; no production reference; no network/trust-store mutation. **System +0.4 roadmap estimate; 0 detection.** Fresh sentinel APPROVE. | **+0.4 system** (dim 12.5->12.9); court **64.4->64.8**; no wiring/promotion/pointer/threshold/commit | **BOOKED** |
+| P6 AV offset gate kill-test (D-093) | 2026-11-14 | **KILL B3**: sealed read-only single-feature gate on 838 AVLips rows (358 real / 480 fake). tau=q95=2.5 frames from 53 AV-diet train reals; strict `offset_abs > 2.5`. AUC **0.724002** (parity 0.7240 ± 0.0005 PASS); fake recall **350/480 = 72.9167%** PASS; coverage **838/838** PASS; **real FP 106/358 = 29.6089%** (Wilson 95% 0.251165-0.345343) vs ≤35/358 → **B3 FAIL**. `>=` sensitivity 107 FP / 375 TP, report-only. Two runs byte-identical; 13 tests 0/0/0; ruff clean; sentinel APPROVE. Disclosed: calibration RAVDESS 29.97 fps vs AVLips 25 fps, raw-frame threshold not normalized; `offset_abs` selected on this same exam (winner's curse); AVLips license missing (research/eval only). | **0 booked**; court **64.8** unchanged; no wiring/promotion/pointer/threshold/commit; P6 closed at 0 | **CLOSED KILL**; receipt `artifacts/p6_av_gate/run/RESULT.md` |
+| P7 image backbone + provider-real calibration (D-094) | 2026-11-14 | **CLOSED AT ZERO**: sealed desk audit `p7-image-audit-v1`; 13 gates / 2,600 rows / 599 reals / 1,300 fakes; provider 299 reals / 1,000 fakes; baseline FPR 130/299=0.4348, TPR 899/1,000=0.8990; oracle α=0.10 t=0.1463 FPR 29/299=0.0970 TPR 612/1,000=0.6120 **loss 28.70 pp**; LOCO FPR 0.1200 (shared7) / 0.0300 (flux_mj) / 0.1717 (flux2); split α=0.10 held FPR 0.0997 [0.0400,0.1800] TPR 0.6079 loss 29.11 pp; A/B1/B2/B3 all false (no local/license-clean DINOv3; no disjoint provider-real calibration set; 28.70 pp loss; OOD-image AUC-scored). | **0 booked**; court **64.8/100** unchanged; no wiring/promotion/pointer/threshold/commit | **CLOSED AT 0**; parked DINOv3 ViT-B/16 audit + disjoint provider-real corpus; receipt `artifacts/p7_image_audit/AUDIT_RECEIPT.md` |
 
 ## Ceiling adjustment (honest)
 
@@ -46,9 +49,10 @@ under the exam-only training scope: audio finetune ~+4.3 + W9 deployment ~+2-3 +
 data acquisition +2.5 + AV joint +1.5 + robustness +2.0 + ladder remainder ~+2 ≈
 **+14-15 → ceiling ~77-78/100** **before** the D3 content-matched result. D3 is now
 **closed FAIL G4 (D-084)**, SPLIT is **closed FAIL S2 (D-087)**, A0z 1B is
-**AUC-pass/ECE-fail (D-088)**, P4 is **closed FAIL K1 (D-090)**, and P5 is
-**closed GAP (D-091)**, so the current measured court is **64.4/100**
-(P8-fast +0.5; P4 0; P5 0). The
+**AUC-pass/ECE-fail (D-088)**, P4 is **closed FAIL K1 (D-090)**, P5 is
+**closed GAP (D-091)**, and P6 is **closed KILL B3 (D-093)**, so the current
+measured court is **64.8/100** (P8-fast +0.5; P9 +0.4 system; P4 0; P5 0;
+P6 0; P7 0); no no-wiring roadmap item remains (P7 closed at 0, D-094). The
 **73-76** figure is a theoretical public-data ceiling, not a current measured path;
 77-78 remains conditional on a new pre-registered video-OOD channel clearing its
 bars. The remaining ~22 is structural (no public corpus for 2026-frontier
@@ -69,6 +73,7 @@ achievable by anyone with public data today.
   No temperature scaling, threshold change, or training. A0p requires separate
   explicit training approval; A0z is not certified.
 - **P5 codec-diverse retraining** — **P5 GAP (D-091)** makes a codec-diverse retraining proposal eligible only via a separate sealed spec and explicit user approval; no confirmed Y, and the measured gap is not itself an improvement receipt. Do not start by default; the next no-wiring roadmap item is the safer default unless robustness is explicitly prioritized.
+- **P6 standalone AV `offset_abs` gate** — **CLOSED KILL B3 (D-093)**. At the sealed q95=2.5 threshold, 106/358 AVLips reals issue (29.61%) vs the ≤35 FP bar, while recall is 350/480. No q99 rescue, no `>`→`>=` switch, no row exclusion, no per-method threshold, no direction flip. A future AV attempt needs target-domain calibration/normalization or a new pre-registered signal, not a lower bar.
 - **T2V training wave** — GenVidBench-class training data is exam-only (scope-blocked).
 - **Standalone 2021 full-scoring** — folded into W9 STEP 6 as anti-regression
   insurance (subsampled per D-081 resolution: reals-complete + 50k seeded fakes,
@@ -87,6 +92,8 @@ achievable by anyone with public data today.
 | 3 | **W-AUDIO A0z 1B DF-Eval (DONE 2026-11-11)**: 703/703 existing clips; AUC **0.778066** PASS, ECE **0.243034** FAIL; A0z not certified. Guard arms/13 s/2B/A0p not run | **0 booked**; conditional +0.9–1.5 not realized; no A0p/A1 | done 6.2 min CPU; any next audio spend requires fresh approval |
 | 4 | **SPLIT Stage 1 (DONE 2026-11-11, CLOSED FAIL S2)**: 2,466/2,466 rows; S2 **0.513919**, S3 **0.546810**, S5 **5/27**, S7 **0.076667/0.057604**; recorded 9-stratum `sora`-empty deviation | **0 booked**; conditional +1.0–3.0 not realized; 63 remains | done 19.5 min CPU; no Stage 2 |
 | 5 | Image coverage wave (lowest priority — image is the most mature dimension) | moderate external-generator coverage gain | full restack cycle |
+| 6 | **P9 read-only C2PA validator (DONE 2026-11-14)**: sealed spec `p9-c2pa-readonly-v1`, 24 stdlib tests, B1-B15 PASS, fresh sentinel APPROVE | **+0.4 system booked; 0 detection** | done; no wiring/promotion/commit |
+| 7 | **P6 AV offset gate kill-test (DONE 2026-11-14)**: sealed spec `p6-av-offset-gate-v1`, 838-row AVLips exam, tau 2.5 frames, strict `offset_abs > 2.5` | **0 booked; KILL B3** (FP 106/358 = 29.61% vs ≤35; TP 350/480 = 72.92%; AUC 0.724002 parity PASS; coverage 838/838; sentinel APPROVE) | done; no wiring/promotion/commit |
 
 ## Rules for future entries
 
