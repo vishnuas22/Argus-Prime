@@ -1,20 +1,180 @@
 # Argus Prime — Remaining Items Inventory
 
-**Last updated:** 2026-11-14
-**Status:** execution update 2026-11-14: P0c booked; P2 closed FAIL; P8-fast
-booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0; **P5 codec/
-laundering kill-test GAP and closed at 0**; **P9 read-only C2PA validator PASS
-and booked +0.4 system (0 detection)**. No training, wiring, promotion,
-pointer change, or commit is authorized by this file.
+**Last updated:** 2026-11-15
+**Status:** 2026-11-15 consolidated inventory. P0c booked; P2 closed FAIL;
+P8-fast booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0; P5 codec/
+laundering kill-test GAP and closed at 0; P9 read-only C2PA validator PASS and
+booked +0.4 system (0 detection); P6 AV offset gate KILL and closed at 0; P7
+image/provider-real audit CLOSED AT ZERO. **No training, wiring, promotion,
+pointer change, or commit is authorized by this file.**
 **Baseline:** **63.1/100** weighted distance-to-frontier. This is not percent-complete.
 **Current booked court:** **64.8/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5;
-P4 0; P5 0; P9 +0.4 system).
+P4 0; P5 0; P6 0; P7 0; P9 +0.4 system).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
 closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**; P2
 closed FAIL G3/G5; P4 closed FAIL K1 (oracle ceiling); **P5 closed GAP (audio
 8 kHz and video CRF28; image q35/resize pass)**; P8-fast PASS D1–D5
 (coverage only; no detection score); **P9 PASS B1-B15 (transparency-only;
-0 detection)**.
+0 detection)**; **P6 CLOSED KILL B3**; **P7 CLOSED AT ZERO**.
+
+## 2026-11-15 consolidated remaining-items list (authoritative)
+
+**DINOv3 access verified 2026-11-15:** HF token present; gated
+`facebook/dinov3-vitb16-pretrain-lvd1689m` config downloaded; weight HEAD
+**200**; timm mirror `timm/vit_base_patch16_dinov3.lvd1689m` weight HEAD **200**;
+no local weights yet. Native facebook config: 224, patch 16, 768-dim, 4 register
+tokens + CLS = 5 prefix tokens. timm config: **256 / `global_pool=avg`**. The
+224/CLS vs 256/avg contract mismatch is real. **Audit not sealed; no code or
+production change.** Decision rule: proceed only if evidence says the audit can
+plausibly clear the joint gate and boost OOD-image; otherwise ignore DINOv3 and
+spend on the higher-Y item.
+
+### A. Ready or approved
+
+| ID | Item | Status | Expected contribution (projected, not booked) | Expected outcome | Gate / dependency |
+|---|---|---|---|---|---|
+| **P7b** | DINOv3 ViT-B/16 frozen-backbone audit (P7 reopen) | Access verified; **PARKED 2026-11-15 — not confirmed to boost**; spec not sealed; no local weights | **0 booked at audit**; a PASS is a candidate only. Potential **+0.5 OOD-image** only after a separate wiring spec clears the court. Low probability on the binding cell: only size-matched evidence is FGTS So-Fake-OOD +13.2 pp balanced accuracy (70.3 vs 57.1), and **no DINOv3 size has published real-image FPR**; D-045 closed 0/15; the 94.5 result is ViT-7B, not ViT-B/16. | Joint gate: provider-real **issued FPR ≤10%**, **fake recall ≥70%**, **coverage ≥30% both classes**, plus D-045 R4 G1/G2 strict non-regression (G1 mean hard-cell Δ ≥ +0.01; G2 Δ ≥ −0.01 every measurable cell). Gate needs a **1.44× trade-ratio improvement** over P7's oracle (1.68 pp FPR per pp recall vs 1.17:1). Five-arm contract derivation (CLS / mean-patch / CLS⊕mean-patch / top-K patch / layer-30), 256², provider-real FPR as primary endpoint. | Do not start without a user decision; sealed spec; audit-only registry/harness; fresh sentinel; no wiring/commit. |
+| **P8a** | DF-Eval-2024 video gate registration | Draft updated; **not submitted**; user action | **+0.5 data coverage** if granted; court **65.3**. No detection claim. | Access grant or denial; eval-only; no training. | Institutional email or verifiable link; user submission. |
+| **P3** | Audio A0/A1 (A0z 1B not certified) | A0z AUC pass / ECE fail; A0p and A1 not run; training approval required | A0 **+0.9–1.5 OOD-audio**; A1 **+1.5–2.5**. But A0p 1B linear-probe ITW ECE ~26.9% (Pascu 2024) makes ≤0.05 ECE unlikely; A1 depends on certified A0. **Low expected value.** | A0p likely fails ECE → P3 stays 0. A1 only if A0 is certified and full W9.1 bars pass. Do not start by default. | Training approval; new calibration/score approach may be needed. |
+| **P5** | Codec-diverse retraining | Measured GAP; eligible only via **separate sealed spec + explicit approval** | Roadmap **+1.5 robustness** if retention bars pass; court ~66.3. No confirmed Y; codec augmentation evidence null-to-negative on wild audio; video CRF28 loss concentrated in hard methods. | Retrain and measure retention; could regress. No booking until a receipt. | Sealed spec + explicit approval; no default start. |
+
+### B. Requires a new pre-registered signal — no confirmed Y
+
+| ID | Item | Status | Expected contribution | Expected outcome | Gate / dependency |
+|---|---|---|---|---|---|
+| **P6a** | New AV signal (standalone `offset_abs` gate failed) | **KILL B3**; no q99 rescue, no `>`→`>=`, no per-method threshold | Roadmap **+0.7 multimodal/video**, but the cheap signal failed. HOLA-class needs 8×A100 and 1.46 TB gated data. **Low probability.** | New target-domain calibration/fps normalization or a genuinely new signal; separate gate, never a blend. Expected 0 unless a new hypothesis is measured. | New spec + approval. |
+| **P2** | Video OOD/scope retry | **FAIL G3/G5**; failure was coverage, not metadata | Roadmap **+1.0–1.5 abstention**, but no confirmed Y. | New pre-registered scope signal must pass face-route ≥55%, re-encoded ≥50%, and not suppress FF++/CDF in-domain. Do not lower bars. | New spec + approval. |
+| **P4** | Audio abstention/calibration retry | **FAIL K1**; existing `p_fake`+z has no feasible policy | Roadmap **+0.7–1.0 abstention**, but needs a better score/new signal, not a lower bar. | New score or group-conditional method must reach 30% coverage at FPR_c≤0.10 and R_all≥0.40. Expected 0 otherwise. | New spec + approval. |
+| **P1b** | New video-OOD channel | D3 **FAIL G4**; SPLIT **FAIL S2**; no Stage 2 | **Only path to 77–78**; largest gap (OOD-video 1.2/10). Conditional +1.0–3.0 was not realized; D3’s +4–5 projection is removed. | New pre-registered video-OOD channel must pass a real-FPR guard and fresh-generator bars. Research-grade; high upside, high failure probability. | New hypothesis + spec + approval. |
+| **P7c** | Disjoint, license-clean provider-real corpus | Not acquired | Data coverage and a cleaner evaluation surface; does **not** fix P7 B3 (OOD-image is AUC-scored, so a monotone scalar cannot move the operating point). | New corpus enables a new pre-registered calibration/eval spec; no score by itself. | License + acquisition + new spec. |
+| **P8b** | AV-Deepfake1M++ / DeepSpeak acquisition | Deferred; gated/heavy | Data coverage/multimodal only; feeds a future video-AV diet wave. **No score by itself.** | Acquisition if disk/license; 1.46 TB / 44.7 GB; multi-week. | User prioritization + disk plan. |
+| **P8c** | LAV-DF / OpenFake / AIGIBench / other licensed corpora | Not scheduled | Data coverage only; no confirmed Y. | Evaluate under license; no training on eval-only data. | License audit + user priority. |
+
+### C. User decisions / backlog (not score-bearing)
+
+| ID | Item | Status | Notes |
+|---|---|---|---|
+| **U1** | Audio ship-label decision | Blocked on user | ASVspoof-family banner only; no label change without ruling. |
+| **U2** | `.aiff` dispatch | Open | Decoder/dispatch behavior; not a score move. |
+| **U3** | CLI XLS-R reload performance | Open | ~7.5 s warm reload per file; performance, not detection. |
+| **U4** | Training / promotion / pointer movement | Not authorized | Requires explicit approval and pre-registered bars. |
+| **U5** | Commit of assistant changes | Not authorized | Leave uncommitted unless user asks. |
+| **P9-follow** | Security/ops, test/CI, model cards | Not scheduled | Insurance only; system dimension 12.9/15 is already near target; no confirmed court Y. |
+
+### D. Closed at zero — do not re-litigate
+
+- **P2** FAIL G3/G5: face-route 45.71% vs ≥55%; re-encoded 46.67% vs ≥50%; no wiring.
+- **P4** FAIL K1: no policy at 30% coverage with FPR_c≤0.10 and R_all≥0.40; best FPR_c 0.333.
+- **P5** GAP: audio 8 kHz AUC 0.6708, coverage 0.252, issued FPR 100%; video CRF28 TPR 0.729→0.561; image q35/resize pass (saturated spot-check).
+- **P6** KILL B3: real FP 106/358 = 29.61% vs ≤35; AUC 0.724002; TP 350/480.
+- **P7** CLOSED AT ZERO: 28.70 pp recall loss at 10% provider FPR; LOCO FPR 0.1200/0.1717; split 97.5th pct 0.1800.
+- **D3** FAIL G4: AUC 0.9267 but real FPR 37/300 = 0.1233; no wiring.
+- **SPLIT** FAIL S2: GenVideo AUC 0.513919; GenVidBench 0.546810; recall 0.0767/0.0576.
+- **W9.1** HOLD: 7/11 sealed bars fail; D4 recall 0.883–0.900; FPR 0.005; NR1 0.9129.
+- **A0z 1B** NOT CERTIFIED: AUC 0.778066 PASS; ECE 0.243034 FAIL.
+- **P0c/P8-fast/P9** are booked: +0.8 system, +0.5 data, +0.4 system.
+
+### E. Gap ranking and honest ceiling
+
+1. **OOD-video — 4.8–5.8 points available.** Biggest gap, hardest, only route to 77–78.
+2. **OOD-audio — 2.5 points.** A0z passed AUC but failed ECE; A0p/A1 low-probability.
+3. **Abstention — 1.7–2.2 points.** P2 and P4 failed on coverage; retries need new signals.
+4. **Robustness — 1.5 points.** P5 measured a real gap; retraining unproven and approval-gated.
+5. **Data coverage — 1.0 point.** P8a is the cheapest remaining +0.5; P8b/P8c are heavy.
+6. **Multimodal — 0.7 point.** P6a failed the cheap signal; HOLA-class out of scope.
+7. **In-domain — 0.6 point.** Saturated; not a practical lever.
+8. **OOD-image — 0.5 point.** P7b is the last license-clean backbone question; small upside.
+9. **System — ~0.** P9 already banked the available system credit.
+
+**Ceiling:** 73–76 is the theoretical public-data ceiling; 77–78 requires a new
+pre-registered video-OOD channel clearing its bars. The remaining ~22 points to
+100 are structural; 100 is not achievable with public data today.
+
+### F. 2026-11-15 research synthesis — best next item
+
+Four scout reports landed (DINOv3, OOD-video, audio A0p/A1, codec). Ranked by
+expected court points per hour of compute, with the blocking constraint named.
+
+| Rank | Item | Cost | P(score) | Expected | Blocker |
+|---|---|---|---|---|---|
+| **1** | **A0z decision-quality re-read + owed guard arms** | **~1 h** (guards); re-read is minutes | 40–60% on guards | **+0.9–1.5 OOD-audio** | User ruling: is ECE≤0.05 or decision quality the certification target? |
+| **2** | **SPLIT-faithful re-run** (T=16 @ 8 fps / 2 s) | **~1 h CPU** | 20–30% | **+1–3 OOD-video**, or a clean negative on the largest gap | New spec; no training; no threshold change |
+| 3 | **P8a** DF-Eval video grant | free | — | **+0.5 data** → 65.3 | User submission only |
+| 4 | Video CRF28 recalibration | 1–2 h | diagnostic only | 0 (needs a compression detector to deploy) | Defer behind #2 |
+| 5 | DINOv3 B/16 audit | ~1 day | low on the binding cell | +0.5 max, wiring-gated | **Not confirmed to boost — see below** |
+| 6 | P5 codec retraining | days, encoder-touching | low | unproven | Defer; not a bounded experiment |
+
+**#1 — A0z already clears the court's own K1 constraint values, at full coverage.**
+Verified directly from `artifacts/wa_audio_a0z_1b/scores.jsonl` (703 rows, AUC
+0.778066): at the **untuned** 0.5 cut, **FP 31/395 = 0.0785** (≤0.10) and
+**TP 138/308 = 0.4481** (≥0.40), with all 703 rows issued (**coverage 100%**,
+3.3× the 30% K1 demanded). This is the same criterion that closed p4 at 0.5593
+AUC and 16.07% coverage; it was never applied to A0z. It is **not** a threshold
+sweep — 0.5 is the classifier's default cut and the receipt itself labels it
+"not a gate and was not tuned."
+
+Two honest caveats: (a) the numbers were already visible in the receipt, so a new
+spec is a **confirmatory** re-read, not a discovery, and must say so; (b) A0z
+still owes **four guard bars** that its own spec says run when DF-Eval AUC
+≥0.610 — ASVspoof 2021 LA ≥0.900, ITW AUC ≥0.900, ITW bona FPR 0/300, codec
+pooled FPR ≤1.5%. The 1B checkpoint is cached; 703 clips took 6.24 min, so the
+guards are ~30–60 min. Also note A0z is **CC BY-NC-SA 4.0** (non-commercial).
+
+**Bar-validity contradiction requiring a user ruling.** Audio ECE bar is ≤0.05
+(`wa_audio_prereg/SPEC.md:111`); the image channel's own pre-registered T6 bar is
+≤0.25 (`t6_gate_spec.md:33`, worst measured 0.2304). A0z's 0.243034 would **PASS
+T6**. Three independent measurements put the frozen-SSL linear recipe's ECE floor
+at 0.16–0.27 (Pascu 1B 26.9%, 2B 16.1%, our A0z 24.3%), so 0.05 is unreachable by
+any source-trained member of the family and reachable only by a target-label fit
+that DF-Eval's eval-only ToS forbids. The bar, not the model, is what fails.
+
+**#2 — SPLIT receipt is not a faithful test of the published method.** Two
+independent defects verified in-repo: (a) `deepfake/bench/split_temporal.py` is
+frozen at `T=8`, `WINDOW_S=3.0` (2.67 fps) vs the paper's 16 frames @ 8 fps /
+2 s; (b) `lsmi` alone scores **AUC 0.3141** on our 2,466 rows — inverted, because
+it is a motion-magnitude statistic and our fakes are *smoother* than our reals.
+The scout's `mean_ttr**8` sign hypothesis is **falsified**: only 9/2,466 rows have
+negative TTR, all real. So the composite is near-chance by construction on this
+corpus. A re-run at the published protocol is ~1 h and yields either a recovered
+channel or a clean negative; the July-2026 bias audit (D3 0.4843 on
+motion-balanced GenBuster++) says the negative is the likelier outcome, so
+P(pass) is 20–30%, not the scout's 25–40%.
+
+**#3 — P8a is the only free +0.5 on the board.** The DF-Eval-2024 video gate is
+still unsubmitted; a grant books +0.5 data coverage (court 65.3) with no detection
+claim and no compute. It needs an institutional email or verifiable link from the
+user — nothing on my side blocks it. This should run in parallel with #1/#2, not
+instead of them.
+
+**#4 — DINOv3 does NOT meet the user's confirmation bar; do not run it as the
+next item.** The evidence is one size-matched cell: FGTS Table 8 puts DINOv3-B/16
+at **70.3%** balanced accuracy on So-Fake-OOD vs DINOv2-B/14 **57.1%** (+13.2 pp),
+and the DINOv3>DINOv2 gap holds at every size class. But **no published source
+reports real-image FPR at a fixed threshold for any DINOv3 size** — the field
+reports balanced accuracy, and our binding constraint is provider-real FPR
+43.48%. The ~+30 pp real-class gap is **7B-only and scale-confounded** (FGTS
+shows a 17.2 pp B→7B gap). The gate also needs a **1.44× improvement in the
+FPR:recall trade ratio** over P7's exhausted threshold oracle (1.68 pp FPR per pp
+recall required vs 1.17:1 delivered). Cost is negligible (85.6M params, sub-2-min
+extraction for 1,299 images), but "nearly free" is not "confirmed to improve."
+Verdict: **park, do not start.** If ever run, it must be a five-arm contract
+derivation (CLS / mean-patch / CLS⊕mean-patch / top-K patch / layer-30) with
+provider-real FPR as the primary endpoint and the explicit falsification
+"no arm below ~30% FPR while recall ≥80% → close B/16."
+
+**Not the next item, for the record.** P5 retraining is deferred: the audio 8 kHz
+arm is a *ranking* failure (AUC 0.9153→0.6708) and a 2026 audit proves no
+monotone frozen-head correction can move EER, so "P5 retraining" silently means
+encoder adaptation — the change class that failed four times (D-036/D-038/D-063/
+D-064). The video CRF28 loss is mostly operating point (AUC 0.858, FPR *improves*
+0.100→0.050, TPR collapses), but deploying a second threshold needs a compression
+detector we do not have.
+
+**Decision required from the user:** (1) audio — rule whether decision quality
+(K1) or ECE≤0.05 is the certification target, and authorize the four owed guard
+arms; (2) video — authorize the SPLIT-faithful re-run; (3) P8a — submit the
+DF-Eval video request (free +0.5). No compute spend, threshold change, training,
+wiring, or commit is authorized by this inventory.
 
 ## A. Immediate bookkeeping / reconciliation
 
