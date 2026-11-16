@@ -104,6 +104,14 @@ expected court points per hour of compute, with the blocking constraint named.
 | 5 | DINOv3 B/16 audit | ~1 day | low on the binding cell | +0.5 max, wiring-gated | **Not confirmed to boost — see below** |
 | 6 | P5 codec retraining | days, encoder-touching | low | unproven | Defer; not a bounded experiment |
 
+**Update 2026-11-16 — A0z CLOSED at 0.** The guard wave returned
+`A0Z_NOT_CERTIFIED_GUARD_FAIL`: K1-R PASS (point estimates, both CIs marginal),
+G1/G2/G4/G5 PASS, **G3 FAIL 23/300** (bar 0–3). G5 max DF-Eval AUC drop
+0.007439 (PASS ≤0.05) on 4,218/4,218 rows. 0 booked;
+court stays **64.8**; OOD-audio stays **5.0**. Receipt:
+`artifacts/wa_audio_a0z_guards/RESULT.md`; decision D-096. The next-item table is
+otherwise unchanged; #2 SPLIT-faithful and #3 P8a are the live options.
+
 **#1 — A0z already clears the court's own K1 constraint values, at full coverage.**
 Verified directly from `artifacts/wa_audio_a0z_1b/scores.jsonl` (703 rows, AUC
 0.778066): at the **untuned** 0.5 cut, **FP 31/395 = 0.0785** (≤0.10) and
