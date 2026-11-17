@@ -1,7 +1,9 @@
 # Argus Prime — Remaining Items Inventory
 
 **Last updated:** 2026-11-17
-**Status:** 2026-11-17 inventory (A0z closed 0; SPLIT T=16 Stage 0 PASS, 0 booked). P0c booked; P2 closed FAIL;
+**Status:** 2026-11-17 inventory (A0z closed 0; SPLIT T=16 Stage 0 PASS, 0 booked;
+**SPLIT LINE CLOSED by user ruling 2026-11-17 (D-099)** — Stage 1 T=16 diagnostic
+`NO_TRANSFER_EVIDENCE`, spec never signed, MSR-VTT never downloaded). P0c booked; P2 closed FAIL;
 P8-fast booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0; P5 codec/
 laundering kill-test GAP and closed at 0; P9 read-only C2PA validator PASS and
 booked +0.4 system (0 detection); P6 AV offset gate KILL and closed at 0; P7
@@ -12,7 +14,10 @@ pointer change, or commit is authorized by this file.**
 P4 0; P5 0; P6 0; P7 0; P9 +0.4 system).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
 closed FAIL S2; **SPLIT Stage 0 T=16 PASS (AUC 0.710316; CI crosses 0.70; 0
-booked; authorizes a separate high-fps Stage 1 spec only)**; A0z 1B DF-Eval AUC
+booked)**; **SPLIT LINE CLOSED 2026-11-17 by user ruling (D-099)** — diagnostic
+GenVidBench T=16 0.539859 (434/434, CI [0.504126, 0.574747]) vs two independent
+high-fps negative arms; secondary GenVideo 0.728953 on 235/300; dedup 0.5388; Stage 1
+spec parked unsigned, MSR-VTT download NOT performed, 0 booked; A0z 1B DF-Eval AUC
 pass / ECE fail and **not certified**; P2 closed FAIL G3/G5; P4 closed FAIL K1
 (oracle ceiling); **P5 closed GAP (audio 8 kHz and video CRF28; image q35/resize
 pass)**; P8-fast PASS D1–D5 (coverage only; no detection score); **P9 PASS B1-B15
@@ -46,7 +51,7 @@ spend on the higher-Y item.
 | **P6a** | New AV signal (standalone `offset_abs` gate failed) | **KILL B3**; no q99 rescue, no `>`→`>=`, no per-method threshold | Roadmap **+0.7 multimodal/video**, but the cheap signal failed. HOLA-class needs 8×A100 and 1.46 TB gated data. **Low probability.** | New target-domain calibration/fps normalization or a genuinely new signal; separate gate, never a blend. Expected 0 unless a new hypothesis is measured. | New spec + approval. |
 | **P2** | Video OOD/scope retry | **FAIL G3/G5**; failure was coverage, not metadata | Roadmap **+1.0–1.5 abstention**, but no confirmed Y. | New pre-registered scope signal must pass face-route ≥55%, re-encoded ≥50%, and not suppress FF++/CDF in-domain. Do not lower bars. | New spec + approval. |
 | **P4** | Audio abstention/calibration retry | **FAIL K1**; existing `p_fake`+z has no feasible policy | Roadmap **+0.7–1.0 abstention**, but needs a better score/new signal, not a lower bar. | New score or group-conditional method must reach 30% coverage at FPR_c≤0.10 and R_all≥0.40. Expected 0 otherwise. | New spec + approval. |
-| **P1b** | New video-OOD channel | D3 **FAIL G4**; SPLIT **FAIL S2**; no Stage 2 | **Only path to 77–78**; largest gap (OOD-video 1.2/10). Conditional +1.0–3.0 was not realized; D3’s +4–5 projection is removed. | New pre-registered video-OOD channel must pass a real-FPR guard and fresh-generator bars. Research-grade; high upside, high failure probability. | New hypothesis + spec + approval. |
+| **P1b** | New video-OOD channel | D3 **FAIL G4**; SPLIT **closed 2026-11-17 (D-099)** — Stage 1 never run, **no inheritable SPLIT hypothesis** | **Only path to 77–78**; largest gap (OOD-video 1.2/10). Conditional +1.0–3.0 was not realized; D3’s +4–5 projection is removed. **Requires a genuinely new video-OOD signal** — do not re-litigate SPLIT/T=16 (closed on cost), and `sora` 0.8971 (n=51) would need its own pre-registration. | New pre-registered video-OOD channel must pass a real-FPR guard and fresh-generator bars. Research-grade; high upside, high failure probability. | New hypothesis + spec + approval. |
 | **P7c** | Disjoint, license-clean provider-real corpus | Not acquired | Data coverage and a cleaner evaluation surface; does **not** fix P7 B3 (OOD-image is AUC-scored, so a monotone scalar cannot move the operating point). | New corpus enables a new pre-registered calibration/eval spec; no score by itself. | License + acquisition + new spec. |
 | **P8b** | AV-Deepfake1M++ / DeepSpeak acquisition | Deferred; gated/heavy | Data coverage/multimodal only; feeds a future video-AV diet wave. **No score by itself.** | Acquisition if disk/license; 1.46 TB / 44.7 GB; multi-week. | User prioritization + disk plan. |
 | **P8c** | LAV-DF / OpenFake / AIGIBench / other licensed corpora | Not scheduled | Data coverage only; no confirmed Y. | Evaluate under license; no training on eval-only data. | License audit + user priority. |
@@ -64,13 +69,14 @@ spend on the higher-Y item.
 
 ### D. Closed at zero — do not re-litigate
 
+- **SPLIT Stage 1 T=16** CLOSED by user ruling 2026-11-17 (D-099): diagnostic `NO_TRANSFER_EVIDENCE` — GenVidBench AUC **0.539859** (434/434, CI [0.504126, 0.574747]) against a high-fps real arm; dedup 0.5388, macro 0.6148, drop-opentora 0.5842, kling+opentora 0.4923; two independent negative arms agree (v1 3 fps 0.546810 / Stage 0 24 fps 0.539859); secondary GenVideo 0.728953 on 235/300 is selection- and fps-confounded. Stage 0 T=16 PASS (0.710316) banked as terminal, 0 booked. Stage 1 spec never signed; MSR-VTT never downloaded. Do not re-litigate without a new pre-registration; `sora` 0.8971 (n=51) is the only open thread.
 - **P2** FAIL G3/G5: face-route 45.71% vs ≥55%; re-encoded 46.67% vs ≥50%; no wiring.
 - **P4** FAIL K1: no policy at 30% coverage with FPR_c≤0.10 and R_all≥0.40; best FPR_c 0.333.
 - **P5** GAP: audio 8 kHz AUC 0.6708, coverage 0.252, issued FPR 100%; video CRF28 TPR 0.729→0.561; image q35/resize pass (saturated spot-check).
 - **P6** KILL B3: real FP 106/358 = 29.61% vs ≤35; AUC 0.724002; TP 350/480.
 - **P7** CLOSED AT ZERO: 28.70 pp recall loss at 10% provider FPR; LOCO FPR 0.1200/0.1717; split 97.5th pct 0.1800.
 - **D3** FAIL G4: AUC 0.9267 but real FPR 37/300 = 0.1233; no wiring.
-- **SPLIT** FAIL S2: GenVideo AUC 0.513919; GenVidBench 0.546810; recall 0.0767/0.0576.
+- **SPLIT (v1, T=8)** FAIL S2: GenVideo AUC 0.513919; GenVidBench 0.546810; recall 0.0767/0.0576.
 - **W9.1** HOLD: 7/11 sealed bars fail; D4 recall 0.883–0.900; FPR 0.005; NR1 0.9129.
 - **A0z 1B** NOT CERTIFIED: AUC 0.778066 PASS; ECE 0.243034 FAIL.
 - **P0c/P8-fast/P9** are booked: +0.8 system, +0.5 data, +0.4 system.
@@ -99,7 +105,7 @@ expected court points per hour of compute, with the blocking constraint named.
 | Rank | Item | Cost | P(score) | Expected | Blocker |
 |---|---|---|---|---|---|
 | **1** | **A0z decision-quality re-read + owed guard arms** | **~1 h** (guards); re-read is minutes | 40–60% on guards | **+0.9–1.5 OOD-audio** | User ruling: is ECE≤0.05 or decision quality the certification target? |
-| **2** | **SPLIT-faithful re-run** (T=16 @ 8 fps / 2 s) | **done** (0.56 h clip latency) | **PASS** | **0 booked**; AUC 0.710316 (CI crosses 0.70); authorizes a separate high-fps Stage 1 spec only | Next: new Stage 1 pre-registration + approval; no Stage 1 under the Stage 0 spec |
+| **2** | **SPLIT-faithful re-run** (T=16 @ 8 fps / 2 s) | **done** (0.56 h clip latency) | **PASS** | **0 booked**; AUC 0.710316 (CI crosses 0.70) | **Closed 2026-11-17 (D-099):** Stage 1 T=16 diagnostic `NO_TRANSFER_EVIDENCE`; no further SPLIT work |
 | 3 | **P8a** DF-Eval video grant | free | — | **+0.5 data** → 65.3 | User submission only |
 | 4 | Video CRF28 recalibration | 1–2 h | diagnostic only | 0 (needs a compression detector to deploy) | Defer behind #2 |
 | 5 | DINOv3 B/16 audit | ~1 day | low on the binding cell | +0.5 max, wiring-gated | **Not confirmed to boost — see below** |
@@ -111,7 +117,7 @@ G1/G2/G4/G5 PASS, **G3 FAIL 23/300** (bar 0–3). G5 max DF-Eval AUC drop
 0.007439 (PASS ≤0.05) on 4,218/4,218 rows. 0 booked;
 court stays **64.8**; OOD-audio stays **5.0**. Receipt:
 `artifacts/wa_audio_a0z_guards/RESULT.md`; decision D-096. The next-item table is
-otherwise unchanged; #2 SPLIT-faithful and #3 P8a are the live options.
+otherwise unchanged; **#2 SPLIT is now CLOSED (D-099)**; #3 P8a is the live option.
 
 **Update 2026-11-17 — SPLIT T=16 Stage 0 PASS, 0 booked.** The signed T=16 spec
 (`artifacts/split_prereg/SPEC_T16_STAGE0.md`) ran on GenBuster++ 1,000/1,000 at
@@ -161,6 +167,12 @@ channel or a clean negative; the July-2026 bias audit (D3 0.4843 on
 motion-balanced GenBuster++) says the negative is the likelier outcome, so
 P(pass) is 20–30%, not the scout's 25–40%.
 
+**Resolved 2026-11-17 (D-098/D-099):** Stage 0 T=16 PASSed (0.710316, 0 booked), then
+the cheap cross-fps diagnostic returned **`NO_TRANSFER_EVIDENCE`** (GenVidBench T=16
+0.539859, 434/434, CI [0.504126, 0.574747]). The user ruled the SPLIT line **CLOSED**;
+Stage 1 T=16 was never run and MSR-VTT was never downloaded. This paragraph is kept as
+the decision provenance, not as an open recommendation.
+
 **#3 — P8a is the only free +0.5 on the board.** The DF-Eval-2024 video gate is
 still unsubmitted; a grant books +0.5 data coverage (court 65.3) with no detection
 claim and no compute. It needs an institutional email or verifiable link from the
@@ -193,7 +205,8 @@ detector we do not have.
 
 **Decision required from the user:** (1) audio — rule whether decision quality
 (K1) or ECE≤0.05 is the certification target, and authorize the four owed guard
-arms; (2) video — authorize the SPLIT-faithful re-run; (3) P8a — submit the
+arms; (2) video — **SPLIT is closed (D-099); a video move now requires a genuinely
+new pre-registered video-OOD signal**; (3) P8a — submit the
 DF-Eval video request (free +0.5). No compute spend, threshold change, training,
 wiring, or commit is authorized by this inventory.
 
@@ -250,7 +263,7 @@ A failed gate stops dependent rows.
 | D3 motion-normalized variant | SKIP | Research-grade, no documented prior, confound already diagnosed |
 | D3 wiring | CLOSED | P0 failed; +4–5 projection removed |
 | SPLIT Stage 0 | PASS at T=8 and T=16 | v1 T=8 0.70244 (CI 0.679236–0.725154); **T=16 0.710316 (CI 0.686472–0.733444 crosses 0.70)**; 0 booked |
-| SPLIT Stage 1 T=16 | BLOCKED — no corpus | v1 Stage 1 reals are 3 fps / 6 frames per 2 s; needs a new high-fps real corpus + separate pre-registration + approval |
+| SPLIT Stage 1 T=16 | CLOSED — unrun (D-099) | Diagnostic `NO_TRANSFER_EVIDENCE`: GenVidBench T=16 **0.539859** (434/434, CI [0.504126, 0.574747]) vs 1,000 sealed 24 fps reals; dedup 0.5388, macro 0.6148; spec `SPEC_T16_STAGE1.md` PARKED unsigned; MSR-VTT never downloaded |
 | SPLIT Stage 1 | CLOSED FAIL S2 | S2 0.513919, S3 0.546810, S5 5/27, S7 0.076667/0.057604; 9-stratum sora-empty deviation; no Stage 2 |
 | SPLIT Stage 2 / threshold rescue | SKIP | Near-chance aggregate; no post-hoc rescue |
 | W9.1 | CLOSED HOLD | 7/11 sealed bars fail; no promotion; p4 remains |
