@@ -3,7 +3,9 @@
 **Last updated:** 2026-11-17
 **Status:** 2026-11-17 inventory (A0z closed 0; SPLIT T=16 Stage 0 PASS, 0 booked;
 **SPLIT LINE CLOSED by user ruling 2026-11-17 (D-099)** — Stage 1 T=16 diagnostic
-`NO_TRANSFER_EVIDENCE`, spec never signed, MSR-VTT never downloaded). P0c booked; P2 closed FAIL;
+`NO_TRANSFER_EVIDENCE`, spec never signed, MSR-VTT never downloaded; **WaveRep
+fixed-threshold probe FAIL 2026-11-17 (D-100)** — 48% FPR on GenBuster++ reals,
+~17.5 s/clip, OOD-video channel CLOSED at 0). P0c booked; P2 closed FAIL;
 P8-fast booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0; P5 codec/
 laundering kill-test GAP and closed at 0; P9 read-only C2PA validator PASS and
 booked +0.4 system (0 detection); P6 AV offset gate KILL and closed at 0; P7
@@ -17,7 +19,9 @@ closed FAIL S2; **SPLIT Stage 0 T=16 PASS (AUC 0.710316; CI crosses 0.70; 0
 booked)**; **SPLIT LINE CLOSED 2026-11-17 by user ruling (D-099)** — diagnostic
 GenVidBench T=16 0.539859 (434/434, CI [0.504126, 0.574747]) vs two independent
 high-fps negative arms; secondary GenVideo 0.728953 on 235/300; dedup 0.5388; Stage 1
-spec parked unsigned, MSR-VTT download NOT performed, 0 booked; A0z 1B DF-Eval AUC
+spec parked unsigned, MSR-VTT download NOT performed, 0 booked; **WaveRep G1
+fixed-threshold FAIL 2026-11-17 (D-100): 48/100 GenBuster++ 24 fps reals flagged,
+~17.5 s/clip, full run early-stopped, 0 booked**; A0z 1B DF-Eval AUC
 pass / ECE fail and **not certified**; P2 closed FAIL G3/G5; P4 closed FAIL K1
 (oracle ceiling); **P5 closed GAP (audio 8 kHz and video CRF28; image q35/resize
 pass)**; P8-fast PASS D1–D5 (coverage only; no detection score); **P9 PASS B1-B15
@@ -51,7 +55,7 @@ spend on the higher-Y item.
 | **P6a** | New AV signal (standalone `offset_abs` gate failed) | **KILL B3**; no q99 rescue, no `>`→`>=`, no per-method threshold | Roadmap **+0.7 multimodal/video**, but the cheap signal failed. HOLA-class needs 8×A100 and 1.46 TB gated data. **Low probability.** | New target-domain calibration/fps normalization or a genuinely new signal; separate gate, never a blend. Expected 0 unless a new hypothesis is measured. | New spec + approval. |
 | **P2** | Video OOD/scope retry | **FAIL G3/G5**; failure was coverage, not metadata | Roadmap **+1.0–1.5 abstention**, but no confirmed Y. | New pre-registered scope signal must pass face-route ≥55%, re-encoded ≥50%, and not suppress FF++/CDF in-domain. Do not lower bars. | New spec + approval. |
 | **P4** | Audio abstention/calibration retry | **FAIL K1**; existing `p_fake`+z has no feasible policy | Roadmap **+0.7–1.0 abstention**, but needs a better score/new signal, not a lower bar. | New score or group-conditional method must reach 30% coverage at FPR_c≤0.10 and R_all≥0.40. Expected 0 otherwise. | New spec + approval. |
-| **P1b** | New video-OOD channel | D3 **FAIL G4**; SPLIT **closed 2026-11-17 (D-099)** — Stage 1 never run, **no inheritable SPLIT hypothesis** | **Only path to 77–78**; largest gap (OOD-video 1.2/10). Conditional +1.0–3.0 was not realized; D3’s +4–5 projection is removed. **Requires a genuinely new video-OOD signal** — do not re-litigate SPLIT/T=16 (closed on cost), and `sora` 0.8971 (n=51) would need its own pre-registration. | New pre-registered video-OOD channel must pass a real-FPR guard and fresh-generator bars. Research-grade; high upside, high failure probability. | New hypothesis + spec + approval. |
+| **P1b** | New video-OOD channel | D3 **FAIL G4**; SPLIT **closed 2026-11-17 (D-099)**; WaveRep **FAIL-ACCURACY 2026-11-17 (D-100)** — 48% FPR at fixed threshold 0, ~17.5 s/clip; **no known channel** | **Only path to 77–78**; largest gap (OOD-video 1.2/10). Conditional +1.0–3.0 was not realized; D3’s +4–5 projection is removed. **Requires a genuinely new video-OOD signal** — do not re-litigate SPLIT/T=16, D3, or WaveRep’s fixed-threshold recipe; `sora` 0.8971 (n=51) would need its own pre-registration. | New pre-registered video-OOD channel must pass a real-FPR guard and fresh-generator bars. Research-grade; high upside, high failure probability. | New hypothesis + spec + approval. |
 | **P7c** | Disjoint, license-clean provider-real corpus | Not acquired | Data coverage and a cleaner evaluation surface; does **not** fix P7 B3 (OOD-image is AUC-scored, so a monotone scalar cannot move the operating point). | New corpus enables a new pre-registered calibration/eval spec; no score by itself. | License + acquisition + new spec. |
 | **P8b** | AV-Deepfake1M++ / DeepSpeak acquisition | Deferred; gated/heavy | Data coverage/multimodal only; feeds a future video-AV diet wave. **No score by itself.** | Acquisition if disk/license; 1.46 TB / 44.7 GB; multi-week. | User prioritization + disk plan. |
 | **P8c** | LAV-DF / OpenFake / AIGIBench / other licensed corpora | Not scheduled | Data coverage only; no confirmed Y. | Evaluate under license; no training on eval-only data. | License audit + user priority. |
@@ -70,6 +74,7 @@ spend on the higher-Y item.
 ### D. Closed at zero — do not re-litigate
 
 - **SPLIT Stage 1 T=16** CLOSED by user ruling 2026-11-17 (D-099): diagnostic `NO_TRANSFER_EVIDENCE` — GenVidBench AUC **0.539859** (434/434, CI [0.504126, 0.574747]) against a high-fps real arm; dedup 0.5388, macro 0.6148, drop-opentora 0.5842, kling+opentora 0.4923; two independent negative arms agree (v1 3 fps 0.546810 / Stage 0 24 fps 0.539859); secondary GenVideo 0.728953 on 235/300 is selection- and fps-confounded. Stage 0 T=16 PASS (0.710316) banked as terminal, 0 booked. Stage 1 spec never signed; MSR-VTT never downloaded. Do not re-litigate without a new pre-registration; `sora` 0.8971 (n=51) is the only open thread.
+- **WaveRep G1 (fixed threshold 0)** FAIL-ACCURACY + FAIL-DEPLOY 2026-11-17 (D-100): 48/100 GenBuster++ 24 fps reals flagged (**0.480**, CI 0.3846–0.5768) vs ≤0.10; GenVidBench recall 37/50 = 0.740 (kling 26/31, opentora 8/11, sora 3/8); GenVideo 29/50 = 0.580; AUC 0.7336/0.6128; frame-count agreement 8/16/32 = 0.755/0.790/0.860 <0.95 → 64 chosen; 64-frame CPU ~17.5 s/clip >15 s gate; early stop, full 1,734 not executed; 0 booked. No G4/H.264/threshold/GPU rescue under this spec.
 - **P2** FAIL G3/G5: face-route 45.71% vs ≥55%; re-encoded 46.67% vs ≥50%; no wiring.
 - **P4** FAIL K1: no policy at 30% coverage with FPR_c≤0.10 and R_all≥0.40; best FPR_c 0.333.
 - **P5** GAP: audio 8 kHz AUC 0.6708, coverage 0.252, issued FPR 100%; video CRF28 TPR 0.729→0.561; image q35/resize pass (saturated spot-check).
@@ -83,7 +88,7 @@ spend on the higher-Y item.
 
 ### E. Gap ranking and honest ceiling
 
-1. **OOD-video — 4.8–5.8 points available.** Biggest gap, hardest, only route to 77–78.
+1. **OOD-video — 4.8–5.8 points available.** Biggest gap, hardest, only route to 77–78; **no current channel** — D3 (G4 FPR), SPLIT (no transfer), and WaveRep (48% FPR) are all closed. A genuinely new pre-registered signal is required.
 2. **OOD-audio — 2.5 points.** A0z passed AUC but failed ECE; A0p/A1 low-probability.
 3. **Abstention — 1.7–2.2 points.** P2 and P4 failed on coverage; retries need new signals.
 4. **Robustness — 1.5 points.** P5 measured a real gap; retraining unproven and approval-gated.
@@ -173,6 +178,15 @@ the cheap cross-fps diagnostic returned **`NO_TRANSFER_EVIDENCE`** (GenVidBench 
 Stage 1 T=16 was never run and MSR-VTT was never downloaded. This paragraph is kept as
 the decision provenance, not as an open recommendation.
 
+**Update 2026-11-17 — WaveRep probe CLOSED at 0.** The user approved a bounded,
+inference-only WaveRep probe; the sealed calibration (100 GenBuster++ reals + 50
+GenVidBench + 50 GenVideo fakes) measured **FPR 48/100 = 0.480** at the authors'
+fixed threshold 0, with GenVidBench recall 37/50 = 0.740 and **~17.5 s/clip** at
+64 frames. The pre-registered early stop fired (FPR >0.20); the full 1,734-clip run
+was **not executed**. Verdict `WAVEREP_FIXED_THRESHOLD_FAIL`; OOD-video channel
+closed at 0; court stays **64.8**. Receipt:
+`artifacts/waverep_probe_20261117/RESULT.md`; decision D-100.
+
 **#3 — P8a is the only free +0.5 on the board.** The DF-Eval-2024 video gate is
 still unsubmitted; a grant books +0.5 data coverage (court 65.3) with no detection
 claim and no compute. It needs an institutional email or verifiable link from the
@@ -205,8 +219,8 @@ detector we do not have.
 
 **Decision required from the user:** (1) audio — rule whether decision quality
 (K1) or ECE≤0.05 is the certification target, and authorize the four owed guard
-arms; (2) video — **SPLIT is closed (D-099); a video move now requires a genuinely
-new pre-registered video-OOD signal**; (3) P8a — submit the
+arms; (2) video — **SPLIT (D-099) and WaveRep (D-100) are closed; a video move now
+requires a genuinely new pre-registered video-OOD signal**; (3) P8a — submit the
 DF-Eval video request (free +0.5). No compute spend, threshold change, training,
 wiring, or commit is authorized by this inventory.
 
