@@ -1,7 +1,7 @@
 # Argus Prime — Remaining Items Inventory
 
-**Last updated:** 2026-11-15
-**Status:** 2026-11-15 consolidated inventory. P0c booked; P2 closed FAIL;
+**Last updated:** 2026-11-17
+**Status:** 2026-11-17 inventory (A0z closed 0; SPLIT T=16 Stage 0 PASS, 0 booked). P0c booked; P2 closed FAIL;
 P8-fast booked +0.5 data coverage; P4 oracle K1 FAIL and closed at 0; P5 codec/
 laundering kill-test GAP and closed at 0; P9 read-only C2PA validator PASS and
 booked +0.4 system (0 detection); P6 AV offset gate KILL and closed at 0; P7
@@ -11,13 +11,14 @@ pointer change, or commit is authorized by this file.**
 **Current booked court:** **64.8/100** (P0c +0.8 bookkeeping; P2 0; P8-fast +0.5;
 P4 0; P5 0; P6 0; P7 0; P9 +0.4 system).
 **Current measured state:** D3 closed FAIL G4; W9.1 closed HOLD; SPLIT Stage 1
-closed FAIL S2; A0z 1B DF-Eval AUC pass / ECE fail and **not certified**; P2
-closed FAIL G3/G5; P4 closed FAIL K1 (oracle ceiling); **P5 closed GAP (audio
-8 kHz and video CRF28; image q35/resize pass)**; P8-fast PASS D1–D5
-(coverage only; no detection score); **P9 PASS B1-B15 (transparency-only;
-0 detection)**; **P6 CLOSED KILL B3**; **P7 CLOSED AT ZERO**.
+closed FAIL S2; **SPLIT Stage 0 T=16 PASS (AUC 0.710316; CI crosses 0.70; 0
+booked; authorizes a separate high-fps Stage 1 spec only)**; A0z 1B DF-Eval AUC
+pass / ECE fail and **not certified**; P2 closed FAIL G3/G5; P4 closed FAIL K1
+(oracle ceiling); **P5 closed GAP (audio 8 kHz and video CRF28; image q35/resize
+pass)**; P8-fast PASS D1–D5 (coverage only; no detection score); **P9 PASS B1-B15
+(transparency-only; 0 detection)**; **P6 CLOSED KILL B3**; **P7 CLOSED AT ZERO**.
 
-## 2026-11-15 consolidated remaining-items list (authoritative)
+## Consolidated remaining-items list (authoritative; updated 2026-11-17)
 
 **DINOv3 access verified 2026-11-15:** HF token present; gated
 `facebook/dinov3-vitb16-pretrain-lvd1689m` config downloaded; weight HEAD
@@ -98,7 +99,7 @@ expected court points per hour of compute, with the blocking constraint named.
 | Rank | Item | Cost | P(score) | Expected | Blocker |
 |---|---|---|---|---|---|
 | **1** | **A0z decision-quality re-read + owed guard arms** | **~1 h** (guards); re-read is minutes | 40–60% on guards | **+0.9–1.5 OOD-audio** | User ruling: is ECE≤0.05 or decision quality the certification target? |
-| **2** | **SPLIT-faithful re-run** (T=16 @ 8 fps / 2 s) | **~1 h CPU** | 20–30% | **+1–3 OOD-video**, or a clean negative on the largest gap | New spec; no training; no threshold change |
+| **2** | **SPLIT-faithful re-run** (T=16 @ 8 fps / 2 s) | **done** (0.56 h clip latency) | **PASS** | **0 booked**; AUC 0.710316 (CI crosses 0.70); authorizes a separate high-fps Stage 1 spec only | Next: new Stage 1 pre-registration + approval; no Stage 1 under the Stage 0 spec |
 | 3 | **P8a** DF-Eval video grant | free | — | **+0.5 data** → 65.3 | User submission only |
 | 4 | Video CRF28 recalibration | 1–2 h | diagnostic only | 0 (needs a compression detector to deploy) | Defer behind #2 |
 | 5 | DINOv3 B/16 audit | ~1 day | low on the binding cell | +0.5 max, wiring-gated | **Not confirmed to boost — see below** |
@@ -111,6 +112,18 @@ G1/G2/G4/G5 PASS, **G3 FAIL 23/300** (bar 0–3). G5 max DF-Eval AUC drop
 court stays **64.8**; OOD-audio stays **5.0**. Receipt:
 `artifacts/wa_audio_a0z_guards/RESULT.md`; decision D-096. The next-item table is
 otherwise unchanged; #2 SPLIT-faithful and #3 P8a are the live options.
+
+**Update 2026-11-17 — SPLIT T=16 Stage 0 PASS, 0 booked.** The signed T=16 spec
+(`artifacts/split_prereg/SPEC_T16_STAGE0.md`) ran on GenBuster++ 1,000/1,000 at
+2.0 s / 8 fps / T=16: **AUC 0.710316** (95% bootstrap CI 0.686472–0.733444,
+report-only; **CI crosses the 0.70 bar**; point estimate binds) →
+`SPLIT_T16_STAGE0_PASS`. 2,000/2,000 rows, 0 unavailable, 0 errors; all 24 fps,
+48 decoded, 16 unique indices. Motion-rebalanced 0.740819; motion-only
+0.490672/0.509328 (chance); fps corr null. Receipt:
+`artifacts/split_t2v_matched/stage0_t16/RESULT.md`; decision D-097. **0 booked;
+court 64.8; OOD-video 1.2.** The PASS authorizes only a separate high-fps Stage 1
+pre-registration; the v1 Stage 1 corpus cannot support T=16 (reals are 3 fps /
+6 frames per 2 s).
 
 **#1 — A0z already clears the court's own K1 constraint values, at full coverage.**
 Verified directly from `artifacts/wa_audio_a0z_1b/scores.jsonl` (703 rows, AUC
@@ -236,7 +249,8 @@ A failed gate stops dependent rows.
 | D3 content-matched T2V | CLOSED FAIL G4 | Real guard 0.1233 > 0.10; no wiring; retry needs new pre-registration |
 | D3 motion-normalized variant | SKIP | Research-grade, no documented prior, confound already diagnosed |
 | D3 wiring | CLOSED | P0 failed; +4–5 projection removed |
-| SPLIT Stage 0 | Historical marginal PASS | 0.70244 vs 0.70; CI 0.679236–0.725154 |
+| SPLIT Stage 0 | PASS at T=8 and T=16 | v1 T=8 0.70244 (CI 0.679236–0.725154); **T=16 0.710316 (CI 0.686472–0.733444 crosses 0.70)**; 0 booked |
+| SPLIT Stage 1 T=16 | BLOCKED — no corpus | v1 Stage 1 reals are 3 fps / 6 frames per 2 s; needs a new high-fps real corpus + separate pre-registration + approval |
 | SPLIT Stage 1 | CLOSED FAIL S2 | S2 0.513919, S3 0.546810, S5 5/27, S7 0.076667/0.057604; 9-stratum sora-empty deviation; no Stage 2 |
 | SPLIT Stage 2 / threshold rescue | SKIP | Near-chance aggregate; no post-hoc rescue |
 | W9.1 | CLOSED HOLD | 7/11 sealed bars fail; no promotion; p4 remains |
