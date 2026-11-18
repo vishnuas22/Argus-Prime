@@ -29,22 +29,21 @@ pass)**; P8-fast PASS D1–D5 (coverage only; no detection score); **P9 PASS B1-
 
 ## Consolidated remaining-items list (authoritative; updated 2026-11-17)
 
-**DINOv3 access verified 2026-11-15:** HF token present; gated
-`facebook/dinov3-vitb16-pretrain-lvd1689m` config downloaded; weight HEAD
-**200**; timm mirror `timm/vit_base_patch16_dinov3.lvd1689m` weight HEAD **200**;
-no local weights yet. Native facebook config: 224, patch 16, 768-dim, 4 register
-tokens + CLS = 5 prefix tokens. timm config: **256 / `global_pool=avg`**. The
-224/CLS vs 256/avg contract mismatch is real. **Audit not sealed; no code or
-production change.** Decision rule: proceed only if evidence says the audit can
-plausibly clear the joint gate and boost OOD-image; otherwise ignore DINOv3 and
-spend on the higher-Y item.
+**DINOv3 pre-flight closed 2026-11-18 (D-103):** native
+`facebook/dinov3-vitb16-pretrain-lvd1689m` weights downloaded and runnable
+(327 MB; 224/16/768/12 layers/4 registers; `[B,201,768]`). Pre-flight on the 10
+provider gates: random 5-fold probe AUC 0.953–0.963 / recall@10% FPR 86.8–89.3%,
+but leave-one-generator-out + leave-one-real-component-out gives transferred
+threshold FPR **41–71%** and oracle-ceiling recall **62–70.9%** (min 22–35%) at
+~9% FPR. **No sealed P7b audit; P7b stays closed at 0.** Receipt
+`artifacts/dinov3_feasibility_20261118/RESULT.md`.
 
 ### A. Ready or approved
 
 | ID | Item | Status | Expected contribution (projected, not booked) | Expected outcome | Gate / dependency |
 |---|---|---|---|---|---|
-| **P7b** | DINOv3 ViT-B/16 frozen-backbone audit (P7 reopen) | Access verified; **PARKED 2026-11-15 — not confirmed to boost**; spec not sealed; no local weights | **0 booked at audit**; a PASS is a candidate only. Potential **+0.5 OOD-image** only after a separate wiring spec clears the court. Low probability on the binding cell: only size-matched evidence is FGTS So-Fake-OOD +13.2 pp balanced accuracy (70.3 vs 57.1), and **no DINOv3 size has published real-image FPR**; D-045 closed 0/15; the 94.5 result is ViT-7B, not ViT-B/16. | Joint gate: provider-real **issued FPR ≤10%**, **fake recall ≥70%**, **coverage ≥30% both classes**, plus D-045 R4 G1/G2 strict non-regression (G1 mean hard-cell Δ ≥ +0.01; G2 Δ ≥ −0.01 every measurable cell). Gate needs a **1.44× trade-ratio improvement** over P7's oracle (1.68 pp FPR per pp recall vs 1.17:1). Five-arm contract derivation (CLS / mean-patch / CLS⊕mean-patch / top-K patch / layer-30), 256², provider-real FPR as primary endpoint. | Do not start without a user decision; sealed spec; audit-only registry/harness; fresh sentinel; no wiring/commit. |
-| **P8a** | DF-Eval-2024 video gate registration | Draft updated; **not submitted**; user action | **+0.5 data coverage** if granted; court **65.3**. No detection claim. | Access grant or denial; eval-only; no training. | Institutional email or verifiable link; user submission. |
+| **P7b** | DINOv3 ViT-B/16 frozen-backbone audit (P7 reopen) | **CLOSED at 0 after pre-flight 2026-11-18 (D-103)**; weights local; no sealed audit — LOCO FPR 41–71%, oracle recall 62–70.9% | **0 booked**; no sealed audit. The +0.5 OOD-image projection remains unearned. Low probability on the binding cell: only size-matched evidence is FGTS So-Fake-OOD +13.2 pp balanced accuracy (70.3 vs 57.1), and **no DINOv3 size has published real-image FPR**; D-045 closed 0/15; the 94.5 result is ViT-7B, not ViT-B/16. | Joint gate: provider-real **issued FPR ≤10%**, **fake recall ≥70%**, **coverage ≥30% both classes**, plus D-045 R4 G1/G2 strict non-regression (G1 mean hard-cell Δ ≥ +0.01; G2 Δ ≥ −0.01 every measurable cell). Gate needs a **1.44× trade-ratio improvement** over P7's oracle (1.68 pp FPR per pp recall vs 1.17:1). Five-arm contract derivation (CLS / mean-patch / CLS⊕mean-patch / top-K patch / layer-30), 256², provider-real FPR as primary endpoint. | Do not start without a user decision; sealed spec; audit-only registry/harness; fresh sentinel; no wiring/commit. |
+| **P8a** | DF-Eval-2024 video gate registration | **REJECTED by repo authors 2026-11-18 (D-102)**; no route | **0 booked**; court stays **64.8**; data coverage **5.0** unchanged. No detection claim. | Access denial received; do not re-submit. | New access route supplied by the user; otherwise closed. |
 | **P3** | Audio A0/A1 (A0z 1B not certified) | A0z AUC pass / ECE fail; A0p and A1 not run; training approval required | A0 **+0.9–1.5 OOD-audio**; A1 **+1.5–2.5**. But A0p 1B linear-probe ITW ECE ~26.9% (Pascu 2024) makes ≤0.05 ECE unlikely; A1 depends on certified A0. **Low expected value.** | A0p likely fails ECE → P3 stays 0. A1 only if A0 is certified and full W9.1 bars pass. Do not start by default. | Training approval; new calibration/score approach may be needed. |
 | **P5** | Codec-diverse retraining | Measured GAP; eligible only via **separate sealed spec + explicit approval** | Roadmap **+1.5 robustness** if retention bars pass; court ~66.3. No confirmed Y; codec augmentation evidence null-to-negative on wild audio; video CRF28 loss concentrated in hard methods. | Retrain and measure retention; could regress. No booking until a receipt. | Sealed spec + explicit approval; no default start. |
 
@@ -187,27 +186,18 @@ was **not executed**. Verdict `WAVEREP_FIXED_THRESHOLD_FAIL`; OOD-video channel
 closed at 0; court stays **64.8**. Receipt:
 `artifacts/waverep_probe_20261117/RESULT.md`; decision D-100.
 
-**#3 — P8a is the only free +0.5 on the board.** The DF-Eval-2024 video gate is
-still unsubmitted; a grant books +0.5 data coverage (court 65.3) with no detection
-claim and no compute. It needs an institutional email or verifiable link from the
-user — nothing on my side blocks it. This should run in parallel with #1/#2, not
-instead of them.
+**#3 — P8a is closed: rejected by the repo authors (D-102).** The DF-Eval-2024
+video gate books **0**; court stays **64.8**. No re-submission without a new
+access route from the user. This removes the last certain +0.5.
 
-**#4 — DINOv3 does NOT meet the user's confirmation bar; do not run it as the
-next item.** The evidence is one size-matched cell: FGTS Table 8 puts DINOv3-B/16
-at **70.3%** balanced accuracy on So-Fake-OOD vs DINOv2-B/14 **57.1%** (+13.2 pp),
-and the DINOv3>DINOv2 gap holds at every size class. But **no published source
-reports real-image FPR at a fixed threshold for any DINOv3 size** — the field
-reports balanced accuracy, and our binding constraint is provider-real FPR
-43.48%. The ~+30 pp real-class gap is **7B-only and scale-confounded** (FGTS
-shows a 17.2 pp B→7B gap). The gate also needs a **1.44× improvement in the
-FPR:recall trade ratio** over P7's exhausted threshold oracle (1.68 pp FPR per pp
-recall required vs 1.17:1 delivered). Cost is negligible (85.6M params, sub-2-min
-extraction for 1,299 images), but "nearly free" is not "confirmed to improve."
-Verdict: **park, do not start.** If ever run, it must be a five-arm contract
-derivation (CLS / mean-patch / CLS⊕mean-patch / top-K patch / layer-30) with
-provider-real FPR as the primary endpoint and the explicit falsification
-"no arm below ~30% FPR while recall ≥80% → close B/16."
+**#4 — DINOv3 pre-flight is done and fails the binding cell (D-103).** Random
+5-fold probe AUC 0.953–0.963 / recall@10% FPR 86.8–89.3%, but the honest
+leave-one-generator-out + leave-one-real-component-out split gives transferred
+threshold FPR **41–71%** and oracle-ceiling recall **62–70.9%** (min 22–35%) at
+~9% FPR. **No sealed P7b audit; P7b closed at 0.** Receipt
+`artifacts/dinov3_feasibility_20261118/RESULT.md`. A sealed audit now requires
+explicit user override; the five-arm contract derivation is moot because the
+failure is threshold transfer, not contract choice.
 
 **Not the next item, for the record.** P5 retraining is deferred: the audio 8 kHz
 arm is a *ranking* failure (AUC 0.9153→0.6708) and a 2026 audit proves no
