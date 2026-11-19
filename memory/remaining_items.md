@@ -1,6 +1,8 @@
 # Argus Prime — Remaining Items Inventory
 
-**Last updated:** 2026-11-17
+**Last updated:** 2026-11-18
+**Open-item authority:** `memory/backlog.md` (2026-11-18). This file is the
+provenance/archive for closed and historical items; do not delete it.
 **Status:** 2026-11-17 inventory (A0z closed 0; SPLIT T=16 Stage 0 PASS, 0 booked;
 **SPLIT LINE CLOSED by user ruling 2026-11-17 (D-099)** — Stage 1 T=16 diagnostic
 `NO_TRANSFER_EVIDENCE`, spec never signed, MSR-VTT never downloaded; **WaveRep

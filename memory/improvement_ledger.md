@@ -10,7 +10,7 @@ must be justified as anti-regression, never booked as improvement.
 Dimensions: in-domain 14.4/15 · OOD-image 8.5/10 · OOD-audio 5.0/10 · OOD-video 1.2/10
 · abstention 11.3/15 · robustness 4.5/10 · data coverage 4.5/10 · system 11.7/15 ·
 multimodal 2.0/5.
-**Current booked: 64.8/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13; P4 K1 FAIL adds 0, 2026-11-13; P5 codec/laundering GAP adds 0, 2026-11-14; P9 read-only C2PA validator +0.4 system, 2026-11-14; P6 AV offset gate KILL adds 0, 2026-11-14; P7 image audit CLOSED at 0, 2026-11-14).
+**Current booked: 64.8/100** (P0c +0.8 bookkeeping; P2 FAIL adds 0; P8-fast +0.5 data coverage, 2026-11-13; P4 K1 FAIL adds 0, 2026-11-13; P5 codec/laundering GAP adds 0, 2026-11-14; P9 read-only C2PA validator +0.4 system, 2026-11-14; P6 AV offset gate KILL adds 0, 2026-11-14; P7 image audit CLOSED at 0, 2026-11-14; D3 transfer pre-flight FAIL adds 0, 2026-11-18; P8a rejected adds 0, 2026-11-18; DINOv3 pre-flight adds 0, 2026-11-18).
 Conservative P0c floor: 63.5 if the stale-cap correction is disallowed.
 
 ## Ledger
