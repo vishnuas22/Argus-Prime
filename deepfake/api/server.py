@@ -322,6 +322,16 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
     from argus_detect import STACKER
     from fusion import conflict_metric, gate
     survivors, _unavailable = gate(outputs, d)
+    # S1 correctness fix (D-115): the vendored fusion.py stamps ConformalInfo
+    # with the module constant CONFORMAL_ALPHA (0.10) regardless of the alpha
+    # actually bound for this request. Correct it harness-side so the reported
+    # value matches the operating point that produced the decision. The vendored
+    # file is never edited (D-009).
+    if effective_alpha is not None:
+        try:
+            core.conformal.alpha = float(effective_alpha)
+        except (AttributeError, TypeError, ValueError):
+            pass
     verdict = {"p_fake_fused": round(1.0 - core.probabilities["camera_original"], 4),
                "abstained": bool(core.abstained), "trust": core.trust_score,
                "risk": core.risk_score, "hypotheses": core.hypothesis_set,
@@ -338,10 +348,12 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
                   "clf": _state["clf"], "module_ids": _state["mids"],
                   "feature_names": _state.get("feature_names"),
                   "conflict_p99": _state.get("conflict_p99"),
-                  # B3: R1 rescores at the court's operating point unless a
-                  # form α was requested for this call (D-039)
-                  "alpha": (None if alpha is not None
-                            else _state.get("conformal_alpha"))}}}
+                  # B3 / S1 (D-115): R1 rescores at the court's operating point.
+                  # This must be the EFFECTIVE alpha — the operator form alpha
+                  # when supplied, else the stacker meta alpha. It previously
+                  # reported None whenever a form alpha was given, which made R2
+                  # fall back to the vendored 0.10 instead of the requested α.
+                  "alpha": effective_alpha}}}
     import recovery as recovery_mod
     verdict["recovery"] = recovery_mod.run("image", verdict, extras)
     # TASK-C1 layer 5: risk curve. A single request carries one score, so the

@@ -318,7 +318,21 @@ def _r2_refuse(original, extras, steps) -> dict | None:
         remaining = [m for m in remaining if m.module_id != drop]
     k_prime = conflict_metric(remaining)
     probs = WeightedVotingJudge().decide(remaining)
-    cset = conformal_set(probs)
+    # S1 correctness fix (D-115): R2 used the vendored default alpha (0.10),
+    # ignoring the alpha bound for THIS request (the operator form alpha, else
+    # the stacker meta alpha, e.g. 0.209291 for p6v11). That made R2's recovery
+    # boundary differ from the main verdict's operating point. Resolve the bound
+    # alpha from the extras contract (server.py sets it per request) and fall
+    # back to the vendored default only when it is genuinely absent.
+    alpha = None
+    try:
+        for _bundle in (extras.get("stacker_clfs") or {}).values():
+            if isinstance(_bundle, dict) and _bundle.get("alpha") is not None:
+                alpha = float(_bundle["alpha"])
+                break
+    except (TypeError, ValueError):
+        alpha = None
+    cset = conformal_set(probs) if alpha is None else conformal_set(probs, alpha=alpha)
     t = trust_score(d, remaining, len(outputs), len(cset), k_prime)
     r = risk_score(d, outputs, build_contradictions(remaining))
     ok = (len(cset) == 1 and k_prime <= p99)

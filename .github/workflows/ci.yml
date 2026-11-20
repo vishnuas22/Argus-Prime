@@ -67,6 +67,35 @@ jobs:
           print("image stacker metas OK:", image_ok)
           PY
 
+      # P0a: models.lock must exist and cover every deployed artifact path that
+      # is present in the checkout. This catches lock drift without needing the
+      # private bundle (which is not in CI).
+      - name: models.lock sanity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          lock = json.loads(Path("models.lock").read_text())
+          arts = lock["artifacts"]
+          assert arts, "models.lock has no artifacts"
+          missing_from_repo = [k for k in arts if not Path(k).exists()]
+          print(f"locked artifacts: {len(arts)}")
+          print(f"not in git (expected, private bundle): {len(missing_from_repo)}")
+          # every locked entry must have both sha256 and bytes
+          for k, v in arts.items():
+              assert len(v["sha256"]) == 64, f"{k}: bad sha256"
+              assert v["bytes"] > 0, f"{k}: bad size"
+          # the two artifacts that ARE tracked must match the lock exactly
+          import hashlib
+          for k, v in arts.items():
+              p = Path(k)
+              if p.exists():
+                  h = hashlib.sha256(p.read_bytes()).hexdigest()
+                  assert h == v["sha256"], \
+                      f"{k}: tracked file drifted from models.lock"
+          print("models.lock OK")
+          PY
+
       - name: Fast test tier
         run: pytest -m fast -q
 

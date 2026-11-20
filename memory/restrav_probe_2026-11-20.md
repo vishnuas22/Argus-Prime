@@ -39,3 +39,40 @@ Pre-registered feasibility wave:
 
 ## Score impact
 **0 booked.** Court stays 64.8/100. This probe produces a measurement, not a promotion.
+
+## ADDENDUM 2026-11-20 (V1d prep) — the B4 blocker was an artifact, not a property
+
+`test_ltt_threshold_refuses_when_slack_exceeds_alpha` style honesty applies here:
+before designing V2 I re-measured the V1g decode failure that failed bar B4.
+
+**Measurement:** 250 GenBuster++ `real/` clips, `random.seed(42)`, shuffled,
+`decode_clip(T=24, window_sec=2.0)` → **250/250 decoded, 0 failures (0.0%)**.
+Zero `RuntimeError`/`ValueError` reasons.
+
+**Cause of V1g's 29/200 failures:** V1g used `sorted(glob(...))[:100]` — the
+**alphabetically first** 100 filenames. Those are `00xxxx…`/`01xxxx…`, a
+non-random prefix that happens to be disproportionately corrupt. The failures
+were a **sampling artifact**, not a corpus property.
+
+**Consequence:** V1g's science bars (B1 T2V Δ+0.125, B2 no CDF regression,
+B3 r=0.130) were obtained on a biased subsample and are **provisional**, not
+refuted. A clean V2 with a shuffled decode-filtered sample can satisfy B4
+without any change to the method.
+
+## V1d candidate landscape (verified on disk, 2026-11-20)
+
+| Corpus | Real | Fake | Location | Usable |
+|---|---:|---:|---|---|
+| GenBuster++ | 1000 | 1000 | `data/raw/genbuster_plusplus/extracted/video/{real,fake}` | yes (decode 100% on shuffled sample) |
+| GenVidBench Tier-1 | 0 | **14,114** (opentora 13,800 · kling 210 · sora 51) | `data/raw/genvidbench/{opentora,kling,sora}` | fakes only; reals must come from GenBuster `real/` |
+| FF++ C23 mirror | 1000 | 6×1000 | `data/raw/ffpp_mirror/FaceForensics++_C23` | curated regression guard |
+| Celeb-DF-v2 | 590+300 | 5,639 | `data/raw/celebdf/Celeb-DF-v2` | curated regression guard |
+
+**Current t2v baseline (p6vid_v4e, `artifacts/exam_video_t2v_20261011_arcface/metrics.json`):**
+kling **0.6035** (n=150) · sora **0.6812** (n=51) · opentora **0.7497** (n=150);
+real set = FF++ (n=140); frames=12; route split video_face 407 / image_court 84.
+
+**Assets ready:** DINOv2 ViT-S/14 weights cached at
+`~/.cache/torch/hub/checkpoints/dinov2_vits14_pretrain.pth` (no download);
+`torchcodec` 0.17 + `h5py` installed in `.venv`; ReStraV 21-D extractor at
+`/tmp/restrav_feats.py`; disk 60 GiB free (no corpus download needed).

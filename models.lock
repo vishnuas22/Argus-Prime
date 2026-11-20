@@ -1,0 +1,103 @@
+{
+  "schema": "argus.models-lock.v1",
+  "generated_at": "2026-11-20T11:27:45.599490+00:00",
+  "generated_on": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "python": "3.13.9"
+  },
+  "library_pins": {
+    "torch": "2.13.0",
+    "torchvision": "0.28.0",
+    "numpy": "2.5.2",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.18.1",
+    "transformers": "5.15.1",
+    "opencv-python": "4.14.0.94",
+    "opencv-python-headless": "5.0.0.93",
+    "joblib": "1.5.3",
+    "timm": "1.0.28",
+    "pillow": "12.3.0"
+  },
+  "artifacts": {
+    "artifacts/p6v11/stacker.joblib": {
+      "bytes": 2103604,
+      "sha256": "04c849b4efe1f622a4c625f9be31b87b3b05d4425ec5b79fd8b3a77673b3b8e8"
+    },
+    "artifacts/p6v11/stacker_meta.json": {
+      "bytes": 2015,
+      "sha256": "b66c229d0fd80126defe93e0045e0efb3a5462f5cc87fe4f61fefe48fcf21f45"
+    },
+    "artifacts/p6vid_v4/stacker.joblib": {
+      "bytes": 2325620,
+      "sha256": "2a601e9021aecd1362cf463e90c13d3b99d5bc059b6beca7a26cff28961f4d54"
+    },
+    "artifacts/p6vid_v4/stacker_meta.json": {
+      "bytes": 2027,
+      "sha256": "107cdd132fadde42f30b914fcfa6f5d7026ad28cbff7a44bab49839456628b10"
+    },
+    "artifacts/p6vid_v4/drift_calibration.json": {
+      "bytes": 161,
+      "sha256": "8ce8041cb7569d41f15734c2c654b7a2255cb5f999b8a4eae57559cec7f19beb"
+    },
+    "artifacts/p6vid_v2/drift_calibration.json": {
+      "bytes": 161,
+      "sha256": "49def1ce01c53f79cb684c80ea5dd5467533158805cbbccc26ef2f9371bea783"
+    },
+    "artifacts/aigc_shot_v2/probe.joblib": {
+      "bytes": 4955,
+      "sha256": "1c67ae3d6a72ab634ce65304016e56b6853528e6184bb7703d0e831571735617"
+    },
+    "artifacts/p3_full/face_probe.joblib": {
+      "bytes": 4955,
+      "sha256": "28dc78d69c9b4f79d97ce7d21d79b19d8cd1cc818da349f448b12dca2ab41ca7"
+    },
+    "artifacts/p3_ffpp/ffpp_only_probe.joblib": {
+      "bytes": 4955,
+      "sha256": "6721ec1a7ed54ec160045656d1836f5f583ab4876acc758fcd8fc5ea7117f689"
+    },
+    "artifacts/p7_mj/probe.joblib": {
+      "bytes": 4955,
+      "sha256": "a84f8795a9779f00fc7f56e2b53871e0a5992e5b280cfd8d1c7a62e4d5796878"
+    },
+    "artifacts/inversion_probe/inversion_probe.joblib": {
+      "bytes": 1549,
+      "sha256": "7d8197dcc2c525cf1b6074a7a9abafbceff78cdba1e06f77234453910db13048"
+    },
+    "artifacts/provenance_probe/config.joblib": {
+      "bytes": 147,
+      "sha256": "6108f5013e6177f65b3aeb46643edbe5841d5d590ace7c18a801a674cb8a3980"
+    },
+    "artifacts/p4/audio_probe.joblib": {
+      "bytes": 13461,
+      "sha256": "3c80c6aea4284a9b92a27a90ec7eb9e26bf9ff56a10f42c9d8cd6526502f50eb"
+    },
+    "artifacts/benchmarks.json": {
+      "bytes": 11544,
+      "sha256": "ae7e0d05f53155e60302693dd0870250da23181078742f85519c928f8fe3b33e"
+    },
+    "tools/models/yunet.onnx": {
+      "bytes": 232589,
+      "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
+    },
+    "tools/models/arcface_w600k_r50.onnx": {
+      "bytes": 174383860,
+      "sha256": "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43"
+    },
+    "tools/models/face_recognition_sface_2021dec.onnx": {
+      "bytes": 38696353,
+      "sha256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79"
+    }
+  },
+  "total_bytes": 217792911,
+  "bundle": {
+    "repo": "thedataghost22/Argus_prime",
+    "revision": "1699da0faed668138ad7bb8304ac8d71e1197d69",
+    "repo_type": "model",
+    "private": true,
+    "uploaded_at": "2026-11-20",
+    "excluded_nc": [
+      "tools/models/arcface_w600k_r50.onnx"
+    ]
+  }
+}

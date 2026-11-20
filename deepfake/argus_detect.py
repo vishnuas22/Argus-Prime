@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -188,6 +189,9 @@ def _route_image_court(path: Path, k: int = 4, alpha: float | None = None) -> di
 
 _VID_STACKER_CACHE = {"loaded": False, "clf": None, "embedder": None,
                       "names": None}
+# S1 (D-115): guards the double-checked load above. Harmless under the current
+# CapacityLimiter(1) serialisation; required once fan-out lands.
+_VID_STACKER_LOCK = threading.Lock()
 
 
 def _load_video_stacker():
@@ -203,57 +207,81 @@ def _load_video_stacker():
         spike counts.
     The embedder used at dump/train time MUST be the serve-time embedder —
     identity clustering and drift features are embedder-dependent; the choice
-    is recorded in stacker_meta.json."""
+    is recorded in stacker_meta.json.
+
+    S1 correctness fix (D-115): the loaded flag used to be set BEFORE the
+    load, so a failure inside joblib.load (or any of the fail-closed asserts)
+    left loaded=True with clf=None — every later call then silently returned
+    None instead of surfacing the error (fail-open). The flag is now set only
+    after a successful load, and a lock makes the double-checked load safe
+    under the future concurrent serve path (audit C-9).
+    """
     if not _VID_STACKER_CACHE["loaded"]:
-        _VID_STACKER_CACHE["loaded"] = True
-        if VIDEO_STACKER.exists():
-            import joblib
-            meta_p = VIDEO_STACKER.with_name("stacker_meta.json")
-            if not meta_p.exists():
-                raise SystemExit(
-                    f"[video_stacker] {VIDEO_STACKER} exists but {meta_p} is "
-                    f"missing — feature-space contract unverifiable; refusing "
-                    f"to serve (fail closed)")
-            meta = json.loads(meta_p.read_text())
-            from video_features import FEATURE_NAMES
-            if meta.get("feature_names") != FEATURE_NAMES:
-                raise SystemExit(
-                    f"[video_stacker] stacker_meta.feature_names != "
-                    f"FEATURE_NAMES — the deployed video stacker was trained in "
-                    f"a different feature space (D-040 skew class); refusing to "
-                    f"serve (fail closed)")
-            cal_p = VIDEO_STACKER.parent / "drift_calibration.json"
-            if not cal_p.exists():
-                raise SystemExit(
-                    f"[video_stacker] {VIDEO_STACKER} exists but "
-                    f"{cal_p} is missing — drift_spikes would silently zero "
-                    f"while the trained model expects calibrated spikes "
-                    f"(D-040); refusing to serve (fail closed)")
-            # W-AV (D-076): an AV-capable stacker (38-feature space) REQUIRES
-            # its coverage calibration beside the bundle — without it every
-            # row would serve in_coverage=0, a systematic skew the model was
-            # never trained to see (D-040 class). Fail closed, same law.
-            if "avs_present" in (meta.get("feature_names") or []):
-                av_p = VIDEO_STACKER.parent / "av_calibration.json"
-                if not av_p.exists():
-                    raise SystemExit(
-                        f"[video_stacker] {VIDEO_STACKER} is AV-capable but "
-                        f"{av_p} is missing — avs_in_coverage would silently "
-                        f"zero (D-040 skew class); refusing to serve "
-                        f"(fail closed)")
-            _VID_STACKER_CACHE["clf"] = joblib.load(VIDEO_STACKER)
-            _VID_STACKER_CACHE["names"] = meta.get("feature_names")
-            try:
-                emb = meta.get("embedder")
-                if emb in ("sface", "arcface"):
-                    from video_face_track import EMBEDDER_NAME, set_embedder
-                    if emb != EMBEDDER_NAME:
-                        set_embedder(emb)
-                    _VID_STACKER_CACHE["embedder"] = emb
-            except Exception as e:
-                print(f"[video_stacker] embedder meta read failed: {e}",
-                      file=sys.stderr)
+        with _VID_STACKER_LOCK:
+            if not _VID_STACKER_CACHE["loaded"]:
+                _load_video_stacker_locked()
     return _VID_STACKER_CACHE["clf"]
+
+
+def _load_video_stacker_locked():
+    """Load the video stacker. Caller must hold ``_VID_STACKER_LOCK``.
+
+    Sets ``loaded`` only after a fully successful load so a failure can never be
+    mistaken for success on a later call.
+    """
+    if VIDEO_STACKER.exists():
+        import joblib
+        meta_p = VIDEO_STACKER.with_name("stacker_meta.json")
+        if not meta_p.exists():
+            raise SystemExit(
+                f"[video_stacker] {VIDEO_STACKER} exists but {meta_p} is "
+                f"missing — feature-space contract unverifiable; refusing "
+                f"to serve (fail closed)")
+        meta = json.loads(meta_p.read_text())
+        from video_features import FEATURE_NAMES
+        if meta.get("feature_names") != FEATURE_NAMES:
+            raise SystemExit(
+                f"[video_stacker] stacker_meta.feature_names != "
+                f"FEATURE_NAMES — the deployed video stacker was trained in "
+                f"a different feature space (D-040 skew class); refusing to "
+                f"serve (fail closed)")
+        cal_p = VIDEO_STACKER.parent / "drift_calibration.json"
+        if not cal_p.exists():
+            raise SystemExit(
+                f"[video_stacker] {VIDEO_STACKER} exists but "
+                f"{cal_p} is missing — drift_spikes would silently zero "
+                f"while the trained model expects calibrated spikes "
+                f"(D-040); refusing to serve (fail closed)")
+        # W-AV (D-076): an AV-capable stacker (38-feature space) REQUIRES
+        # its coverage calibration beside the bundle — without it every
+        # row would serve in_coverage=0, a systematic skew the model was
+        # never trained to see (D-040 class). Fail closed, same law.
+        if "avs_present" in (meta.get("feature_names") or []):
+            av_p = VIDEO_STACKER.parent / "av_calibration.json"
+            if not av_p.exists():
+                raise SystemExit(
+                    f"[video_stacker] {VIDEO_STACKER} is AV-capable but "
+                    f"{av_p} is missing — avs_in_coverage would silently "
+                    f"zero (D-040 skew class); refusing to serve "
+                    f"(fail closed)")
+        clf = joblib.load(VIDEO_STACKER)
+        names = meta.get("feature_names")
+        embedder = None
+        try:
+            emb = meta.get("embedder")
+            if emb in ("sface", "arcface"):
+                from video_face_track import EMBEDDER_NAME, set_embedder
+                if emb != EMBEDDER_NAME:
+                    set_embedder(emb)
+                embedder = emb
+        except Exception as e:
+            print(f"[video_stacker] embedder meta read failed: {e}",
+                  file=sys.stderr)
+        # Publish only after every component succeeded.
+        _VID_STACKER_CACHE["clf"] = clf
+        _VID_STACKER_CACHE["names"] = names
+        _VID_STACKER_CACHE["embedder"] = embedder
+        _VID_STACKER_CACHE["loaded"] = True
 
 
 def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
@@ -398,6 +426,8 @@ def detect_video(path: Path, n_frames: int = 12, recovery_enabled: bool = True,
 
 
 _AUDIO_MODEL = None
+# S1 (D-115): guards the double-checked audio model load.
+_AUDIO_MODEL_LOCK = threading.Lock()
 
 
 class AudioFormatError(RuntimeError):
@@ -408,13 +438,24 @@ class AudioFormatError(RuntimeError):
 
 
 def _get_audio_model(device):
-    """Process-level cache so batch video scoring loads XLS-R once."""
+    """Process-level cache so batch video scoring loads XLS-R once.
+
+    S1 correctness fix (D-115): the global is now published only after a
+    successful load and guarded by a lock. Previously a failed
+    ``from_pretrained`` left ``_AUDIO_MODEL`` as None with no lock, so concurrent
+    callers could each retry the load (and a partial failure was indistinguishable
+    from "not yet loaded").
+    """
     global _AUDIO_MODEL
     if _AUDIO_MODEL is None:
-        from transformers import AutoModel, Wav2Vec2FeatureExtractor
-        fe = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-xls-r-300m")
-        model = AutoModel.from_pretrained("facebook/wav2vec2-xls-r-300m").to(device).eval()
-        _AUDIO_MODEL = (fe, model)
+        with _AUDIO_MODEL_LOCK:
+            if _AUDIO_MODEL is None:
+                from transformers import AutoModel, Wav2Vec2FeatureExtractor
+                fe = Wav2Vec2FeatureExtractor.from_pretrained(
+                    "facebook/wav2vec2-xls-r-300m")
+                model = AutoModel.from_pretrained(
+                    "facebook/wav2vec2-xls-r-300m").to(device).eval()
+                _AUDIO_MODEL = (fe, model)
     return _AUDIO_MODEL
 
 
