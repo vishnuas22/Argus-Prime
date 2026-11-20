@@ -94,6 +94,7 @@ achievable by anyone with public data today.
 | 5 | Image coverage wave (lowest priority — image is the most mature dimension) | moderate external-generator coverage gain | full restack cycle |
 | 6 | **P9 read-only C2PA validator (DONE 2026-11-14)**: sealed spec `p9-c2pa-readonly-v1`, 24 stdlib tests, B1-B15 PASS, fresh sentinel APPROVE | **+0.4 system booked; 0 detection** | done; no wiring/promotion/commit |
 | 7 | **P6 AV offset gate kill-test (DONE 2026-11-14)**: sealed spec `p6-av-offset-gate-v1`, 838-row AVLips exam, tau 2.5 frames, strict `offset_abs > 2.5` | **0 booked; KILL B3** (FP 106/358 = 29.61% vs ≤35; TP 350/480 = 72.92%; AUC 0.724002 parity PASS; coverage 838/838; sentinel APPROVE) | done; no wiring/promotion/commit |
+| 8 | **V1g ReStraV feasibility (DONE 2026-11-20)**: sealed spec `v1g-feasibility-v1`, n=200/class GenBuster++ + CDF, ReStraV 21-D geometry (DINOv2 ViT-S/14) + p6vid_v4 combined LR | **0 booked; FAIL B4** (decode attrition 171/200 GenBuster). B1 PASS (T2V combined 0.753 vs p6vid 0.628, Δ+0.125); B2 PASS (CDF 0.999 vs 0.999, no regression); B3 PASS (r=0.130, decorrelated). Science bars cleared; sample-size bar failed. Receipt `artifacts/v1g_restrav_feasibility/RESULT.md`. Next: V2 with decode pre-filter or Video Reality Test, same B1–B3 bars, user approval required. | done ~40 min MPS; no training/promotion/pointer change |
 
 ## Rules for future entries
 
