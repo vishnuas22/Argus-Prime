@@ -20,6 +20,7 @@ Usage:
 import argparse
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -29,18 +30,20 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-WS = Path(__file__).resolve().parents[2]
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
+# P0b: artifact pointers resolve through ARGUS_ARTIFACTS_DIR (default repo-relative).
+ARTIFACTS_DIR = Path(os.environ.get("ARGUS_ARTIFACTS_DIR") or WS / "artifacts")
 FFMPEG = WS / "tools" / "ffmpeg"
 FACE_PROBES = {
     # gen  = court-generalist head (Celeb-DF + WildDeepfake trained; D-024's
     #        learned_face_probe zero-shot FF++ is 0.728)
-    "gen": WS / "artifacts" / "p3_full" / "face_probe.joblib",
+    "gen": ARTIFACTS_DIR / "p3_full" / "face_probe.joblib",
     # spec = FF++ specialist head (the D-024 learned_ffpp_probe channel;
     #        0.8885 FF++ in-domain, 0.790 zero-shot Celeb-DF)
-    "spec": WS / "artifacts" / "p3_ffpp" / "ffpp_only_probe.joblib",
+    "spec": ARTIFACTS_DIR / "p3_ffpp" / "ffpp_only_probe.joblib",
 }
-AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
+AUDIO_PROBE = ARTIFACTS_DIR / "p4" / "audio_probe.joblib"
 
 
 def _ffmpeg_bin() -> Path | None:

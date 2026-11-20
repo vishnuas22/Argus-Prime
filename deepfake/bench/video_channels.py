@@ -18,6 +18,7 @@ SFace-128 has its own scale.
 """
 import json
 import logging
+import os
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -26,7 +27,9 @@ from pathlib import Path
 
 import numpy as np
 
-WS = Path(__file__).resolve().parents[2]
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
+# P0b: artifact pointers resolve through ARGUS_ARTIFACTS_DIR (default repo-relative).
+ARTIFACTS_DIR = Path(os.environ.get("ARGUS_ARTIFACTS_DIR") or WS / "artifacts")
 BACKEND = WS / "integrations" / "Argus_Master" / "backend"
 for p in (str(BACKEND), str(Path(__file__).parent)):
     if p not in sys.path:
@@ -38,7 +41,7 @@ import video_face_track as _vft  # noqa: E402
 
 logger = logging.getLogger("argus.video_module")
 
-DRIFT_CALIB = WS / "artifacts" / "p6vid_v2" / "drift_calibration.json"
+DRIFT_CALIB = ARTIFACTS_DIR / "p6vid_v2" / "drift_calibration.json"
 MIN_TRACK_OBS = 3                  # a drift-capable track needs >=3 observations
 
 

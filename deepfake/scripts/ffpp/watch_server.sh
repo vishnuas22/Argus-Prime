@@ -1,6 +1,8 @@
 #!/bin/bash
 # Watches TUM server; relaunches FF++ bulk downloader when it revives. Runs unattended.
-cd /Users/Dataghost/Argus_Prime
+# P0b: ARGUS_ROOT overridable (default: this script's repo-relative root).
+ARGUS_ROOT="${ARGUS_ROOT:-$(cd "$(dirname "$0")/../../../.." && pwd)}"
+cd "$ARGUS_ROOT"
 while true; do
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -r 0-300 \
     "https://kaldir.vc.in.tum.de/faceforensics/v3/manipulated_sequences/Face2Face/c23/videos/071_054.mp4")

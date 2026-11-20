@@ -34,7 +34,9 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 
-WS = Path("/Users/Dataghost/Argus_Prime")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 P4_BUNDLE = WS / "artifacts/p4/audio_probe.joblib"
 
 

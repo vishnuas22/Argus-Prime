@@ -27,7 +27,9 @@ from pathlib import Path
 
 import numpy as np
 
-WS = Path("/Users/Dataghost/Argus_Prime")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 SHARD_DIR = WS / "data" / "raw"
 CACHE_DIR = WS / "data" / "caches" / "w9_2021"
 URL = ("https://huggingface.co/datasets/MoaazTalab/ASVspoof_2021_LA_Balanced_"

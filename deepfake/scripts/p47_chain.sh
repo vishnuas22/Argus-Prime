@@ -7,7 +7,9 @@
 # gate dirs get scored by the post-B3 benchmark code (old at vendored alpha,
 # candidate at its meta alpha).
 set -euo pipefail
-cd /Users/Dataghost/Argus_Prime
+# P0b: ARGUS_ROOT overridable (default: this script's repo-relative root).
+ARGUS_ROOT="${ARGUS_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+cd "$ARGUS_ROOT"
 exec >> /tmp/restack_p47.log 2>&1
 echo "==== [p47] chain start $(date -u +%FT%TZ) ===="
 
@@ -34,8 +36,8 @@ echo "[p47] restack pid $RPID; caffeinate watching"
 if wait "$RPID"; then
   cat > artifacts/restack_p47.DONE <<EOF
 completed_at: $(date -u +%FT%TZ)
-work: /Users/Dataghost/Argus_Prime/artifacts/restack_p47
-gates: /Users/Dataghost/Argus_Prime/artifacts/restack_p47/gates.json
+  work: $ARGUS_ROOT/artifacts/restack_p47
+  gates: $ARGUS_ROOT/artifacts/restack_p47/gates.json
 diet: 8 base corpora + flux2-klein-4b (7 shards excluded, B2)
 verdict: printed by restack stage; orchestrator re-derives independently (spec step 5)
 note: NO promotion (B.5 user-worded)

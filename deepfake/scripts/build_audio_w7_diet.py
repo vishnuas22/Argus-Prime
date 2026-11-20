@@ -19,7 +19,9 @@ import random
 from collections import defaultdict
 from pathlib import Path
 
-WS = Path("/Users/Dataghost/Argus_Prime")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 PQ = WS / "data/raw/asvspoof/data/train-00000-of-00001.parquet"
 P4_LABELS = WS / "data/caches/asv_train.labels.json"
 RADAR_PROTO = WS / "data/raw/radar2026/label_RADAR2026-dev.txt"

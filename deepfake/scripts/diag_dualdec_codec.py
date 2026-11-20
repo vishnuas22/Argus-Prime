@@ -27,7 +27,9 @@ import pyarrow.parquet as pq
 import soundfile as sf
 import torch
 
-WS = Path("/Users/Dataghost/Argus_Prime")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 sys.path.insert(0, str(WS / "deepfake"))
 sys.path.insert(0, str(WS / "deepfake" / "scripts"))
 

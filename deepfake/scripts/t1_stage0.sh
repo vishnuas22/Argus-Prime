@@ -3,7 +3,9 @@
 # artifacts/generator_intake/t1_wild_fpr_spec.md · deployed stacker p6v11
 # Executes ONLY via idle-court; sha-disjoint assert gates the scoring run.
 set -uo pipefail
-cd /Users/Dataghost/Argus_Prime
+# P0b: ARGUS_ROOT overridable (default: this script's repo-relative root).
+ARGUS_ROOT="${ARGUS_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+cd "$ARGUS_ROOT"
 echo "[t1] assert start $(date -u +%FT%TZ)"
 ./.venv/bin/python deepfake/scripts/t1_assert.py || {
   echo "[t1] ASSERT FAILED — scoring refused (fail-closed)"

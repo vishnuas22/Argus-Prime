@@ -106,6 +106,18 @@ def init_court():
     from argus_detect import build_modules, STACKER
     from triage import DegradationEstimator
 
+    # P0c fail-closed: a missing bundle is a bootstrap problem, not a crash. The
+    # old bare joblib.load raised FileNotFoundError with no route to recovery.
+    # Refuse to construct and name the exact file + the fix, BEFORE any module
+    # build (repo law: fail closed, never degrade silently).
+    if not STACKER.exists():
+        raise SystemExit(
+            f"Argus cannot start: image court bundle missing: {STACKER}\n"
+            f"  artifacts root : {STACKER.parent.parent}\n"
+            f"  fix            : python deepfake/bootstrap.py --verify\n"
+            f"  override       : set ARGUS_ARTIFACTS_DIR to a bootstrapped bundle"
+        )
+
     # Audit F13: sweep stale request tempdirs (>1 h = crash debris) at
     # startup — single-shot here, so nothing in-flight can be swept.
     troot = Path(tempfile.gettempdir())

@@ -11,7 +11,9 @@ import sys
 from pathlib import Path
 from PIL import Image
 
-WS = Path("/Users/Dataghost/Argus_Prime")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 JOBS = [

@@ -25,7 +25,9 @@ from pathlib import Path
 
 import requests
 
-WS = Path("/Users/Dataghost/Argus_Prime")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 URL = "http://127.0.0.1:8420/api/detect"
 OUT = WS / "artifacts" / "audit_20261106"
 SEED = 42

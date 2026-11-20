@@ -11,21 +11,29 @@ Usage:
 import argparse
 import hashlib
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 
-WS = Path(__file__).resolve().parents[1]
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
 sys.path.insert(0, str(WS / "integrations" / "Argus_Master" / "backend"))
+
+# P0b config seam: every artifact pointer resolves through ARGUS_ARTIFACTS_DIR so
+# a fresh clone can boot off a bootstrapped bundle (`python deepfake/bootstrap.py`)
+# without editing source. Default is the repo-relative layout — byte-identical to
+# the pre-P0b behaviour on the dev Mac. Fail-closed contracts are unchanged: a
+# missing bundle still raises, now with a bootstrap instruction (see init_court).
+ARTIFACTS_DIR = Path(os.environ.get("ARGUS_ARTIFACTS_DIR") or WS / "artifacts")
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg", ".m4a"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 
-STACKER = WS / "artifacts" / "p6v11" / "stacker.joblib"
+STACKER = ARTIFACTS_DIR / "p6v11" / "stacker.joblib"
 # p6v11 = P4.7 B2 candidate + B3 train-only conformal recalibration.
 # Promoted 2026-10-18 under user-authorized waiver (artifacts/p6v11/WAIVER.md):
 # HOLD verdict fail-closed (AUC 7/13, B4 parity 8/13) — user accepted measured
@@ -40,8 +48,8 @@ STACKER = WS / "artifacts" / "p6v11" / "stacker.joblib"
 # FF++ 0.9016/LOMO 4-of-4/Celeb-DF 0.9411, F2F 0.8760 vs 0.88 bar). Loaded
 # ONLY if the file exists — a missing bundle means detect_video serves the
 # documented naive fallback with stacker=null.
-VIDEO_STACKER = WS / "artifacts" / "p6vid_v4" / "stacker.joblib"
-AUDIO_PROBE = WS / "artifacts" / "p4" / "audio_probe.joblib"
+VIDEO_STACKER = ARTIFACTS_DIR / "p6vid_v4" / "stacker.joblib"
+AUDIO_PROBE = ARTIFACTS_DIR / "p4" / "audio_probe.joblib"
 
 # B3 conformal-alpha precedence state: an explicitly requested operator alpha
 # for THIS process (CLI --alpha; server form α sets/brackets it around the

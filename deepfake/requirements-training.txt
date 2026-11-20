@@ -1,0 +1,17 @@
+# Argus-Prime training / generation extras (P0d).
+#
+# Install with:  pip install -r deepfake/requirements.txt -r deepfake/requirements-training.txt
+#
+# These are NOT serve-path dependencies. Verified by import scan: diffusers and
+# mflux are referenced only by training/corpus-generation scripts
+# (gen_modern_corpus.py, generate_fakes.py, gen_train_fakes.py, gen_cross_fakes.py,
+#  extract_inversion_features.py, exam_generators.py, t11_t9_launder.py).
+#
+# Note (audit correction): mflux is not strictly macOS-only — it has a Linux
+# mlx[cuda13] path. It is excluded from the serve path because it is training-only,
+# not because it cannot install on Linux.
+diffusers>=0.32
+mflux==0.22.0
+# Training-side audio/video extras used by the W9/A0 corpora builders.
+mlx-vlm
+librosa

@@ -1,19 +1,36 @@
 name: ci
 on: [push, pull_request]
+
 jobs:
-  smoke:
+  # P0e: tier 1 — fixture-only, tokenless, no real models or corpora.
+  # Must stay green on a fresh clone with an empty artifacts/ dir.
+  fast:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Install deps
-        run: pip install numpy pillow scikit-learn scipy pandas pyarrow joblib
+
+      - name: Install fast-tier deps
+        run: pip install numpy pillow scikit-learn scipy pandas pyarrow joblib pytest
+
       - name: Syntax check (all python)
         run: |
           find . -name '*.py' -not -path './.venv/*' -not -path './integrations/Argus_Master/.git/*' \
             | xargs -I{} python -c "import ast; ast.parse(open('{}').read())"
+
+      # P0e: scoped to git-TRACKED code paths. A repo-wide grep matches docs/ and
+      # memory/ on purpose (they quote the old paths as history), so scope matters.
+      - name: Hardcoded machine-local path guard
+        run: |
+          if git grep -n -E "/Users/Dataghost|/private/var/folders" -- deepfake tools tests; then
+            echo "::error::hardcoded machine-local path found (use ARGUS_ROOT / ARGUS_ARTIFACTS_DIR)"
+            exit 1
+          fi
+          echo "no hardcoded machine-local paths in deepfake/ tools/ tests/"
+
       - name: Channel registry contract
         run: |
           python - <<'PY'
@@ -25,15 +42,61 @@ jobs:
               assert "factory" in entry and "joblib" in entry, cid
           print("registry OK:", active_ids())
           PY
+
       - name: Stacker meta contract
         run: |
           python - <<'PY'
           import json, glob
-          metas = glob.glob("artifacts/p6*/stacker_meta.json")
+          metas = sorted(glob.glob("artifacts/p6*/stacker_meta.json"))
           assert metas, "no stacker meta found"
+          image_ok = 0
           for m in metas:
               d = json.load(open(m))
-              assert d["module_ids"] and d["feature_names"], m
-              assert len(d["feature_names"]) == 2 * len(d["module_ids"]) + 3, m
-              print(m, "->", len(d["module_ids"]), "modules OK")
+              fn = d.get("feature_names") or []
+              mids = d.get("module_ids") or []
+              assert fn, f"{m}: feature_names missing"
+              if not mids:
+                  # Video stackers carry a different feature contract and no
+                  # module_ids (p6vid_v2/v4). The old assert KeyError'd on them.
+                  print(m, "-> video meta (no module_ids), skipped")
+                  continue
+              # Legacy metas are 2n+3; the deployed p6v10/p6v11 are 2n+6.
+              assert len(fn) in (2 * len(mids) + 3, 2 * len(mids) + 6), \
+                  f"{m}: {len(fn)} features vs {len(mids)} modules"
+              image_ok += 1
+          print("image stacker metas OK:", image_ok)
           PY
+
+      - name: Fast test tier
+        run: pytest -m fast -q
+
+  # P0e: tier 2 — real models / real corpora. No-ops until the private artifact
+  # bundle exists (P0a) and HF_TOKEN is configured; it must not fake a green run.
+  nightly:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check artifact bundle is configured
+        id: gate
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "HF_TOKEN not set — P0a bundle not wired yet; skipping slow tier."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install serve deps
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        run: pip install -r deepfake/requirements.txt
+      - name: Bootstrap + verify artifacts
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        run: python deepfake/bootstrap.py --verify
+      - name: Slow test tier
+        if: ${{ steps.gate.outputs.ready == 'true' }}
+        run: pytest -m slow -q

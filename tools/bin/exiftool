@@ -1,2 +1,13 @@
 #!/bin/sh
-exec perl /Users/Dataghost/Argus_Prime/tools/Image-ExifTool-13.10/exiftool "$@"
+# P0b: resolve the vendored perl exiftool relative to THIS shim, so the repo is
+# runnable from any checkout path. ARGUS_EXIFTOOL_PERL overrides it (e.g. a
+# system exiftool). tools/Image-ExifTool-13.10/ is NOT git-tracked — on a fresh
+# clone this fails closed with a clear message instead of exec'ing a missing file.
+ARGUS_ROOT="${ARGUS_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+PERL="${ARGUS_EXIFTOOL_PERL:-$ARGUS_ROOT/tools/Image-ExifTool-13.10/exiftool}"
+if [ ! -f "$PERL" ]; then
+  echo "exiftool shim: missing $PERL" >&2
+  echo "  install exiftool (brew install exiftool) or set ARGUS_EXIFTOOL_PERL" >&2
+  exit 127
+fi
+exec perl "$PERL" "$@"

@@ -29,8 +29,10 @@ import joblib
 import numpy as np
 import soundfile as sf
 
-WS = Path("/Users/Dataghost/Argus_Prime")
-TMP = Path("/private/var/folders/zr/xhd5gptd36zgdy5mmcv4gjfc0000gp/T/opencode")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
+TMP = Path(__import__("os").environ.get("ARGUS_TMP") or __import__("tempfile").gettempdir())
 sys.path.insert(0, str(WS / "deepfake"))
 
 

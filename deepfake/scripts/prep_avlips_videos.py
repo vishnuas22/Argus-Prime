@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 
 WS = Path(__file__).resolve().parents[2]
-TMP = Path("/private/var/folders/zr/xhd5gptd36zgdy5mmcv4gjfc0000gp/T/opencode")
+TMP = Path(__import__("os").environ.get("ARGUS_TMP") or __import__("tempfile").gettempdir())
 
 
 def sha256_of(p: Path) -> str:

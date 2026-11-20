@@ -14,16 +14,18 @@ import argparse
 import asyncio
 import json
 import math
+import os
 import statistics
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
-WS = Path(__file__).resolve().parents[2]
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 
 import httpx  # noqa: E402
 import psutil  # noqa: E402
@@ -256,7 +258,7 @@ async def dup_idempotency(c, n=3):
 
 async def oversize_refusal(c, mb=101):
     """Sparse >cap upload; F6 precheck should 413 fast OR drop connection fast; never hang."""
-    tmp = Path("/private/var/folders/zr/xhd5gptd36zgdy5mmcv4gjfc0000gp/T/opencode/big_101.bin")
+    tmp = Path(os.environ.get("ARGUS_TMP") or tempfile.gettempdir()) / "big_101.bin"
     if not tmp.exists() or tmp.stat().st_size != mb * 1024 * 1024:
         tmp.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(["dd", "if=/dev/zero", f"of={tmp}", "bs=1m", f"count={mb}"],
