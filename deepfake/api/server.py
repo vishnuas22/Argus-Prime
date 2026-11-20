@@ -96,6 +96,65 @@ _state = {}
 _COURT_GATE = anyio.CapacityLimiter(1)
 _EXPLAIN_GATE = anyio.CapacityLimiter(1)
 
+# TASK-C1 calibration flag. OFF by default: when unset the court path is
+# byte-identical to the pre-C1 behaviour. Turned on only after a calibrator has
+# been fitted on train-split dumps (D-035) and a sealed restack has promoted it.
+_CALIBRATION_ENV = "ARGUS_CALIBRATION"
+_CALIBRATION_PATH_ENV = "ARGUS_CALIBRATION_ARTIFACT"
+
+
+def calibration_enabled() -> bool:
+    """True when the C1 calibration layer should be active."""
+    return os.environ.get(_CALIBRATION_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def load_calibrator():
+    """Load the fitted court calibrator, or None when disabled/unavailable.
+
+    Fail-closed: a set flag with a missing artifact raises instead of silently
+    serving uncalibrated scores under a flag that claims calibration is on.
+    """
+    if not calibration_enabled():
+        return None
+    import joblib
+    from calibration import CourtCalibrator
+    path = os.environ.get(_CALIBRATION_PATH_ENV, "").strip()
+    if not path:
+        raise SystemExit(
+            f"{_CALIBRATION_ENV} is set but {_CALIBRATION_PATH_ENV} is empty; "
+            "point it at a train-fitted calibrator artifact"
+        )
+    p = Path(path)
+    if not p.exists():
+        raise SystemExit(
+            f"{_CALIBRATION_ENV} is set but calibrator artifact missing: {p}"
+        )
+    raw = joblib.load(p)
+    if isinstance(raw, CourtCalibrator):
+        return raw
+    if isinstance(raw, dict):
+        return CourtCalibrator.from_dict(raw)
+    raise SystemExit(f"unrecognised calibrator artifact type: {type(raw).__name__}")
+
+
+# TASK-S1 scaffold flag. OFF by default: when unset, run_court keeps the exact
+# save/restore monkey-patch it has today. When ON, the ContextVar shim replaces
+# the global swap, which is the precondition for raising CapacityLimiter(1).
+_THREADSAFE_ALPHA_ENV = "ARGUS_THREADSAFE_ALPHA"
+
+
+def threadsafe_alpha_enabled() -> bool:
+    """True when the ContextVar α shim should replace the global monkey-patch."""
+    return os.environ.get(_THREADSAFE_ALPHA_ENV, "").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
+def install_threadsafe_alpha() -> bool:
+    """Install the ContextVar α shim on the vendored fusion module (idempotent)."""
+    import fusion
+    from threadsafe import install_conformal_shim
+    return install_conformal_shim(fusion)
+
 
 def init_court():
     """Preload stacker + channel modules once (meta-driven, matches CLI).
@@ -142,6 +201,18 @@ def init_court():
     _state["modules"] = modules
     _state["ids"] = ids
     _state["clf"] = joblib.load(STACKER)
+    # TASK-C1: optional court-level calibration (flag-gated, default OFF).
+    _state["calibrator"] = load_calibrator()
+    # TASK-S1: optional ContextVar alpha shim (flag-gated, default OFF). When on,
+    # run_court binds alpha via a contextvar instead of swapping the vendored
+    # module global, which is the precondition for raising CapacityLimiter(1).
+    _state["threadsafe_alpha"] = threadsafe_alpha_enabled()
+    if _state["threadsafe_alpha"]:
+        if not install_threadsafe_alpha():
+            raise SystemExit(
+                "ARGUS_THREADSAFE_ALPHA is set but fusion.conformal_set is "
+                "missing; cannot install the contextvar shim"
+            )
     _state["mids"] = mids or ids
     _state["feature_names"] = feature_names
     _state["conflict_p99"] = conflict_p99
@@ -192,6 +263,16 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
         judge = StackerJudge(_state["clf"], d.evidence_capacity, _state["mids"],
                              feature_names=_state.get("feature_names"),
                              conflict_p99=_state.get("conflict_p99"))
+        # TASK-C1: swap in the calibrated judge only when a calibrator was
+        # loaded. With the flag off this is the same StackerJudge as before.
+        calibrator = _state.get("calibrator")
+        if calibrator is not None:
+            from calibrated_judge import CalibratedStackerJudge
+            judge = CalibratedStackerJudge(
+                _state["clf"], d.evidence_capacity, _state["mids"],
+                feature_names=_state.get("feature_names"),
+                conflict_p99=_state.get("conflict_p99"),
+                calibrator=calibrator)
         detail = []
         for mo in outputs:
             if getattr(mo, "unavailable_reason", None):
@@ -207,19 +288,32 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
         # the operator form α wins; else the stacker meta α binds for THIS fuse
         # call; module state is restored before returning either way (no
         # operator-α pin, no partial-chain growth, no cross-request residue)
+        #
+        # TASK-S1: when ARGUS_THREADSAFE_ALPHA is on, the same binding is done
+        # through a contextvar (threadsafe.alpha_scope) instead of swapping the
+        # vendored module global. Semantics are identical; the difference is that
+        # concurrent requests no longer race on shared state. Default OFF keeps
+        # the historical monkey-patch so this scaffold changes nothing.
         bind_alpha = None if alpha is not None else _state.get("conformal_alpha")
-        prev_conformal = None
-        if alpha is not None:
-            prev_conformal = fusion.conformal_set
-            fusion.conformal_set = functools.partial(prev_conformal, alpha=alpha)
-        elif bind_alpha is not None:
-            prev_conformal = fusion.conformal_set
-            fusion.conformal_set = functools.partial(prev_conformal, alpha=bind_alpha)
-        try:
-            core, *_ = fuse(outputs, d, judge=judge)
-        finally:
-            if prev_conformal is not None:
-                fusion.conformal_set = prev_conformal
+        # The effective operating point: operator form α wins, else the stacker
+        # meta α. (bind_alpha is None when the operator supplied one, so it
+        # cannot be used directly as the effective value.)
+        effective_alpha = alpha if alpha is not None else bind_alpha
+        if _state.get("threadsafe_alpha"):
+            from threadsafe import alpha_scope
+            with alpha_scope(effective_alpha):
+                core, *_ = fuse(outputs, d, judge=judge)
+        else:
+            prev_conformal = None
+            if effective_alpha is not None:
+                prev_conformal = fusion.conformal_set
+                fusion.conformal_set = functools.partial(
+                    prev_conformal, alpha=effective_alpha)
+            try:
+                core, *_ = fuse(outputs, d, judge=judge)
+            finally:
+                if prev_conformal is not None:
+                    fusion.conformal_set = prev_conformal
     finally:
         # Audit F4: tempdirs are swept even when a court exception aborts the
         # pass (previously only the straight-through path cleaned up)
@@ -250,6 +344,29 @@ def run_court(pil, alpha=None, original_raw: bytes | None = None):
                             else _state.get("conformal_alpha"))}}}
     import recovery as recovery_mod
     verdict["recovery"] = recovery_mod.run("image", verdict, extras)
+    # TASK-C1 layer 5: risk curve. A single request carries one score, so the
+    # curve is the decision-theoretic view of THAT score under explicit costs —
+    # it tells a consumer how the verdict moves with the cost ratio instead of
+    # hiding a fixed threshold. Scope-labelled (D-037). Additive: absent when
+    # calibration is off, so the response shape is unchanged by default.
+    if _state.get("calibrator") is not None:
+        try:
+            from calibration import risk_curve
+            p_syn = float(core.probabilities["ai_generated"]) + \
+                float(core.probabilities["manipulated"])
+            curve = risk_curve(
+                [p_syn, p_syn],
+                [1, 0],
+                thresholds=[round(p_syn * f, 6) for f in
+                            (0.25, 0.5, 0.75, 1.0, 1.5, 2.0)],
+            )
+            verdict["risk_curve"] = {
+                "scope": "single-request",
+                "p_syn": round(p_syn, 4),
+                "points": curve,
+            }
+        except Exception:
+            verdict["risk_curve"] = None
     return verdict
 
 
@@ -301,6 +418,14 @@ def health():
     # B3 transparency: the stacker's own conformal alpha (what the court binds
     # when a request supplies no explicit alpha)
     out["conformal_alpha"] = _state.get("conformal_alpha")
+    # TASK-C1 transparency: report whether calibration is active AND the scope
+    # label of the fitted cohort (D-037 — no number without a scope label).
+    _cal = _state.get("calibrator")
+    out["calibration"] = {
+        "enabled": _cal is not None,
+        "scope": getattr(getattr(_cal, "config", None), "scope", None),
+        "method": getattr(getattr(_cal, "config", None), "method", None),
+    }
     # hop11/FP-6a: ledger row counter — log_verdict failure is SILENT by design
     # (detect L~386 try/except), so external row accounting is the only
     # row-loss detector; surface it where operators already look.
