@@ -24,7 +24,9 @@ import numpy as np
 from PIL import Image
 import torch
 
-WS = Path("/Users/Dataghost/Argus_Prime")
+# P0b: repo root via ARGUS_ROOT (default: this file's repo-relative root).
+import os
+WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[2])
 OUT = WS / "artifacts/v1g_probe"
 OUT.mkdir(parents=True, exist_ok=True)
 

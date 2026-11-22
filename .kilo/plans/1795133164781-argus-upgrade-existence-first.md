@@ -1,133 +1,144 @@
-# Argus-Prime Video Lane — Maximum-Performance Plan
+# Production-Readiness Plan — Argus-Prime
 
-**Scope:** video modality only. Planning document — **no execution performed**.
-**Court:** 64.8/100 (repo ledger baseline). OOD-video 1.2/10 is the only dimension that can reach 70.
-**Rule applied:** only items with **confirmed, cited evidence of improvement** are in scope. Anything without confirmation is listed as excluded (§5) — not planned.
-**Stop ruling (D-105):** training, wiring, promotion, pointer change, and commit all require explicit approval.
-
----
-
-## 1. Verified incumbent baseline
-
-From `artifacts/benchmarks.json` (as_of 2026-11-04), video build **p6vid_v4e**, 32-feature stacker:
-
-| Benchmark | p6vid_v4 | Scope |
-|---|---:|---|
-| FF++ c23 test (n=700) | **0.9121** | DF 0.9884 · F2F 0.8938 · FS 0.9745 · NT 0.7917 |
-| Celeb-DF-v2 | **0.9482** | cross-dataset |
-| DFD (DeepfakeDetection) | **0.8857** | cross-dataset |
-| DFDC | **never measured** | — |
-| GenBuster++ T2V | **0.590** | measured this session (D-125) |
-| GenVidBench t2v | kling 0.6035 · sora 0.6812 · opentora 0.7497 | informational |
-
-Feature contract (`deepfake/bench/video_features.py:31-46`): 12 GEN + 8 SPEC + 1 drift + 3 audio + 8 SCENE = 32.
-Serve path: YuNet → ArcFace `alignCrop` → dual CLIP ViT-L/14 heads → 32-feature HistGBM stacker.
+**Status:** Implementation-ready plan. No source edits made.
+**Goal:** make Argus-Prime deployable by a third party.
+**Detection score:** unchanged (64.8/100) — this plan is orthogonal to accuracy.
+**Full to-do list:** `memory/prod_readiness_2026-11-22.md`.
 
 ---
 
-## 2. Task list — confirmed improvements only
+## 1. Verified starting position
 
-### V2a — Replace the face-probe head with GenD (CLIP ViT-L/14 + LN-tuning)
-
-**Status:** **CONFIRMED improvement, commercial-safe, near-zero marginal cost.**
-
-**Evidence (WACV 2026, arXiv 2508.06248, MIT licence, `github.com/yermandy/GenD`):**
-
-| Benchmark | p6vid_v4 (ours) | GenD (CLIP) published | Δ |
-|---|---:|---:|---:|
-| FF++ in-domain (mean of DF/F2F/FS/NT) | 0.9121 | **0.980** (99.5/98.1/98.7/95.5) | **+0.068** |
-| CDFv2 | 0.9482 | **0.960** | +0.012 |
-| DFD | 0.8857 | **0.970** | **+0.084** |
-| DFDC | not measured | **0.871** | new coverage |
-| FFIW | not measured | 0.928 | new coverage |
-
-Weakest sub-method is the tell: GenD's worst (NT 95.5) is **+16 pts** above our worst (NT 79.17).
-
-**Checkpoint (verified live):**
-- `huggingface.co/yermandy/GenD_CLIP_L_14` — 0.3B params, updated 2025-11-13
-- `huggingface.co/yermandy/deepfake-detection` — TorchScript export (`model.torchscript`)
-- Licence: **MIT** (both code and weights)
-
-**Why this is the cheapest possible win:** GenD is **the same backbone we already load** (CLIP ViT-L/14) with only the LayerNorm parameters tuned (0.03% of params). The existing `p3_full/face_probe.joblib` and `p3_ffpp/ffpp_only_probe.joblib` occupy exactly this slot (`video_score.py:38-42`). Swapping the head changes **no backbone cost** — the marginal inference cost is approximately zero.
-
-**Pre-registered bars:**
-- Reproduce CDFv2 ≥ 0.950 and DFD ≥ 0.930 on our exam sets.
-- FF++ c23 ≥ 0.940 (no regression vs 0.9121).
-- Abstention parity B4: `ab_new ≤ ab_old + 0.10`.
-- If any bar fails → HOLD + WAIVER.md, never silently absorb.
-
-**Known risk — preprocessing parity (fetch-gate, must clear first):**
-The README states: *"To get the same results as in the paper, you need to preprocess images using DeepfakeBench preprocessing pipeline."* Our face crops come from **YuNet → ArcFace `alignCrop`**, which is **not** DeepfakeBench's pipeline. The published AUCs may not reproduce on our crops. **Gate:** run GenD on our existing FF++ crops first; if CDF < 0.93, re-run with DeepfakeBench-compatible crops before judging.
-
-### V2b — Add DFDC to the exam suite (measurement gap, prerequisite for any claim)
-
-**Status:** **CONFIRMED gap.** DFDC is the one benchmark where every competitor reports a number and we report nothing. Without it, "improvement" cannot be evidenced externally.
-
-**Evidence:** DFDC is the standard cross-dataset test (ForAda 0.872, GenD 0.871, UDD 0.812, TALL++ 0.785). Our `benchmarks.json` has no DFDC row.
-
-**Task:** acquire a DFDC sample (or a documented public subset), score p6vid_v4 and the GenD head on it, publish with scope label. **No training.** This is measurement infrastructure that V2a depends on for its acceptance claim.
-
-**Risk:** DFDC full is ~470 GB; disk is ~60 GiB free. Requires a documented subset (e.g. the 3,000-clip DFDC-Preview) — license is research-use.
+| Capability | State |
+|---|---|
+| Fresh-clone boot | ✅ private HF bundle + `bootstrap.py --verify` |
+| Machine paths | ✅ 0 hits in tracked code |
+| Licence | ✅ MIT |
+| Fast tests + CI | ✅ 48 passed, two-tier |
+| Upload cap / 400 / CORS | ✅ 100 MB, 413, 400, CORS allow-list |
+| **Cross-origin POST gate** | ⚠️ partial — `_origin_gate` (server.py:63-74) blocks *browser* cross-origin POST, but **not** a non-browser client (no `Origin` header ⇒ allowed) |
+| **Auth** | ❌ none |
+| **Rate limiting** | ❌ none |
+| **Metrics / structured logs** | ❌ `print()` only |
+| **API tests** | ❌ none |
+| **Container** | ❌ none |
+| **Graceful drain** | ❌ none |
+| **readz/livez** | ❌ single `/api/health` |
+| **Concurrency** | ❌ `CapacityLimiter(1)`; raising it crashes (D-118) |
 
 ---
 
-## 3. Execution order
+## 2. Task list (ordered; dependencies only, no time estimates)
 
-```
-V2b (DFDC exam plumbing, no model work)
-   └──> V2a (GenD head swap, fetch-gate: preprocessing parity)
-          └──> sealed restack spec (p6vid_v4 -> v5) with B1-B3 above
-                 └──> D-number + benchmarks.json regeneration
-```
+### A1 — Authentication (blocks everything)
+**Problem:** `_origin_gate` stops browsers, not scripts. Anyone who can reach the port can spend GPU and read `/api/history` (returns up to 200 prior verdicts).
 
-V2b first because V2a's acceptance is defined on DFDC. V2a's fetch-gate (preprocessing parity) must clear before any restack.
+**Design (OWASP FastAPI Cheat Sheet + FastAPI docs):**
+- `deepfake/api/auth.py`: `APIKeyHeader(name="X-API-Key", auto_error=False)` + `Security(...)`.
+- Keys from `ARGUS_API_KEYS` (comma-separated) or `ARGUS_API_KEYS_FILE`. Compare with `hmac.compare_digest`.
+- **Fail-closed:** `ARGUS_REQUIRE_AUTH=1` with no keys ⇒ refuse to start (never run open while claiming auth).
+- **Default:** unset ⇒ auth disabled, preserving current local behaviour (zero blast radius).
+- Apply via `dependencies=[Security(require_key)]` on `/api/detect`, `/api/explain`, `/api/history`.
+- `/api/health` stays open for orchestrator probes.
+- **Do not touch** vendored `integrations/` (D-009).
+
+**Acceptance:** no key → 401 · valid key → 200 · `ARGUS_REQUIRE_AUTH=1` with no keys → boot fails with a clear message.
+
+### A2 — Rate limiting (depends on A1)
+**Problem:** one client starves all others; the court is single-threaded.
+
+**Design (OWASP "Step 3" — no new dependency):**
+- `deepfake/api/ratelimit.py` — sliding-window limiter, ~40 lines.
+- Key on **API key** when present, else client IP (IP alone is wrong behind NAT).
+- Limits from `ARGUS_RATE_LIMIT` (e.g. `10/minute`) + `ARGUS_RATE_BURST`.
+- **Moving window, not fixed** — fixed windows leak badly (published replay: 19 requests through a 10/min limit).
+- In-process store is correct only for one worker; document that multi-worker needs Redis.
+
+**Acceptance:** Nth request → 200; N+1th → **429** with `Retry-After`.
+
+### A3 — Container image (depends on A1, A2)
+- Multi-stage `Dockerfile`, non-root user, `ARGUS_ARTIFACTS_DIR` as a volume.
+- Entrypoint runs `bootstrap.py --verify` and fails fast if the bundle is missing.
+- `.dockerignore` excludes `data/`, `logs/`, `.venv/`, `artifacts/` (bundle is fetched, not baked).
+- `docker-compose.yml` for local dev with a `/api/health` healthcheck.
+
+**Acceptance:** `docker build` → `docker run` → `/api/health` 200 after bundle fetch.
+
+### A4 — Metrics + structured logs (depends on A3)
+- `GET /metrics` in Prometheus text format (no new heavy dependency): per-modality `p50`, `p95`, `abstention_rate`, `error_rate`, `request_total{status}`.
+- Structured JSON logs (one line per request: `request_id`, `path`, `status`, `elapsed_ms`, `modality`, `abstained`, `alpha`).
+- Keep `print()` out of the request path.
+
+**Acceptance:** `curl /metrics` returns parseable metrics; logs are one JSON object per line.
+
+### A5 — API test suite (depends on A1, A2)
+- `tests/test_api_auth.py` (fast): 401 without key, 200 with key, 429 on burst — using `dependency_overrides`, no real models.
+- `tests/test_api_detect.py` (slow): one real detect per modality against a live app.
+- `tests/test_api_contract.py` (fast): OpenAPI shape — required fields present, no secrets in schema.
+
+**Acceptance:** `pytest -m fast` includes the auth + contract tests; `pytest -m slow tests/test_api_detect.py` green with the bundle.
+
+### A6 — Graceful shutdown / drain (depends on A3)
+- Track in-flight requests; on SIGTERM stop accepting, drain with a timeout, then exit.
+- Return `503` for requests that arrive after drain starts.
+
+**Acceptance:** SIGTERM mid-request ⇒ the request completes or returns 503; never a partial verdict.
+
+### A7 — ArcFace → SFace (commercial only, depends on U8)
+- Already priced: **~0.013 AUC** (D-122/D-123).
+- Requires a sealed restack spec (p6vid_v4 → v5) with its own bars.
+
+**Acceptance:** no NC weight in the commercial image; `WEIGHTS-NOTICES.md` updated.
+
+### B1 — Concurrency (depends on S1-scaffold, already done)
+- Per-thread YuNet/ArcFace nets (C-4/C-6) · per-request embedder (C-3) · lazy-singleton locks spanning the full load (C-4..C-8) · vendored caches harness-side (C-11..C-13).
+- **Do not raise `CapacityLimiter(1)` until the 8-way race test passes.**
+
+**Acceptance:** `pytest -m slow tests/test_concurrency_races.py` green *with the limiter raised*.
+
+### B2 — ONNX / OpenCV-DNN export (depends on B1)
+- Export frozen channels; parity gate `max|p_onnx − p_torch| < 1e-3`.
+
+### B3 — `/api/batch` (depends on B2)
+- Length-aware grouping for bulk scoring; never used for single-clip latency.
+
+### B4 — readz / livez (depends on A3)
+- `/livez` = process alive; `/readyz` = court built + bundle verified + auth configured.
+
+### B5 — Request IDs + audit trail (depends on A4)
+- Every verdict gets an id; `/api/history` filterable by id.
+
+### B6 — Config validation at boot (depends on A1)
+- Fail fast on bad env (invalid rate-limit string, missing bundle, auth misconfig).
+
+### B7 — Docs (depends on A5)
+- OpenAPI at `/docs`, deployment guide, runbook, `LIMITATIONS.md` refresh.
+
+### B8 — SBOM + licence scan in CI (depends on A3)
 
 ---
 
-## 4. Risks
+## 3. Risks
 
 | Risk | Mitigation |
 |---|---|
-| Preprocessing mismatch invalidates published AUCs | Fetch-gate: score on our crops first; if CDF < 0.93, switch to DeepfakeBench-compatible crops |
-| GenD head trained on FF++ c23 only may not transfer | That is exactly what the CDF/DFD bars measure |
-| Restack parity laws block promotion | Budget one HOLD; never waive silently (repo law) |
-| GenD is frame-based; our lane is 12-frame face-crop | Compatible — same as existing p3_full/p3_ffpp probes |
-| NC-licensed competitors (ForAda, TALL++, SBI) tempt a shortcut | Excluded — MIT-only roster for commercial posture (D-122/D-123) |
-- **V1d-2 T2V specialist (V-JEPA2):** signal **confirmed** (GenBuster T2V 0.9458 confound-clean, vs p6vid_v4 0.590) but **deployment unproven** — no label-free router exists (D-113), and it scores 0.4935 on FF++ (at chance). Excluded until a router clears a pre-registered bar.
-- **ForAda** (CVPR 2025, CDF 0.957 / DFD 0.972 / DFDC 0.872) — **CC BY-NC 4.0**, excluded for commercial posture. Re-open only if U8 rules research-only.
-- **UDD** (AAAI 2025, 0.931/0.955/0.812) — licence unconfirmed, weaker than GenD. Excluded.
-- **TALL++** (IJCV 2024, 0.920/–/0.785) — CC BY-NC weights. Excluded.
-- **SBI / Face-X-Ray / SCENE family** — NC, already in incumbent lineage (D-070/D-075). Excluded.
-- **Temporal statistics** (D3/SPLIT/WaveRep) — CLOSED (D-099/D-100/D-104).
-- **ReStraV geometry** (V1d/V1h) — CLOSED (B2a/B2b fail; no label-free router, D-113).
-- **V-JEPA2 as wholesale replacement** — REFUTED (D-125: FF++ 0.4935, CDF 0.8288).
-- **p6vid_v5-on-SFace** — commercial enabler, **0 detection Y** (D-123). Tracked separately as U8 follow-up.
+| Auth breaks the local dev flow | Default OFF (`ARGUS_REQUIRE_AUTH` unset); CI runs both ways |
+| Rate limiter in-process lies under multiple workers | Documented; Redis path named for multi-worker |
+| Container bloat / macOS-only deps | Multi-stage; mflux/diffusers excluded (training extra) |
+| Raising the limiter crashes | Gated behind the 8-way race test (D-118) |
+| ArcFace swap regresses video | Sealed restack spec with FF++/CDF/DFD bars |
+| Scope creep into detection accuracy | This plan is production-only; detection items stay in `backlog_2026-11-21.md` §C |
 
----
+## 4. Out of scope
 
-## 6. Validation
+- Any detection-accuracy improvement (V1d-2, R1/R2, AB1/AB2, MM1, D1–D3).
+- Audio modality replacement (product-scope decision C1).
+- Multi-region / HA deployment (single-box first).
+- GPU scheduling.
 
-```bash
-# V2b: DFDC exam plumbing
-#   - a DFDC subset scorer exists and runs end-to-end
-#   - benchmarks.json gains a video.scopes.dfdc entry with n + scope label
+## 5. Open questions (owner)
 
-# V2a: GenD head
-python deepfake/argus_detect.py tests/fixtures/wildface.mp4 --json | jq '.video_score'
-#   - CDF >= 0.950, DFD >= 0.930, FF++ >= 0.940
-#   - abstention parity: ab_new <= ab_old + 0.10
-#   - AUC invariance where applicable (monotone law)
-
-# restack
-python deepfake/scripts/verify_dump_parity.py && echo PARITY-OK
-jq '.gates | map(select(.pass==false))' artifacts/<new>/gates.json   # empty or waived
-```
-
----
-
-## 7. Open questions (owner)
-
-1. **U6** code licence — ruled **MIT** (D-114). GenD is MIT-compatible. ✅
-2. **U8** commercial posture — **ruled commercial achievable at ~0.013 AUC** (D-122/D-123). MIT-only roster is therefore correct; NC methods stay excluded.
-3. **DFDC acquisition** — is a research-use DFDC subset acceptable for the exam, given disk limits (~60 GiB free vs 470 GB full)?
-4. **V1d-2 T2V specialist** — pursue a router feasibility pilot, or leave closed? (Router is the single bar; without it the +0.36 T2V AUC is unrealisable.)
+1. **U8** commercial vs research posture → decides whether A7 (SFace) is mandatory.
+2. **C1** audio modality: ship with a research badge, or remove from the product story?
+3. **Deployment target**: single box, or orchestrated (k8s)? Decides whether the in-process limiter is enough.
+7. **Auth model**: static API keys, or OIDC/JWT for client SSO?
