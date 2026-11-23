@@ -8,6 +8,7 @@ Static UI served from web/ at /.
 Run: ./.venv/bin/python -m uvicorn deepfake.api.server:app --port 8420
 """
 import json
+import math
 import shutil
 import sqlite3
 import sys
@@ -96,6 +97,44 @@ _state = {}
 _COURT_GATE = anyio.CapacityLimiter(1)
 _EXPLAIN_GATE = anyio.CapacityLimiter(1)
 
+# TASK-A1/A2: API-key auth + sliding-window rate limiting. Both default to
+# permissive so a local dev run behaves exactly as before; production sets
+# ARGUS_REQUIRE_AUTH=1 (+ keys) and ARGUS_RATE_LIMIT.
+from fastapi import Depends  # noqa: E402  (kept local to the serve-path block)
+
+from auth import (  # noqa: E402
+    API_KEY_HEADER,
+    _extract as _extract_api_key,
+    require_key,
+)
+import ratelimit  # noqa: E402
+
+_LIMITER = ratelimit.SlidingWindowLimiter(
+    limit=ratelimit._parse_limit(os.environ.get(ratelimit._RATE_LIMIT_ENV, ""))[0],
+    period=ratelimit._parse_limit(os.environ.get(ratelimit._RATE_LIMIT_ENV, ""))[1],
+    burst=ratelimit._burst(),
+)
+
+
+def _rate_limit_or_429(request) -> None:
+    """Reject the request with 429 when the caller is over its window.
+
+    No-op when the configured capacity is unbounded (limit <= 0).
+    """
+    if _LIMITER.capacity <= 0:
+        return
+    key = None
+    if request is not None:
+        key = _extract_api_key(request, None)
+    info = _LIMITER.check(ratelimit.client_key(request, key))
+    if not info.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"rate limit exceeded ({info.limit} per "
+                   f"{int(_LIMITER.period)}s); retry in {info.retry_after:.1f}s",
+            headers={"Retry-After": str(max(1, int(math.ceil(info.retry_after))))},
+        )
+
 # TASK-C1 calibration flag. OFF by default: when unset the court path is
 # byte-identical to the pre-C1 behaviour. Turned on only after a calibrator has
 # been fitted on train-split dumps (D-035) and a sealed restack has promoted it.
@@ -164,6 +203,10 @@ def init_court():
     import joblib
     from argus_detect import build_modules, STACKER
     from triage import DegradationEstimator
+
+    # TASK-A1: fail closed at boot when auth is required but unconfigured.
+    import auth as _auth
+    _auth.validate_config_or_die()
 
     # P0c fail-closed: a missing bundle is a bootstrap problem, not a crash. The
     # old bare joblib.load raised FileNotFoundError with no route to recovery.
@@ -430,6 +473,16 @@ def health():
     # B3 transparency: the stacker's own conformal alpha (what the court binds
     # when a request supplies no explicit alpha)
     out["conformal_alpha"] = _state.get("conformal_alpha")
+    # TASK-A1/A2: auth + rate-limit configuration (D-037 scope labels).
+    try:
+        import auth as _auth
+        out["auth"] = _auth.config_status()
+    except Exception:
+        out["auth"] = {"required": False, "keys_configured": 0, "source": "env"}
+    try:
+        out["rate_limit"] = ratelimit.config_status()
+    except Exception:
+        out["rate_limit"] = {"limit": 0, "period_s": 0, "store": "in-process"}
     # TASK-C1 transparency: report whether calibration is active AND the scope
     # label of the fitted cohort (D-037 — no number without a scope label).
     _cal = _state.get("calibrator")
@@ -480,11 +533,13 @@ def _bench_scope(kind: str) -> dict:
                 "error": str(e)[:120]}
 
 
-@app.get("/api/history")
+@app.get("/api/history", dependencies=[Depends(require_key)])
 def history(limit: int = 30):
     # hop9/FP-2: clamp 1..200 (audit P4: the raw value hit SQLite LIMIT, where a
     # negative limit returns ALL rows — unbounded dump on one request)
     limit = max(1, min(limit, 200))
+    # TASK-A2: history is the data-exposure surface; rate-limit it too.
+    _rate_limit_or_429(None)
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
     rows = con.execute("SELECT * FROM verdicts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
@@ -510,8 +565,9 @@ def log_verdict(filename, kind, v, alpha):
     con.close()
 
 
-@app.post("/api/detect")
+@app.post("/api/detect", dependencies=[Depends(require_key)])
 async def detect(request: Request, file: UploadFile = File(...), alpha: float = Form(None)):
+    _rate_limit_or_429(request)
     # Audit F6: refuse oversized BODIES before multipart buffering — a GB-scale
     # POST would spool entirely to disk before the parsed part-size check could
     # act. Slack covers multipart framing overhead.
@@ -631,12 +687,13 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
     return v
 
 
-@app.post("/api/explain")
+@app.post("/api/explain", dependencies=[Depends(require_key)])
 async def explain(request: Request, file: UploadFile = File(...)):
     """Layer-1 explanation engine: neutral VLM narration of an image (D-031).
 
     Not evidence — the court never sees this. Human-readable observations
     attached to an already-rendered verdict. Cached by image hash."""
+    _rate_limit_or_429(request)
     # Audit F6: same early body-cap precheck as /api/detect.
     _cl = request.headers.get("content-length", "")
     if _cl.isdigit() and int(_cl) > MAX_UPLOAD + (1 << 20):
