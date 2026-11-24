@@ -1,0 +1,30 @@
+# Build context excludes (TASK-A3).
+# The artifact bundle is NOT baked in — it is fetched or mounted at runtime.
+.git
+.gitignore
+.venv
+.github
+.kilo
+node_modules
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+
+# Data and logs are large and host-specific.
+data
+logs
+artifacts
+!artifacts/benchmarks.json
+!artifacts/p3_full
+!artifacts/p3_ffpp
+!artifacts/p4
+!artifacts/p6
+!artifacts/p6v2
+
+# Local scratch.
+*.log
+.DS_Store
+docs
+memory
+.DS_Store

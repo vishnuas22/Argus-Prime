@@ -19,6 +19,14 @@ from pathlib import Path
 
 import numpy as np
 
+# P0f: cache-first HF policy. Without this, a fresh clone/container tries to
+# download wav2vec2/CLIP/DINOv2 at first use and huggingface_hub retries with
+# backoff for minutes before failing (measured: CLI hung >6 min in the A3
+# container where the API path took 13 s). Set ARGUS_ALLOW_HF_DOWNLOAD=1 to opt
+# back into downloads on a networked machine.
+from model_cache import apply_offline_policy
+apply_offline_policy()
+
 WS = Path(os.environ.get("ARGUS_ROOT") or Path(__file__).resolve().parents[1])
 sys.path.insert(0, str(WS / "deepfake" / "bench"))
 sys.path.insert(0, str(WS / "integrations" / "Argus_Master" / "backend"))

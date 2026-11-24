@@ -1,0 +1,51 @@
+# Argus-Prime local stack (TASK-A3).
+#
+# Usage:
+#   ARGUS_API_KEYS=devkey docker compose up --build
+#   curl -s localhost:8420/api/health
+#
+# The artifact bundle is mounted READ-ONLY from the host (default ./artifacts) so
+# the container does not re-download ~218 MB on every start. The mutable verdict
+# ledger lives on its own named volume: SQLite cannot journal into a read-only
+# mount, so mixing the two would crash init_court.
+services:
+  argus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: argus-prime:latest
+    ports:
+      - "8420:8420"
+    environment:
+      ARGUS_PORT: "8420"
+      ARGUS_ROOT: /app
+      ARGUS_ARTIFACTS_DIR: /app/artifacts
+      # Mutable state: verdict ledger goes on the writable volume.
+      ARGUS_DB_PATH: /app/data/verdicts.db
+      # Auth is OFF unless you set these. For local use, set ARGUS_API_KEYS.
+      ARGUS_REQUIRE_AUTH: "${ARGUS_REQUIRE_AUTH:-0}"
+      ARGUS_API_KEYS: "${ARGUS_API_KEYS:-}"
+      ARGUS_RATE_LIMIT: "${ARGUS_RATE_LIMIT:-120/minute}"
+      ARGUS_THREADSAFE_ALPHA: "${ARGUS_THREADSAFE_ALPHA:-0}"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+      - argus_db:/app/data
+      # Transformers weights (DINOv2 / CLIP / wav2vec2 / WavLM). The bundle has
+      # stackers + ONNX but NOT these; without them only 3 of 11 modules load and
+      # the verdict is wrong (measured: p_fake 0.5739 vs 0.1501).
+      - ${ARGUS_HF_CACHE:-$HOME/.cache/huggingface}:/hf_cache:ro
+    environment:
+      HF_HOME: /hf_cache
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8420/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    # The court is single-threaded by design (CapacityLimiter(1)); one replica.
+    deploy:
+      replicas: 1
+
+volumes:
+  argus_db:

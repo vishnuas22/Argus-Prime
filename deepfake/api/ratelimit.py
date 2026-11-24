@@ -55,22 +55,28 @@ class RateLimitInfo:
 
 
 def _parse_limit(spec: str) -> tuple[int, float]:
-    """Parse ``"<n>/<period>"`` into ``(limit, period_seconds)``."""
+    """Parse ``"<n>/<period>"`` or ``"<n>s"`` into ``(limit, period_seconds)``."""
     spec = (spec or "").strip().lower()
     if not spec:
         return _DEFAULT_LIMIT, _DEFAULT_PERIOD
     try:
-        left, period = spec.split("/", 1)
-        limit = int(left.strip())
-        period = period.strip()
-        if period.endswith("s") and period[:-1].isdigit():
-            return limit, float(period[:-1])
-        if period not in _PERIODS:
-            raise ValueError(period)
+        if "/" in spec:
+            left, period = spec.split("/", 1)
+            limit = int(left.strip())
+            period = period.strip()
+            if period not in _PERIODS:
+                raise ValueError(period)
+            period_s = _PERIODS[period]
+        else:
+            # bare "<n>s" means seconds
+            if not spec.endswith("s"):
+                raise ValueError(spec)
+            limit = int(spec[:-1].strip())
+            period_s = 1.0
         if limit <= 0:
             raise ValueError(f"limit must be positive, got {limit}")
-        return limit, _PERIODS[period]
-    except (ValueError, KeyError) as e:
+        return limit, period_s
+    except ValueError as e:
         raise SystemExit(
             f"invalid {_RATE_LIMIT_ENV}={spec!r}: expected '<n>/<period>' with "
             f"period in {sorted(_PERIODS)} (or '<n>s'); got {e}"

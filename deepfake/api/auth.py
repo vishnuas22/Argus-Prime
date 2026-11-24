@@ -110,10 +110,20 @@ def validate_config_or_die() -> None:
         )
 
 
-def _extract(request: Request, x_api_key: str | None) -> str | None:
-    """Pull the presented key from the header, then a bearer token."""
+def _extract(request: Request | None, x_api_key: str | None) -> str | None:
+    """Pull the presented key from the explicit arg, the header, or a bearer token.
+
+    ``x_api_key`` arrives via FastAPI's ``Header(...)`` on the dependency, but the
+    rate limiter calls this without it — so the header is read here too. Without
+    that, every rate-limited request would fall back to the shared ``ip:`` bucket.
+    """
     if x_api_key:
         return x_api_key.strip()
+    if request is None:
+        return None
+    header = request.headers.get(API_KEY_HEADER)
+    if header:
+        return header.strip()
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()

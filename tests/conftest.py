@@ -13,6 +13,7 @@ for rel in (
     "deepfake",
     "deepfake/bench",
     "deepfake/scripts",
+    "deepfake/api",
     "integrations/Argus_Master/backend",
 ):
     p = str(REPO / rel)

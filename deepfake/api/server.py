@@ -33,7 +33,11 @@ from fastapi.staticfiles import StaticFiles
 from urllib.parse import urlparse
 import anyio
 
-DB = WS / "artifacts" / "verdicts.db"
+# The verdict ledger is MUTABLE state and must not live inside the (read-only)
+# artifact bundle — a container mounts artifacts read-only, and SQLite cannot
+# create its journal there. ARGUS_DB_PATH overrides; default keeps the historic
+# location so existing deployments are unaffected.
+DB = Path(os.environ.get("ARGUS_DB_PATH") or (WS / "artifacts" / "verdicts.db"))
 STATIC = WS / "web"
 MAX_UPLOAD = 100 * 1024 * 1024  # user ruling 2026-10-19: 413 above 100 MB (courts on faxed slabs; blocks zip-bombs/multi-GB bodies)
 
@@ -203,6 +207,10 @@ def init_court():
     import joblib
     from argus_detect import build_modules, STACKER
     from triage import DegradationEstimator
+    # P0f: cache-first HF policy (argus_detect already applies it; repeat here
+    # so a server started without importing the CLI is equally protected).
+    from model_cache import apply_offline_policy
+    apply_offline_policy()
 
     # TASK-A1: fail closed at boot when auth is required but unconfigured.
     import auth as _auth
@@ -534,12 +542,13 @@ def _bench_scope(kind: str) -> dict:
 
 
 @app.get("/api/history", dependencies=[Depends(require_key)])
-def history(limit: int = 30):
+def history(request: Request, limit: int = 30):
     # hop9/FP-2: clamp 1..200 (audit P4: the raw value hit SQLite LIMIT, where a
     # negative limit returns ALL rows — unbounded dump on one request)
     limit = max(1, min(limit, 200))
-    # TASK-A2: history is the data-exposure surface; rate-limit it too.
-    _rate_limit_or_429(None)
+    # TASK-A2: history is the data-exposure surface; rate-limit it per caller
+    # (key when present, else client IP) so one noisy client cannot starve others.
+    _rate_limit_or_429(request)
     con = sqlite3.connect(DB)
     con.row_factory = sqlite3.Row
     rows = con.execute("SELECT * FROM verdicts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
