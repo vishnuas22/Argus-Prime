@@ -59,6 +59,39 @@ _CORS = os.environ.get("ARGUS_CORS_ORIGINS",
 app.add_middleware(CORSMiddleware, allow_origins=_CORS, allow_methods=["*"],
                    allow_headers=["*"])
 
+@app.middleware("http")
+async def _metrics_middleware(request, call_next):
+    """Count every request by status and record latency (TASK-A4).
+
+    Runs outermost so it also observes 4xx/5xx raised by dependencies (auth,
+    rate limit) that never reach an endpoint body.
+    """
+    t0 = time.time()
+    try:
+        response = await call_next(request)
+    except Exception:
+        _metrics().record_request(
+            modality="unknown",
+            route=request.url.path,
+            status=500,
+            elapsed=time.time() - t0,
+            abstained=False,
+        )
+        log_event("request_error", path=request.url.path, status=500,
+                  elapsed_s=round(time.time() - t0, 4))
+        raise
+    elapsed = time.time() - t0
+    if request.url.path.startswith("/api/"):
+        _metrics().record_request(
+            modality="http",
+            route=request.url.path,
+            status=response.status_code,
+            elapsed=elapsed,
+            abstained=False,
+        )
+    return response
+
+
 # F8 (hop7): cross-origin mutation reject — the court accepts mutators only from its
 # own origin. POST lanes are gated; GET lanes (health/history) stay open.
 # No Origin header => allow (curl, lane batteries and pinned probe suites all lack it).
@@ -82,6 +115,9 @@ async def _origin_gate(request, call_next):
 app.mount("/vendor", StaticFiles(directory=STATIC / "vendor"), name="vendor")
 
 _state = {}
+
+# TASK-A4: zero-dependency metrics + structured logs.
+from metrics import log_event, metrics as _metrics  # noqa: E402
 
 # Audit F2: the video lane's α bracket mutates a module global
 # (argus_detect.USER_ALPHA); two concurrent video requests could interleave
@@ -541,6 +577,18 @@ def _bench_scope(kind: str) -> dict:
                 "error": str(e)[:120]}
 
 
+@app.get("/metrics")
+def metrics_endpoint():
+    """Prometheus text exposition (TASK-A4).
+
+    Unauthenticated by design so a scraper does not need an API key. Labels are
+    restricted to modality/route/status — never filenames or user data.
+    """
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(_metrics().render_prometheus(),
+                             media_type="text/plain; version=0.0.4")
+
+
 @app.get("/api/history", dependencies=[Depends(require_key)])
 def history(request: Request, limit: int = 30):
     # hop9/FP-2: clamp 1..200 (audit P4: the raw value hit SQLite LIMIT, where a
@@ -689,6 +737,20 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
     else:
         v["stacker"] = STACKER.parent.name
     v.setdefault("out_of_conflict", False)
+    # TASK-A4: record latency + abstention for this adjudication.
+    try:
+        _metrics().record_request(
+            modality=kind,
+            route=str(v.get("route") or "unknown"),
+            status=200,
+            elapsed=float(v.get("elapsed_s") or 0.0),
+            abstained=bool(v.get("abstained")),
+        )
+        log_event("detect", kind=kind, route=v.get("route"),
+                  p_fake=v.get("p_fake_fused"), abstained=v.get("abstained"),
+                  alpha=v.get("alpha"), elapsed_s=v.get("elapsed_s"))
+    except Exception:
+        pass
     try:
         log_verdict(file.filename, kind, v, alpha)
     except Exception as e:

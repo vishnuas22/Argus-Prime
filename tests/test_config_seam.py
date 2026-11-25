@@ -76,7 +76,9 @@ def test_no_hardcoded_machine_paths_in_serve_path():
     offenders = []
     for sub in ("deepfake", "tools", "tests"):
         for p in (REPO / sub).rglob("*"):
-            if not p.is_file() or p.suffix not in (".py", ".sh", ""):
+            if not p.is_file() or "__pycache__" in p.parts:
+                continue
+            if p.suffix not in (".py", ".sh", ""):
                 continue
             if p.suffix == "" and p.parent.name != "bin":
                 continue

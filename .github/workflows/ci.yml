@@ -99,6 +99,11 @@ jobs:
       - name: Fast test tier
         run: pytest -m fast -q
 
+      # A5: API contract tests must run on every PR — the HTTP surface had zero
+      # tests, so any refactor could break the response schema silently.
+      - name: API contract tests
+        run: pytest tests/test_api_contract.py tests/test_api_auth.py tests/test_ratelimit.py -q
+
   # P0e: tier 2 — real models / real corpora. No-ops until the private artifact
   # bundle exists (P0a) and HF_TOKEN is configured; it must not fake a green run.
   nightly:
