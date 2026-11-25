@@ -37,6 +37,10 @@ _LATENCY_BUCKETS = (0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
 
 _LOG_RAW_ENV = "ARGUS_LOG_RAW"
 
+# Separator for composite keys. NOT "/" — route paths contain slashes
+# (e.g. "/api/history"), which would break key splitting.
+_SEP = "|"
+
 
 @dataclass
 class _Histogram:
@@ -123,9 +127,9 @@ class Metrics:
     def snapshot(self) -> dict:
         """Plain-dict snapshot (used by /metrics and tests)."""
         with self._lock:
-            req = {f"{m}/{r}/{s}": c for (m, r, s), c in self._requests.items()}
-            lat = {f"{m}/{r}": h.snapshot() for (m, r), h in self._latency.items()}
-            ab = {f"{m}/{r}": c for (m, r), c in self._abstain.items()}
+            req = {f"{m}{_SEP}{r}{_SEP}{s}": c for (m, r, s), c in self._requests.items()}
+            lat = {f"{m}{_SEP}{r}": h.snapshot() for (m, r), h in self._latency.items()}
+            ab = {f"{m}{_SEP}{r}": c for (m, r), c in self._abstain.items()}
         return {
             "uptime_s": round(time.time() - self._started, 1),
             "requests_total": req,
@@ -145,7 +149,7 @@ class Metrics:
             "# TYPE argus_requests_total counter",
         ]
         for k, v in sorted(snap["requests_total"].items()):
-            m, r, s = k.split("/")
+            m, r, s = k.split(_SEP)
             lines.append(
                 f'argus_requests_total{{modality="{m}",route="{r}",status="{s}"}} {v}')
         lines += [
@@ -154,7 +158,7 @@ class Metrics:
             "# TYPE argus_request_latency_seconds histogram",
         ]
         for k, h in sorted(snap["latency"].items()):
-            m, r = k.split("/")
+            m, r = k.split(_SEP)
             for bound, cumulative in h["buckets"]:
                 lines.append(
                     f'argus_request_latency_seconds_bucket{{modality="{m}",'
@@ -174,7 +178,7 @@ class Metrics:
             "# TYPE argus_abstained_total counter",
         ]
         for k, v in sorted(snap["abstained_total"].items()):
-            m, r = k.split("/")
+            m, r = k.split(_SEP)
             lines.append(
                 f'argus_abstained_total{{modality="{m}",route="{r}"}} {v}')
         return "\n".join(lines) + "\n"

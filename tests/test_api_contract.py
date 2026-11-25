@@ -70,6 +70,10 @@ def _client(monkeypatch):
     """
     from fastapi.testclient import TestClient
     import api.server as srv
+    # TASK-A6: the drain tracker is a process-wide singleton; a test that leaves
+    # it draining would 503 every later test. Reset per client.
+    from drain import drain_state
+    drain_state().reset()
 
     # Minimal fake court state: enough for the response builders.
     srv._state.clear()
@@ -218,6 +222,9 @@ def test_auth_401_envelope(monkeypatch):
     importlib.reload(auth)
     import api.server as srv
     importlib.reload(srv)
+    # the drain tracker is process-wide; reset it after the reload
+    from drain import drain_state
+    drain_state().reset()
     # rebuild state after reload
     srv._state.clear()
     srv._state.update({

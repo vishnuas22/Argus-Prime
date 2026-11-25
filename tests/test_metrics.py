@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from metrics import (
+from api_metrics import (
     Metrics,
     _LATENCY_BUCKETS,
     log_event,
@@ -29,9 +29,9 @@ def test_counters_increment():
     m.record_request("image", "image_court", 200, 0.7, True)
     m.record_request("video", "video_face", 500, 1.0, False)
     snap = m.snapshot()
-    assert snap["requests_total"]["image/image_court/200"] == 2
-    assert snap["requests_total"]["video/video_face/500"] == 1
-    assert snap["abstained_total"]["image/image_court"] == 1
+    assert snap["requests_total"]["image|image_court|200"] == 2
+    assert snap["requests_total"]["video|video_face|500"] == 1
+    assert snap["abstained_total"]["image|image_court"] == 1
 
 
 def test_histogram_buckets_are_cumulative():
@@ -43,7 +43,7 @@ def test_histogram_buckets_are_cumulative():
     m = Metrics()
     for v in (0.1, 0.3, 0.6, 1.5, 100.0):
         m.record_request("image", "r", 200, v, False)
-    h = m.snapshot()["latency"]["image/r"]
+    h = m.snapshot()["latency"]["image|r"]
     assert h["count"] == 5
 
     buckets = h["buckets"]
@@ -64,14 +64,14 @@ def test_prometheus_inf_bucket_equals_count():
         m.record_request("image", "r", 200, v, False)
     text = m.render_prometheus()
     # the +Inf bucket must equal the total count (3)
-    assert 'le="+Inf"}} 3' in text
+    assert 'le="+Inf"} 3' in text
     assert "argus_request_latency_seconds_count" in text
 
 
 def test_overflow_bucket_captures_large_values():
     m = Metrics()
     m.record_request("image", "r", 200, 999.0, False)
-    h = m.snapshot()["latency"]["image/r"]
+    h = m.snapshot()["latency"]["image|r"]
     assert h["overflow"] == 1
     assert h["count"] == 1
 
@@ -122,6 +122,22 @@ def test_log_event_raw_mode(capsys, monkeypatch):
     assert "kind=image" in out
 
 
+def test_route_paths_with_slashes_do_not_break_rendering():
+    """Regression: route '/api/history' contains slashes.
+
+    The first implementation joined composite keys with \"/\", so splitting on
+    \"/\" produced 4 parts and /metrics returned 500. Keys must use a separator
+    that cannot appear in a route.
+    """
+    m = Metrics()
+    m.record_request("http", "/api/history", 200, 0.01, False)
+    m.record_request("http", "/api/detect", 200, 1.5, False)
+    text = m.render_prometheus()          # must not raise
+    assert 'route="/api/history"' in text
+    assert 'route="/api/detect"' in text
+    assert 'status="200"' in text
+
+
 def test_registry_is_process_singleton():
     assert get_metrics() is get_metrics()
 
@@ -129,7 +145,7 @@ def test_registry_is_process_singleton():
 def test_histogram_bucket_count_matches_spec():
     m = Metrics()
     m.record_request("a", "b", 200, 1.0, False)
-    h = m.snapshot()["latency"]["a/b"]
+    h = m.snapshot()["latency"]["a|b"]
     # one count per bucket + one overflow
     assert len(h["buckets"]) == len(_LATENCY_BUCKETS)
     assert h["overflow"] == 0

@@ -46,7 +46,25 @@ async def _lifespan(_app):
     # hop11: @app.on_event("startup") -> lifespan (audit P4 cosmetic; the
     # forward reference to init_court resolves at startup, after its def)
     init_court()
-    yield
+    log_event("startup", stacker=_state.get("stacker"),
+              instruments=_state.get("total_instruments"))
+    try:
+        yield
+    finally:
+        # TASK-A6: graceful drain. Stop accepting, wait (bounded) for in-flight
+        # adjudications, then let uvicorn exit. Without this, SIGTERM drops
+        # in-flight work and a client cannot distinguish "no verdict" from
+        # "still processing".
+        from drain import drain_state
+        d = drain_state()
+        d.start_drain()
+        summary = d.wait_for_drain()
+        log_event("shutdown", **summary)
+        if not summary["drained"]:
+            print(
+                f"[shutdown] abandoned {summary['abandoned']} in-flight "
+                f"request(s) after {summary['waited_s']}s",
+                file=sys.stderr, flush=True)
 
 
 app = FastAPI(title="Argus Court", version="1.0", lifespan=_lifespan)
@@ -60,6 +78,24 @@ app.add_middleware(CORSMiddleware, allow_origins=_CORS, allow_methods=["*"],
                    allow_headers=["*"])
 
 @app.middleware("http")
+async def _drain_middleware(request, call_next):
+    """Reject new work with 503 once draining (TASK-A6).
+
+    uvicorn stops accepting at the socket level, but requests already queued in
+    the event loop can still arrive. Answering 503 with Retry-After is honest:
+    the client learns the server is going away rather than hanging.
+    """
+    from drain import drain_state
+    if request.url.path.startswith("/api/") and drain_state().draining:
+        return JSONResponse(
+            {"detail": "server is draining; retry after the restart"},
+            status_code=503,
+            headers={"Retry-After": "5"},
+        )
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def _metrics_middleware(request, call_next):
     """Count every request by status and record latency (TASK-A4).
 
@@ -67,6 +103,15 @@ async def _metrics_middleware(request, call_next):
     rate limit) that never reach an endpoint body.
     """
     t0 = time.time()
+    # TASK-A6: track in-flight work so shutdown can drain it.
+    from drain import drain_state
+    _d = drain_state()
+    if not _d.begin():
+        return JSONResponse(
+            {"detail": "server is draining; retry after the restart"},
+            status_code=503,
+            headers={"Retry-After": "5"},
+        )
     try:
         response = await call_next(request)
     except Exception:
@@ -80,8 +125,15 @@ async def _metrics_middleware(request, call_next):
         log_event("request_error", path=request.url.path, status=500,
                   elapsed_s=round(time.time() - t0, 4))
         raise
+    finally:
+        _d.end()
     elapsed = time.time() - t0
-    if request.url.path.startswith("/api/"):
+    # The endpoint body records the modality-specific sample (with abstention and
+    # the real route). This middleware only fills the gap for requests that never
+    # reached a body — auth/rate-limit 4xx, validation errors, unhandled 5xx —
+    # so nothing is double-counted and error rates are still complete.
+    if request.url.path.startswith("/api/") and not getattr(
+            request.state, "argus_recorded", False):
         _metrics().record_request(
             modality="http",
             route=request.url.path,
@@ -117,7 +169,9 @@ app.mount("/vendor", StaticFiles(directory=STATIC / "vendor"), name="vendor")
 _state = {}
 
 # TASK-A4: zero-dependency metrics + structured logs.
-from metrics import log_event, metrics as _metrics  # noqa: E402
+# NOTE: named api_metrics (not metrics) because deepfake/bench/metrics.py already
+# owns the `metrics` module name and bench precedes api on sys.path.
+from api_metrics import log_event, metrics as _metrics  # noqa: E402
 
 # Audit F2: the video lane's α bracket mutates a module global
 # (argus_detect.USER_ALPHA); two concurrent video requests could interleave
@@ -495,6 +549,16 @@ def health():
     out = {"status": "ok", "channels": _state.get("ids", []),
            "stacker": "artifacts/" + STACKER.parent.name,
            "n_modules": len(_state.get("modules", []))}
+    # TASK-A6: report the drain transition so an orchestrator sees
+    # "draining" rather than a hard failure during rollout.
+    try:
+        from drain import drain_state
+        _d = drain_state()
+        out["status"] = "draining" if _d.draining else "ok"
+        out["drain"] = {"draining": _d.draining, "inflight": _d.inflight,
+                        "timeout_s": _d.timeout}
+    except Exception:
+        out["drain"] = {"draining": False, "inflight": 0, "timeout_s": 0}
     # Modality breakdown (2026-11-08 audit correction): the court is NOT
     # "11 channels" — it is 11 image instruments + 5 video + 3 audio. All
     # builds derive from the deployed pointers at request time (never a
@@ -741,7 +805,7 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
     try:
         _metrics().record_request(
             modality=kind,
-            route=str(v.get("route") or "unknown"),
+            route=str(v.get("route") or "image_court"),
             status=200,
             elapsed=float(v.get("elapsed_s") or 0.0),
             abstained=bool(v.get("abstained")),
@@ -749,6 +813,8 @@ async def detect(request: Request, file: UploadFile = File(...), alpha: float = 
         log_event("detect", kind=kind, route=v.get("route"),
                   p_fake=v.get("p_fake_fused"), abstained=v.get("abstained"),
                   alpha=v.get("alpha"), elapsed_s=v.get("elapsed_s"))
+        # tell the middleware this request was already counted
+        request.state.argus_recorded = True
     except Exception:
         pass
     try:
